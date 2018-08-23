@@ -1,14 +1,10 @@
-/*******************************************************************************
-@file get_final_cohort.sql
-
-require: 
- - AKI_stages_daily
- - AKI_Initial
-
-action: 
- - query final table back
-
-********************************************************************************/
+/********************************************************************************/
+/*@file get_final_cohort.sql
+/*
+/*in: AKI_stages_daily, AKI_Initial
+/*
+/*action: query
+/********************************************************************************/
 with pat_enc as (
 select distinct 
        to_number(PATID) PATID
@@ -90,7 +86,7 @@ on pe.ENCOUNTERID = scr.ENCOUNTERID
 left join onsets_inc inc
 on pe.ENCOUNTERID = inc.ENCOUNTERID
 )
--- some pruning (recovering progress doesn't count)
+-- some pruning (recovering progress (e.g. AKI3 to AKI2) doesn't count)
 select distinct
        PATID
       ,ENCOUNTERID
@@ -118,5 +114,4 @@ select distinct
       ,AKI3_SCR
       ,AKI3_INC
 from raw_onset
-order by PATID, ENCOUNTERID
-;
+order by PATID, ENCOUNTERID;

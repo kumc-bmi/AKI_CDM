@@ -1,0 +1,62 @@
+---
+title: "AKI_CDM_EXT_VALID_p1_QA"
+author: "xing song"
+date: "August 23, 2018"
+output: html_document
+---
+
+## Building and Validating Predictive Models for Acute Kidney Injury (AKI) using PCORnet CDM ##
+
+### Aim 1: Data Feasibility Evaluation over GPC sites. ###
+#### Objective 1.1: Study cohort extraction and characterization ####
+
+Eligible AKI patients are defined as:
+...
+
+
+AKI Stages are defined based on KDIGO:
+
+-- AKI 1: increase in serum creatinine by >=0.3mg/dL within 48 hours OR 1.5-1.9 times baseline within 7 days
+
+-- AKI 2: 2.0 to 2.9 times baseline within 7 days
+
+-- AKI 3: increase in serum creatinine to >= 4.0mg/dL within 48 hours OR 3.0 times baseline within 7 days
+
+
+```{r eval=F}
+#establish the connection between r-studio and CDM server
+config_file_path<-"../config.csv"
+config_file<-read.csv(config_file_path)
+conn<-dbConnect(Oracle(),
+                config_file$username,
+                config_file$password,
+                config_file$access)
+
+cohort<-extract_cohort(conn,
+                       cdm_db_schema="PCORNET_CDM_C4R3",
+                       oracle_temp_schema=cdm_db_schema,
+                       start_date="2010-01-01",
+                       end_date="current date")
+
+#save Table1
+Table1<-cohort$aki_enc
+save(Table1,file="./data/Table1.Rdata")
+
+#print out attrition table
+print(cohort$attrition)
+```
+
+#### Objective 1.2: Variable Collection ####
+```{r eval=F}
+
+```
+
+
+#### Objective 1.3: Quality Check ####
+```{r eval=F}
+
+```
+
+
+
+

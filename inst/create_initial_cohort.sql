@@ -1,21 +1,15 @@
-/*******************************************************************************
-@file create_initial_cohort.sql
-
-require: 
- - connection to current PCORNET_CDM tables 
-
-params: 
- - &&PCORNET_CDM
- - &&start_date
- - &&end_date
-       
-out: 
- - AKI_Initial
-
-action: 
- - write table
-
-********************************************************************************/
+/*******************************************************************************/
+/*@file create_initial_cohort.sql
+/*
+/*in: PCORNET_CDM tables 
+/*
+/*params: &&PCORNET_CDM, &&start_date, &&end_date
+/*       
+/*out: AKI_Initial
+/*
+/*action: write
+/********************************************************************************/
+create table AKI_Initial as
 with age_at_admit as (
 select e.ENCOUNTERID
       ,e.PATID
@@ -52,3 +46,4 @@ select ENCOUNTERID
       ,ADMITTING_SOURCE
 from age_at_admit
 where age_at_admit >= 18;
+

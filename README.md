@@ -1,11 +1,24 @@
-# AKI_CDM
-extract AKI cohort from PCORNET common data model
+External Validation for AKI Predictive Models using PCORnet CDM data
+=====================================================================
 
-Eligible AKI patients are defined as:
-...
+This is the working directory building and validating predictive models for Acute Kidney Injury (AKI) based on PCORNET common data model across GPC sites.
+
+by Xing Song, with Mei Liu, Russ Waitman
+[Medical Informatics Division, Univeristy of Kansas Medical Center][MI]
+
+[MI]: http://informatics.kumc.edu/
+
+Copyright (c) 2018 Univeristy of Kansas Medical Center  
+Share and Enjoy according to the terms of the MIT Open Source License.
 
 
-AKI Stages are defined based on KDIGO:
--- AKI 1: increase in serum creatinine by >=0.3mg/dL within 48 hours OR 1.5-1.9 times baseline within 7 days
--- AKI 2: 2.0 to 2.9 times baseline within 7 days
--- AKI 3: increase in serum creatinine to >= 4.0mg/dL within 48 hours OR 3.0 times baseline within 7 days
+## Background
+
+
+
+## Site Usage
+
+
+
+
+

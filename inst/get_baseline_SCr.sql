@@ -1,22 +1,13 @@
-/*******************************************************************************
-@file collect_SCr_eGFR.sql
-
-require: 
- - AKI_Initial
- - AKI_Scr_eGFR
-
-params: 
- - &&PCORNET_CDM
- - &&start_date
- - &&end_date
-       
-out: 
- - AKI_Scr_base
-
-action: 
- - write table
-
-********************************************************************************/
+/*******************************************************************************/
+/*@file collect_SCr_eGFR.sql
+/*
+/*in: AKI_Initial, AKI_Scr_eGFR
+/*       
+/*out: AKI_Scr_base
+/*
+/*action: write
+/********************************************************************************/
+create table AKI_Scr_base as
 --get first record within the encounter
 with scr_enc1 as (
 select scr.* from AKI_Scr_eGFR scr
@@ -78,5 +69,5 @@ join AKI_Initial init
 on scrb.ENCOUNTERID = init.ENCOUNTERID
 group by scrb.PATID,scrb.ENCOUNTERID,init.ADMIT_DATE_TIME
         ,scrb.LAB_ORDER_DATE,scrb.SPECIMEN_DATE_TIME,scrb.RESULT_DATE_TIME
-        ,scrb.days_prior
-;
+        ,scrb.days_prior;
+      

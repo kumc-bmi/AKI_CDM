@@ -1,19 +1,13 @@
-/*******************************************************************************
-@file create_eligib_cohort.sql
-
-require: 
- - AKI_Scr_eGFR
- - AKI_Scr_base
- - exclude_all
-
-out: 
- - AKI_eligible
-
-action: 
- - write table
-
-
-********************************************************************************/
+/*******************************************************************************/
+/*@file create_eligib_cohort.sql
+/*
+/*in: AKI_Scr_eGFR, AKI_Scr_base, exclude_all
+/*
+/*out: AKI_eligible
+/*
+/*action: write
+/********************************************************************************/
+create table AKI_eligible as
 with exclud_unique as (
 select distinct ENCOUNTERID
 from exclude_all
@@ -53,5 +47,4 @@ select count(distinct PATID), /*72,002*/
        round(stddev(SERUM_CREAT),2) sd_scr, /*0.46*/
        round(avg(SERUM_CREAT_BASE),2) mean_base_scr,  /*0.84*/
        round(stddev(SERUM_CREAT_BASE),2) sd_base_scr  /*0.21*/
-from AKI_eligible
-;
+from AKI_eligible;

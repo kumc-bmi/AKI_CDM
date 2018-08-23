@@ -1,21 +1,15 @@
-/*******************************************************************************
-@file collect_SCr.sql
-
-require: 
- - AKI_Initial
-
-params: 
- - &&PCORNET_CDM
- - &&start_date
- - &&end_date
-       
-out: 
- - AKI_Scr_eGFR
-
-action: 
- - write table
-
-********************************************************************************/
+/*******************************************************************************/
+/*@file collect_SCr.sql
+/*
+/*in: AKI_Initial
+/*
+/*params: &&PCORNET_CDM
+/*       
+/*out: AKI_Scr_eGFR
+/*
+/*action: write
+/********************************************************************************/
+create table AKI_Scr_eGFR as
 with Scr_all as (
 select l.PATID
       ,l.ENCOUNTERID
@@ -67,5 +61,5 @@ where age_at_Scr >= 18
 )
 select scr.* from All_Scr_eGFR scr
 where exists (select 1 from AKI_Initial aki
-              where scr.ENCOUNTERID = aki.ENCOUNTERID)
-; 
+              where scr.ENCOUNTERID = aki.ENCOUNTERID);
+              

@@ -1,17 +1,13 @@
 /*******************************************************************************
-@file stage_AKI.sql
-
-require: 
- - AKI_eligible
-
-out: 
- - AKI_stages_daily
-
-action: 
- - write table
-
-
+/*@file stage_AKI.sql
+/*
+/*in: AKI_eligible
+/*
+/*out: AKI_stages_daily
+/*
+/*action: write
 ********************************************************************************/
+create table AKI_stages_daily as
 with stage_aki as (
 -- a semi-cartesian join to identify all eligible 1-, 3-stages w.r.t rolling baseline
 select distinct
@@ -127,5 +123,4 @@ select distinct
       ,DAY_SINCE_ADMIT
       ,row_number() over (partition by ENCOUNTERID, AKI_STAGE order by DAY_SINCE_ADMIT) rn
 from stage_uni
-order by PATID, ENCOUNTERID, AKI_STAGE, SPECIMEN_DATE
-;
+order by PATID, ENCOUNTERID, AKI_STAGE, SPECIMEN_DATE;

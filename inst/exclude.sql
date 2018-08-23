@@ -1,21 +1,15 @@
-/*******************************************************************************
-@file exclude.sql
-
-require: 
- - AKI_Scr_eGFR
- - AKI_Initial
-
-params: 
- - &&PCORNET_CDM
-
-out: 
- - exclude_all
-
-action: 
- - write table
-
-********************************************************************************/
-
+/*******************************************************************************/
+/*@file exclude.sql
+/*
+/*in: AKI_Scr_eGFR, AKI_Initial
+/*
+/*params: &&PCORNET_CDM
+/*
+/*out: exclude_all
+/*
+/*action: write
+/********************************************************************************/
+create table exclude_all as
 -- Only one Scr record at encounter
 with AKI_EXCLD_1SCR_EN as (
 select ENCOUNTERID, max(rn) lab_cnt 
@@ -110,5 +104,4 @@ select ENCOUNTERID, "Pre_renal_failure" EXCLUD_TYPE from AKI_EXCLD_PRF_EN
 union all
 select ENCOUNTERID, "Renal_transplant_within_48hr" EXCLUD_TYPE from AKI_EXCLD_RT48_EN
 union all
-select ENCOUNTERID, "Burn_patients" EXCLUD_TYPE from AKI_EXCLD_BURN_EN
-;
+select ENCOUNTERID, "Burn_patients" EXCLUD_TYPE from AKI_EXCLD_BURN_EN;
