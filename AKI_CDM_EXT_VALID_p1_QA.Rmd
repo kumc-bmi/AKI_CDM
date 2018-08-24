@@ -73,7 +73,9 @@ save(vari,file="./data/vari_tbls.Rdata")
 
 #### Objective 1.3: Quality Check
 
+
 ##### Demographics
+
 
 
 
@@ -155,7 +157,14 @@ bp %>% filter(outlier_ind==1) %>%
 
 
 
-##### 
+##### Medications
+
+
+
+
+
+##### Diagnosis, Procedure
+
 
 
 
