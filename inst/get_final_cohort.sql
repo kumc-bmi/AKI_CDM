@@ -3,8 +3,11 @@
 /*
 /*in: AKI_stages_daily, AKI_Initial
 /*
-/*action: query
+/*out: AKI_onsets
+/*
+/*action: write
 /********************************************************************************/
+create table AKI_onsets as
 with pat_enc as (
 select distinct 
        to_number(PATID) PATID
