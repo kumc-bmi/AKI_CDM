@@ -1,26 +1,45 @@
 ---
-title: "AKI_CDM_EXT_VALID_p1_QA"
+title: "Building and Validating Predictive Models for Acute Kidney Injury (AKI) using PCORnet CDM (Part I)"
 author: "xing song"
 date: "August 23, 2018"
 output: html_document
 ---
+### Aim 1: Data Feasibility Evaluation over GPC sites.
+#### Objective 1.1: Study cohort extraction and characterization
 
-## Building and Validating Predictive Models for Acute Kidney Injury (AKI) using PCORnet CDM ##
+##### Inclusion criteria:
 
-### Aim 1: Data Feasibility Evaluation over GPC sites. ###
-#### Objective 1.1: Study cohort extraction and characterization ####
+* (IP,IS,EI) visits with length of stay (LOS) >= 2 days;
 
-Eligible AKI patients are defined as:
-...
+* age at visit >= 18 years old
 
+***
 
-AKI Stages are defined based on KDIGO:
+##### Exclusions:
 
--- AKI 1: increase in serum creatinine by >=0.3mg/dL within 48 hours OR 1.5-1.9 times baseline within 7 days
+* had no documented SCr measurements during admission;
 
--- AKI 2: 2.0 to 2.9 times baseline within 7 days
+* had initial SCr greater than or equal to 1.3 mg/dL;
 
--- AKI 3: increase in serum creatinine to >= 4.0mg/dL within 48 hours OR 3.0 times baseline within 7 days
+* developed stage 2 AKI (eGFR <= 15 mL/min per 1.73m^2) initially;
+
+* pre-existing chronic renal failure (DX);
+
+* received RRT within 48 hours since admission; 
+
+* burn patients (DRG)
+
+***
+
+##### AKI Staging
+
+AKI Stages are defined based on [KDIGO](http://www.kdigo.org/clinical_practice_guidelines/pdf/KDIGO%20AKI%20Guideline.pdf):
+
+* AKI 1: increase in serum creatinine by >=**0.3 mg/dL** within **48 hours** OR **1.5-1.9 times** baseline within **7 days**
+
+* AKI 2: **2.0 to 2.9 times** baseline within **7 days**
+
+* AKI 3: increase in serum creatinine to >= **4.0 mg/dL** within **48 hours** OR **3.0 times** baseline within **7 days**
 
 
 ```{r eval=F}
@@ -47,6 +66,7 @@ print(cohort$attrition)
 ```
 
 #### Objective 1.2: Variable Collection ####
+
 ```{r eval=F}
 
 ```

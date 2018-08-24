@@ -62,12 +62,12 @@ select distinct scr48.ENCOUNTERID
 from scr48
 where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS dx
               where dx.PATID = scr48.PATID and
-                    -- ICD9 for renal failure
+                    -- ICD9 for RRT
                     ((dx.DX_TYPE = '09' and
                       (   regexp_like(dx.DX,'^996\.81')
                        or regexp_like(dx.DX,'^V42\.0'))
                       ) or
-                    -- ICD10 for renal failure
+                    -- ICD10 for RRT
                      (dx.DX_TYPE = '10' and
                       (   regexp_like(dx.DX,'^Z94\.0')
                        or regexp_like(dx.DX,'^T86\.1[0|1|2]'))
@@ -80,6 +80,7 @@ select distinct scr48.ENCOUNTERID
 from scr48
 where exists (select 1 from &&PCORNET_CDM.PROCEDURES px
               where px.PATID = scr48.PATID and
+                    -- CPT codes
                     (   regexp_like(px.px,'00868')
                      or regexp_like(px.px,'5030[0|3|5|7|8|9]')
                      or regexp_like(px.px,'503[4|7|8]0')
