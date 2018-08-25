@@ -5,11 +5,11 @@
 /*
 /*params: &&PCORNET_CDM
 /*       
-/*out: AKI_Scr_eGFR
+/*out: All_Scr_eGFR
 /*
 /*action: write
 /********************************************************************************/
-create table AKI_Scr_eGFR as
+create table All_Scr_eGFR as
 with Scr_all as (
 select l.PATID
       ,l.ENCOUNTERID
@@ -45,8 +45,8 @@ from Scr_all sa
 join &&PCORNET_CDM.DEMOGRAPHIC d
 on sa.PATID = d.PATID
 )
-    ,All_Scr_eGFR (
-select distinct PATID
+select distinct 
+       PATID
       ,ENCOUNTERID
       ,RESULT_NUM SERUM_CREAT
       ,cast(175*power(RESULT_NUM,-1.154)*power(age_at_Scr,-0.203)*(0.742*female_ind+(1-female_ind))*(1.212*race_aa_ind+(1-race_aa_ind)) as BINARY_FLOAT) eGFR 
@@ -58,8 +58,4 @@ select distinct PATID
       ,dense_rank() over (partition by ENCOUNTERID order by RESULT_DATE, RESULT_TIME) rn
 from Scr_w_age
 where age_at_Scr >= 18
-)
-select scr.* from All_Scr_eGFR scr
-where exists (select 1 from AKI_Initial aki
-              where scr.ENCOUNTERID = aki.ENCOUNTERID);
-              
+

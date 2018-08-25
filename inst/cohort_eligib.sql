@@ -40,11 +40,4 @@ from scr_all scr
 join AKI_Scr_base scrb
 on scr.ENCOUNTERID = scrb.ENCOUNTERID
 order by scr.PATID, scr.ENCOUNTERID, scr.rn
-;
-select count(distinct PATID), /*72,002*/
-       count(distinct ENCOUNTERID),/*119,229*/
-       round(avg(SERUM_CREAT),2) mean_scr,  /*0.84*/
-       round(stddev(SERUM_CREAT),2) sd_scr, /*0.46*/
-       round(avg(SERUM_CREAT_BASE),2) mean_base_scr,  /*0.84*/
-       round(stddev(SERUM_CREAT_BASE),2) sd_base_scr  /*0.21*/
-from AKI_eligible;
+

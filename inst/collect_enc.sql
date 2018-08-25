@@ -23,5 +23,6 @@ select distinct
 from AKI_onsets pat
 left join &&PCORNET_CDM.ENCOUNTER e
 on pat.ENCOUNTERID = e.ENCOUNTERID
-order by pat.PATID, pat.ENCOUNTERID, e.ADMIT_DATE;
+order by pat.PATID, pat.ENCOUNTERID, e.ADMIT_DATE
+
 

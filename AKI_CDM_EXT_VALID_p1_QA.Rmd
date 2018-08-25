@@ -14,7 +14,7 @@ output: html_document
 
 ***
 
-##### Exclusions:
+##### Exclusion criteria:
 
 * had no documented SCr measurements during admission; 
 * had initial SCr greater than or equal to 1.3 mg/dL; 
@@ -34,10 +34,24 @@ AKI Stages are defined based on [KDIGO](http://www.kdigo.org/clinical_practice_g
 * AKI 3: increase in serum creatinine to >= **4.0 mg/dL** within **48 hours** OR **3.0 times** baseline within **7 days**
 
 
-```{r eval=F}
+##### Implementation: Extracting AKI Study Cohort
+```{r eval=FALSE}
+#source utility functions
+source("./R/helper_functions.R")
+
+#load libraries
+require_libraries(c("knitr",
+                    "tidyr",
+                    "dplyr",
+                    "magrittr",
+                    "stringr",
+                    "ROracle",
+                    "DBI"))
+
+
 #establish the connection between r-studio and CDM server
-config_file_path<-"../config.csv"
-config_file<-read.csv(config_file_path)
+config_file_path<-"../herona1_config.csv"
+config_file<-read.csv(config_file_path,stringsAsFactors = F)
 conn<-dbConnect(Oracle(),
                 config_file$username,
                 config_file$password,
@@ -45,33 +59,108 @@ conn<-dbConnect(Oracle(),
 
 #extract cohort --Table1
 cohort<-extract_cohort(conn,
-                       cdm_db_schema,
+                       cdm_db_schema="PCORNET_CDM_C4R3",
                        oracle_temp_schema=cdm_db_schema,
                        start_date="2010-01-01",
-                       end_date="current date")
+                       end_date="2018-12-31")
 
 #save Table1
 Table1<-cohort$aki_enc
 save(Table1,file="./data/Table1.Rdata")
-
-#print out attrition table
-print(cohort$attrition)
 ```
 
-#### Objective 1.2: Variable Collection
+The above codes extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output was automatically saved in the current working directory *r getwd()* as "Table1.Rdata" with columns: *r paste(colnames(Table1),collapse=","*. The following attrition table shows the loss of samples during the collection process, which finally resulted in *r length(unique(Table1$ENCOUNTERID))*. 
 
-```{r eval=F}
-#collect variables
-vari<-collect_variable(conn,
-                       cdm_db_schema,
-                       oracle_temp_schema=cdm_db_schema)
 
-#save tables
-save(vari,file="./data/vari_tbls.Rdata")
+```{r eval=FALSE}
+#nice print-out of attrition table
+kabel(cohort$attrition,caption="Attrition Table")
+```
+
+
+#### Objective 1.2: Variable Collection (Table by Table) 
+
+##### Demographic
+```{r echo=F, eval=F}
+# if date are not in proper format
+Table1 %<>%
+  dplyr::mutate(ADMIT_DATE=as.Date(as.character(ADMIT_DATE),"%Y-%m-%d"),
+                DISCHARGE_DATE=as.Date(as.character(DISCHARGE_DATE),"%Y-%m-%d"),
+                AKI1_ONSET=as.Date(as.character(AKI1_ONSET),"%Y-%m-%d"),
+                AKI2_ONSET=as.Date(as.character(AKI2_ONSET),"%Y-%m-%d"),
+                AKI3_ONSET=as.Date(as.character(AKI3_ONSET),"%Y-%m-%d"))
+
+enc_tot<-length(unique(Table1$ENCOUNTERID))
+
+# get AKI stage index
+aki_stage_ind<-tbl1 %>%
+  dplyr::select(ENCOUNTERID,
+                AKI1_SINCE_ADMIT,AKI2_SINCE_ADMIT,AKI3_SINCE_ADMIT) %>%
+  gather(aki_stg, days_since, -ENCOUNTERID) %>%
+  filter(!is.na(days_since)) %>%
+  dplyr::select(ENCOUNTERID, aki_stg)%>%
+  mutate(aki_stg=gsub("_.*","",aki_stg)) %>%
+  group_by(aki_stg) %>%
+  dplyr::mutate(stg_tot_cnt=n()) %>%
+  ungroup %>%
+  arrange(ENCOUNTERID, aki_stg, stg_tot_cnt)
+
+```
+
+```{r echo=F, eval=F}
+# collect demographic summaries
+demo_summ<-aki_stage_ind %>%
+  left_join(demo %>%
+              dplyr::select(-AGE) %>%
+              gather(demo_type,demo_val,-PATID, -ENCOUNTERID), 
+            by="ENCOUNTERID") %>%
+  group_by(aki_stg,stg_tot_cnt,demo_type,demo_val) %>%
+  dplyr::summarize(enc_cnt = n(),
+                   enc_prop = round(n()/stg_tot_cnt[1],2)) %>%
+  ungroup %>% dplyr::select(-stg_tot_cnt) %>%
+  gather(summ,summ_val,-aki_stg,-demo_type,-demo_val) %>%
+  # decode demo_val
+  left_join(meta %>% dplyr::select(COLUMN_NAME,VAR_CODE,VAR_NAME),
+            by=c("demo_type"="COLUMN_NAME","demo_val"="VAR_CODE")) %>%
+  dplyr::mutate(demo_val = ifelse(!is.na(VAR_NAME),VAR_NAME,demo_val)) %>%
+  dplyr::select(-VAR_NAME) %>%
+  unite("demo_type_cat",c("demo_type","demo_val")) %>%
+  # attach totals at bottom
+  bind_rows(aki_stage_ind %>%
+              dplyr::select(aki_stg,stg_tot_cnt) %>% 
+              unique %>% 
+              dplyr::rename(enc_cnt=stg_tot_cnt) %>%
+              mutate(enc_prop=round(enc_cnt/117453,2),
+                     demo_type_cat="TOTAL(%/overall)") %>%
+              gather(summ,summ_val,-aki_stg,-demo_type_cat) %>%
+              dplyr::select(aki_stg,demo_type_cat,summ,summ_val)) %>%
+  unite("stg_summ",c("aki_stg","summ")) %>%
+  unique %>% spread(stg_summ,summ_val) %>%
+  replace(.,is.na(.),0)
+
+#nice print-out of demographic summaries for different AKI stages
+kabel(demo_summ,caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3")
+```
+
+
+
+```{r eval=F, echo=F}
+#collect all variables
+cdm_vari<-get_all_var(conn,
+                      cdm_db_schema="PCORNET_CDM_C4R3",
+                      oracle_temp_schema=cdm_db_schema)
+#save variable tables
+save(cdm_vari,file="./data/cdm_vari_tbls.Rdata")
 ```
 
 
 #### Objective 1.3: Quality Check
+
+##### Records, Patients, Encounters and Date Range by Table
+
+```{r eval=F}
+
+```
 
 
 ##### Demographics

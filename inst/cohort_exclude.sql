@@ -46,14 +46,13 @@ where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS dx
                        or regexp_like(dx.DX,'N19'))
                        )
                       ) and
-                    dx.ADMIT_DATE < aki.ADMIT_DATE
+                    dx.ADMIT_DATE < trunc(aki.ADMIT_DATE_TIME)
                 )
 )
 -- Receive renal transplant withing 48 hr since 1st Scr (PX, DX)
     ,scr48 as (
 select PATID, ENCOUNTERID,
-       to_date(to_char(LAB_ORDER_DATE + 2,'YYYY:MM:DD') || ' ' || to_char(SPECIMEN_TIME),
-               'YYYY:MM:DD HH24:MI') time_bd
+       SPECIMEN_DATE_TIME+2 time_bd
 from AKI_Scr_eGFR
 where rn = 1
 )
@@ -95,14 +94,15 @@ from AKI_Initial
 where DRG in ('927','928','929','933','934-1','935') -- burn
 )
 -- collect all excluded encounters
-select ENCOUNTERID, "Less_than_2_SCr" EXCLUD_TYPE from AKI_EXCLD_1SCR_EN
+select ENCOUNTERID, 'Less_than_2_SCr' EXCLUD_TYPE from AKI_EXCLD_1SCR_EN
 union all
-select ENCOUNTERID, "Initial_SCr_above_1.3" EXCLUD_TYPE from AKI_EXCLD_H1SCR_EN
+select ENCOUNTERID, 'Initial_SCr_above_1.3' EXCLUD_TYPE from AKI_EXCLD_H1SCR_EN
 union all
-select ENCOUNTERID, "Initial_GFR_below_15" EXCLUD_TYPE from AKI_EXCLD_L1GFR_EN
+select ENCOUNTERID, 'Initial_GFR_below_15' EXCLUD_TYPE from AKI_EXCLD_L1GFR_EN
 union all 
-select ENCOUNTERID, "Pre_renal_failure" EXCLUD_TYPE from AKI_EXCLD_PRF_EN
+select ENCOUNTERID, 'Pre_renal_failure' EXCLUD_TYPE from AKI_EXCLD_PRF_EN
 union all
-select ENCOUNTERID, "Renal_transplant_within_48hr" EXCLUD_TYPE from AKI_EXCLD_RT48_EN
+select ENCOUNTERID, 'Renal_transplant_within_48hr' EXCLUD_TYPE from AKI_EXCLD_RT48_EN
 union all
-select ENCOUNTERID, "Burn_patients" EXCLUD_TYPE from AKI_EXCLD_BURN_EN;
+select ENCOUNTERID, 'Burn_patients' EXCLUD_TYPE from AKI_EXCLD_BURN_EN
+

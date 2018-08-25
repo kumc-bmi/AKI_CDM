@@ -1,7 +1,7 @@
 /*******************************************************************************/
 /*@file collect_SCr_eGFR.sql
 /*
-/*in: AKI_Initial, AKI_Scr_eGFR
+/*in: AKI_Initial, AKI_Scr_eGFR, All_Scr_eGFR
 /*       
 /*out: AKI_Scr_base
 /*
@@ -25,7 +25,7 @@ select scre1.PATID
       ,scre1.LAB_ORDER_DATE - scr.LAB_ORDER_DATE days_prior
       ,dense_rank() over (partition by scr.PATID order by abs(scr.LAB_ORDER_DATE-scre1.LAB_ORDER_DATE)) rn_prior
 from scr_enc1 scre1
-join AKI_Scr_eGFR scr
+join All_Scr_eGFR scr
 on scre1.PATID = scr.PATID
 where scr.LAB_ORDER_DATE < scre1.LAB_ORDER_DATE and
       scre1.LAB_ORDER_DATE - scr.LAB_ORDER_DATE < 2 and -- within 2 days prior
@@ -67,7 +67,5 @@ select scrb.PATID
 from scr_base_dup scrb
 join AKI_Initial init
 on scrb.ENCOUNTERID = init.ENCOUNTERID
-group by scrb.PATID,scrb.ENCOUNTERID,init.ADMIT_DATE_TIME
-        ,scrb.LAB_ORDER_DATE,scrb.SPECIMEN_DATE_TIME,scrb.RESULT_DATE_TIME
-        ,scrb.days_prior;
-      
+group by scrb.PATID,scrb.ENCOUNTERID,init.ADMIT_DATE_TIME,scrb.LAB_ORDER_DATE,scrb.SPECIMEN_DATE_TIME,scrb.RESULT_DATE_TIME,scrb.days_prior
+

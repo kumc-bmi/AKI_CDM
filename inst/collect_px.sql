@@ -23,5 +23,7 @@ from AKI_onsets pat
 left join &&PCORNET_CDM.PROCEDURES px
 on pat.PATID = px.PATID
 where px.PX_DATE < pat.ADMIT_DATE
-order by pat.PATID, pat.ENCOUNTERID, px.PX_DATE desc;
+order by pat.PATID, pat.ENCOUNTERID, px.PX_DATE desc
+
+
 

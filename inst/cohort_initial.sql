@@ -30,8 +30,9 @@ join &&PCORNET_CDM.DEMOGRAPHIC d
 on e.PATID = d.PATID
 where e.DISCHARGE_DATE - e.ADMIT_DATE >= 2 and
       e.ENC_TYPE in ('EI','IP','IS') and
-      e.ADMIT_DATE between Date &&start_date and &&end_date
+      e.ADMIT_DATE between Date &&start_date and Date &&end_date
 )
+
 select ENCOUNTERID
       ,PATID
       ,age_at_admit
@@ -45,5 +46,7 @@ select ENCOUNTERID
       ,DRG_TYPE
       ,ADMITTING_SOURCE
 from age_at_admit
-where age_at_admit >= 18;
+where age_at_admit >= 18
+
+
 

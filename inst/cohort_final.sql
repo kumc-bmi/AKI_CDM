@@ -117,4 +117,5 @@ select distinct
       ,AKI3_SCR
       ,AKI3_INC
 from raw_onset
-order by PATID, ENCOUNTERID;
+order by PATID, ENCOUNTERID
+

@@ -28,5 +28,6 @@ on pat.ENCOUNTERID = v.ENCOUNTERID
 where v.MEASURE_DATE is not null and v.MEASURE_TIME is not null and
       coalesce(v.HT, v.WT, v.SYSTOLIC, v.DIASTOLIC, v.ORIGINAL_BMI) is not null and
       coalesce(v.SMOKING, v.TOBACCO, v.TOBACCO_TYPE) is not null
-order by PATID, ENCOUNTERID, MEASURE_DATE_TIME;
+order by PATID, ENCOUNTERID, MEASURE_DATE_TIME
+
 
