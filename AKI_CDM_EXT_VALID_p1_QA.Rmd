@@ -107,6 +107,7 @@ aki_stage_ind<-tbl1 %>%
 
 ```
 
+
 ```{r echo=F, eval=F}
 # collect demographic summaries
 demo_summ<-aki_stage_ind %>%
