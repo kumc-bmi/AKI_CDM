@@ -59,7 +59,7 @@ conn<-dbConnect(Oracle(),
 
 #extract cohort --Table1
 cohort<-extract_cohort(conn,
-                       cdm_db_schema="PCORNET_CDM_C4R3",
+                       cdm_db_schema,
                        oracle_temp_schema=cdm_db_schema,
                        start_date="2010-01-01",
                        end_date="2018-12-31")

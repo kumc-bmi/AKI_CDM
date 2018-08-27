@@ -23,10 +23,15 @@ parse_sql<-function(file_path,...){
   
   #read file
   con<-file(file_path,"r")
+  
   #initialize string
   sql_string <- ""
   
+  #intialize result holder
   params_ind<-FALSE
+  tbl_out<-NULL
+  action<-NULL
+  
   while (TRUE){
     #parse the first line
     line <- readLines(con, n = 1)
