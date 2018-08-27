@@ -22,10 +22,18 @@ select * from
        ,AKI_STAGE
        ,SPECIMEN_DATE
  from AKI_stages_daily
- where rn = 1)
+ where rn_asc = 1 and AKI_STAGE_max > 0 and AKI_STAGE > 0
+ union all
+ select ENCOUNTERID
+       ,AKI_STAGE
+       ,SPECIMEN_DATE
+ from AKI_stages_daily
+ where rn_desc = 1 and AKI_STAGE_max = 0 and AKI_STAGE = 0
+ )
 pivot 
 (min(SPECIMEN_DATE)
- for AKI_STAGE in (1 as AKI1_ONSET,
+ for AKI_STAGE in (0 as NON_AKI_ANCHOR,
+                   1 as AKI1_ONSET,
                    2 as AKI2_ONSET,
                    3 as AKI3_ONSET)
  )
@@ -37,10 +45,17 @@ select * from
        ,AKI_STAGE
        ,SERUM_CREAT
  from AKI_stages_daily
- where rn = 1)
+ where rn_asc = 1 and AKI_STAGE_max > 0 and AKI_STAGE > 0
+ union all
+ select ENCOUNTERID
+       ,AKI_STAGE
+       ,SERUM_CREAT
+ from AKI_stages_daily
+ where rn_desc = 1 and AKI_STAGE_max = 0 and AKI_STAGE = 0)
 pivot 
 (max(SERUM_CREAT)
- for AKI_STAGE in (1 as AKI1_SCR,
+ for AKI_STAGE in (0 as NON_AKI_SCR,
+                   1 as AKI1_SCR,
                    2 as AKI2_SCR,
                    3 as AKI3_SCR)
  )
@@ -52,10 +67,17 @@ select * from
        ,AKI_STAGE
        ,SERUM_CREAT_INC
  from AKI_stages_daily
- where RN = 1)
+ where rn_asc = 1 and AKI_STAGE_max > 0 and AKI_STAGE > 0
+ union all
+ select ENCOUNTERID
+       ,AKI_STAGE
+       ,SERUM_CREAT_INC
+ from AKI_stages_daily
+ where rn_desc = 1 and AKI_STAGE_max = 0 and AKI_STAGE = 0)
 pivot 
 (max(SERUM_CREAT_INC)
- for AKI_STAGE in (1 as AKI1_INC,
+ for AKI_STAGE in (0 as NON_AKI_INC,
+                   1 as AKI1_INC,
                    2 as AKI2_INC,
                    3 as AKI3_INC)
  )
@@ -67,6 +89,10 @@ select pe.PATID
       ,pe.ADMIT_DATE
       ,trunc(init.DISCHARGE_DATE_TIME) DISCHARGE_DATE
       ,pe.SERUM_CREAT_BASE
+      ,ons.NON_AKI_ANCHOR
+      ,(ons.NON_AKI_ANCHOR-pe.ADMIT_DATE) NONAKI_SINCE_ADMIT
+      ,NON_AKI_SCR
+      ,NON_AKI_INC
       ,ons.AKI1_ONSET
       ,(ons.AKI1_ONSET-pe.ADMIT_DATE) AKI1_SINCE_ADMIT
       ,scr.AKI1_SCR
@@ -89,13 +115,17 @@ on pe.ENCOUNTERID = scr.ENCOUNTERID
 left join onsets_inc inc
 on pe.ENCOUNTERID = inc.ENCOUNTERID
 )
--- some pruning (recovering progress (e.g. AKI3 to AKI2) doesn't count)
+-- some pruning (recovering progress doesn't count)
 select distinct
        PATID
       ,ENCOUNTERID
       ,ADMIT_DATE
       ,DISCHARGE_DATE
       ,SERUM_CREAT_BASE
+      ,NON_AKI_ANCHOR
+      ,NONAKI_SINCE_ADMIT
+      ,NON_AKI_SCR
+      ,NON_AKI_INC
       ,case when AKI1_SINCE_ADMIT >= AKI2_SINCE_ADMIT or AKI1_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null
             else AKI1_ONSET end as AKI1_ONSET
       ,case when AKI1_SINCE_ADMIT >= AKI2_SINCE_ADMIT or AKI1_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null

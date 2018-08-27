@@ -120,7 +120,9 @@ select distinct
       ,AKI_STAGE
       ,trunc(SPECIMEN_DATE_TIME) SPECIMEN_DATE
       ,DAY_SINCE_ADMIT
-      ,row_number() over (partition by ENCOUNTERID, AKI_STAGE order by DAY_SINCE_ADMIT) rn
+      ,row_number() over (partition by ENCOUNTERID, AKI_STAGE order by DAY_SINCE_ADMIT) rn_asc
+      ,row_number() over (partition by ENCOUNTERID, AKI_STAGE order by DAY_SINCE_ADMIT desc) rn_desc
+      ,max(AKI_STAGE) over (partition by ENCOUNTERID) AKI_STAGE_max
 from stage_uni
 order by PATID, ENCOUNTERID, AKI_STAGE, SPECIMEN_DATE
 
