@@ -15,7 +15,7 @@ require_libraries(c("tidyr",
 
 
 #establish the connection between r-studio and CDM server
-config_file_path<-"../herona1_config.csv"
+config_file_path<-"../config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
 conn<-dbConnect(Oracle(),
                 config_file$username,
@@ -54,7 +54,7 @@ enc_tot<-length(unique(Table1$ENCOUNTERID))
 #demographic
 demo<-dbGetQuery(conn,
                  parse_sql("./inst/collect_demo.sql",
-                           cdm_db_schema="PCORNET_CDM_C4R3")$statement) %>%
+                           cdm_db_schema=cdm_db_schema)$statement) %>%
   mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
                            AGE >= 26 & AGE <= 35 ~ "26-35",
                            AGE >= 36 & AGE <= 45 ~ "36-45",

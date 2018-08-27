@@ -50,7 +50,7 @@ require_libraries(c("knitr",
 
 
 #establish the connection between r-studio and CDM server
-config_file_path<-"../herona1_config.csv"
+config_file_path<-"../config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
 conn<-dbConnect(Oracle(),
                 config_file$username,
@@ -148,7 +148,7 @@ kabel(demo_summ,caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3")
 ```{r eval=F, echo=F}
 #collect all variables
 cdm_vari<-get_all_var(conn,
-                      cdm_db_schema="PCORNET_CDM_C4R3",
+                      cdm_db_schema=cdm_db_schema,
                       oracle_temp_schema=cdm_db_schema)
 #save variable tables
 save(cdm_vari,file="./data/cdm_vari_tbls.Rdata")
