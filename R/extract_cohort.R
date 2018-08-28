@@ -24,7 +24,7 @@ extract_cohort<-function(conn,
 
   #collect attrition info
   attrition<-dbGetQuery(conn,
-                        parse_sql("./inst/attrition_diagram.sql")$statement)
+                        parse_sql("./inst/consort_diagram.sql")$statement)
   
   #query back final cohort
   aki_enc<-dbGetQuery(conn,
