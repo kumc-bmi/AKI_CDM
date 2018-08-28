@@ -13,7 +13,7 @@ select pat.PATID
       ,pat.ENCOUNTERID
       ,dx.ENC_TYPE
       ,dx.ADMIT_DATE
-      ,round(pat.ADMIT_DATE - dx.ADMIT_DATE) DX_DAYS_PRIOR
+      ,round(dx.ADMIT_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
       ,dx.DX
       ,dx.DX_TYPE
       ,dx.DX_SOURCE

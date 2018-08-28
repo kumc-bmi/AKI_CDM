@@ -92,7 +92,7 @@ demo_summ<-aki_stage_ind %>%
               dplyr::select(chk_pt,stg_tot_cnt) %>% 
               unique %>% 
               dplyr::rename(enc_cnt=stg_tot_cnt) %>%
-              mutate(enc_prop=round(enc_cnt/117453,2),
+              mutate(enc_prop=round(enc_cnt/enc_tot,2),
                      demo_type_cat="TOTAL(%/overall)") %>%
               gather(summ,summ_val,-chk_pt,-demo_type_cat) %>%
               dplyr::select(chk_pt,demo_type_cat,summ,summ_val)) %>%
@@ -109,8 +109,14 @@ vital<-dbGetQuery(conn,
                             cdm_db_schema=cdm_db_schema)$statement) %>%
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
                              ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
-                             ORIGINAL_BMI >=31  ~ "BMI >= 31"))
-  gather(key,value,-PATID,-ENCOUNTERID,-VITALID0)
+                             ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
+  gather(key,value,-PATID,-ENCOUNTERID,-VITALID,-MEASURE_DATE_TIME) %>%
+  filter(!is.na(key)) %>%
+  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
+            by="ENCOUNTERID") %>%
+  dplyr::mutate(dsa=MEASURE_DATE_TIME-critical_date) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,dsa)
+  
 #save
 save(vital,file="./data/AKI_vital.Rdata")
 
@@ -122,8 +128,7 @@ ht_wt_bmi_summ<-ht_wt_bmi %>%
   left_join(aki_stage_idx, by="PATID") %>%
   dplyr::summarize(HT_records=sum(!is.na(HT)),
                    HT_mean=mean(HT,na.rm=T),
-                   HT_median=median(HT,na.rm=T),
-  )
+                   HT_median=median(HT,na.rm=T))
 
 ht_wt_bmi<-vital %>% 
   dplyr::select(PATID, VITALID, MEASURE_DATE_TIME,
@@ -178,9 +183,78 @@ bp %>% filter(outlier_ind==1) %>%
   View  
 
 
+## labs
+lab<-dbGetQuery(conn,
+                parse_sql("./inst/collect_lab.sql",
+                          cdm_db_schema=cdm_db_schema)$statement) %>%
+  dplyr::select(PATID,ENCOUNTERID,VITALID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME) %>%
+  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
+            by="ENCOUNTERID") %>%
+  dplyr::mutate(dsa=SPECIMEN_DATE_TIME-critical_date) %>%
+  dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,dsa) %>%
+  unique
+#save
+save(lab,file="./data/AKI_lab.Rdata")
 
 
-## quality checks
+## medication
+med<-dbGetQuery(conn,
+                parse_sql("./inst/collect_med.sql",
+                          cdm_db_schema=cdm_db_schema)$statement) %>%
+  dplyr::mutate(RX_EXPOS=pmin(RX_END_DATE_ADJ,RX_END_DATE)-RX_START_DATE) %>%
+  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_EXPOS) %>%
+  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
+            by="ENCOUNTERID") %>%
+  dplyr::mutate(dsa=RX_START_DATE-critical_date) %>%
+  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_EXPOS,RX_QUANTITY_DAILY,dsa) %>%
+  unique
+
+med_expand<-med[rep(rownames(med),each=med$RX_EXPOS),] %>%
+  mutate(RX_EXPOS=1)
+
+#save
+save(med_expand,file="./data/AKI_med.Rdata")
+
+
+## admission DRG
+admit_DRG<-dbGetQuery(conn,
+                      parse_sql("./inst/collect_enc.sql",
+                                cdm_db_schema=cdm_db_schema)$statement) %>%
+  dplyr::select(PATID,ENCOUNTERID,DRG,ADMITTING_SOURCE) %>%
+  unique
+#save
+save(admit_DRG,file="./data/AKI_admit_DRG.Rdata")
+
+
+## diagnosis
+load("./data/ccs_icd_cw.Rdata")
+dx<-dbGetQuery(conn,
+               parse_sql("./inst/collect_dx.sql",
+                         cdm_db_schema=cdm_db_schema)$statement) %>%
+  #attach CCS diagnosis grouping
+  dplyr::mutate(DX_ICD=paste0("ICD",DX_TYPE,":",DX)) %>%
+  left_join(ccs_icd %>% select(-ccs_name),by=c("DX_ICD"="icd_w_type")) %>%
+  unique %>% filter(!is.na(ccs_code)) %>%
+  dplyr::rename(DX_CCS=ccs_code) %>%
+  dplyr::select(PATID,ENCOUNTERID,DX_ICD,DX_CCS,DAYS_SINCE_ADMIT) %>%
+  unique
+#save
+save(dx,file="./data/AKI_dx.Rdata")  
+
+
+## procedure
+px<-dbGetQuery(conn,
+               parse_sql("./inst/collect_px.sql",
+                         cdm_db_schema=cdm_db_schema)$statement) %>%
+  dplyr::mutate(PX=paste0(PX_TYPE,":",PX)) %>%
+  dplyr::select(PATID,ENCOUNTERID,PX,DAYS_SINCE_ADMIT) %>%
+  unique
+#save
+save(px,file="./data/AKI_px.Rdata")  
+
+
+
+  
 #illogical dates (aki onsets before birth or after death)
 aki_bad_dates<-aki_stage_ind<-tbl1 %>%
   dplyr::select(ENCOUNTERID,

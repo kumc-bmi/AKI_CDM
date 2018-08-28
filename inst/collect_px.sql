@@ -14,7 +14,7 @@ select distinct
       ,pat.ENCOUNTERID
       ,px.ENC_TYPE
       ,px.PX_DATE
-      ,round(pat.ADMIT_DATE - px.PX_DATE) PX_DAYS_PRIOR
+      ,round(px.PX_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
       ,px.PX
       ,px.PX_TYPE
       ,px.PX_SOURCE
@@ -22,7 +22,6 @@ select distinct
 from AKI_onsets pat
 left join &&PCORNET_CDM.PROCEDURES px
 on pat.PATID = px.PATID
-where px.PX_DATE < pat.ADMIT_DATE
 order by pat.PATID, pat.ENCOUNTERID, px.PX_DATE desc
 
 
