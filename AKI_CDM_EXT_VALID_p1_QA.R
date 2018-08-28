@@ -234,32 +234,75 @@ lab<-dbGetQuery(conn,
   dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME) %>%
   left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
             by=c("PATID","ENCOUNTERID")) %>%
-  dplyr::mutate(dsa=SPECIMEN_DATE_TIME-critical_date) %>%
+  dplyr::mutate(dsa=round(as.numeric(difftime(SPECIMEN_DATE_TIME,critical_date,units="days")),2)) %>%
   dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT) %>%
   dplyr::select(PATID,ENCOUNTERID,key,value,unit,dsa) %>%
   filter(!is.na(key) & !is.na(value)) %>%
   unique
+
 #save
 save(lab,file="./data/AKI_lab.Rdata")
 
-#
+#collect summaries
+lab_summ<-lab %>% 
+  mutate(dsa_grp=case_when(dsa < 0 ~ "[-7,0)",
+                           dsa >=0 & dsa < 1 ~ "1",
+                           dsa >=1 & dsa < 2 ~ "2",
+                           dsa >=2 & dsa < 3 ~ "3",
+                           dsa >=3 ~ "3<")) %>%
+  group_by(key,dsa_grp) %>%
+  dplyr::summarize(record_cnt=n(),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min=min(value,na.rm=T),
+                   mean=round(mean(value,na.rm=T)),
+                   sd=round(sd(value,na.rm=T)),
+                   median=round(median(value,na.rm=T)),
+                   max=max(value,na.rm=T)) %>%
+  mutate(cov=round(sd/mean,1)) %>%
+  ungroup %>%
+  gather(summ,summ_val,-key,-dsa_grp) %>%
+  spread(dsa_grp,summ_val) %>%
+  mutate(summ=recode(summ,
+                     enc_cnt="1.encounters#",
+                     record_cnt="2.records#",
+                     min="3a.min",
+                     median="3b.median",
+                     mean="3c.mean",
+                     sd="3d.sd",
+                     cov="3e.cov",
+                     max="3f.max")) %>%
+  arrange(key,summ) 
 
+lab_summ %<>%
+  mutate(at_admission=ifelse(is.na(`1`),0,1),
+         within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1),
+         daily_moniter=ifelse(!is.na(`1`)&!is.na(`2`)&!is.na(`3`),1,0))
+  
+save(lab_summ,file="./data/lab_summ.Rdata")
+
+#clean up
+rm(lab,lab_summ); gc()
 
 
 ## medication
 med<-dbGetQuery(conn,
                 parse_sql("./inst/collect_med.sql",
-                          cdm_db_schema=cdm_db_schema)$statement) %>%
-  dplyr::mutate(RX_EXPOS=pmin(RX_END_DATE_ADJ,RX_END_DATE)-RX_START_DATE) %>%
+                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+  dplyr::mutate(RX_EXPOS=pmin(RX_END_DATE_ADJ,RX_END_DATE,na.rm=T)-RX_START_DATE) %>%
   dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_EXPOS) %>%
   left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
-            by="ENCOUNTERID") %>%
-  dplyr::mutate(dsa=RX_START_DATE-critical_date) %>%
+            by=c("PATID","ENCOUNTERID")) %>%
+  dplyr::mutate(dsa=round(as.numeric(difftime(RX_START_DATE,critical_date,units="days")))) %>%
   dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_EXPOS,RX_QUANTITY_DAILY,dsa) %>%
   unique
 
+#expand table with daily exposure 
 med_expand<-med[rep(rownames(med),each=med$RX_EXPOS),] %>%
   mutate(RX_EXPOS=1)
+
+#collect summaries
+
+
 
 #save
 save(med_expand,file="./data/AKI_med.Rdata")
@@ -270,7 +313,10 @@ admit_DRG<-dbGetQuery(conn,
                       parse_sql("./inst/collect_enc.sql",
                                 cdm_db_schema=cdm_db_schema)$statement) %>%
   dplyr::select(PATID,ENCOUNTERID,DRG,ADMITTING_SOURCE) %>%
-  unique
+  gather(key1,key2,-PATID,-ENCOUNTERID) %>%
+  unite("key",c("key1","key2"),sep=":") %>% 
+  mutate(value=1) %>% unique %>%
+  dplyr::select(PATID, ENCOUNTERID, key, value)
 #save
 save(admit_DRG,file="./data/AKI_admit_DRG.Rdata")
 
