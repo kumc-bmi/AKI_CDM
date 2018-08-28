@@ -11,7 +11,7 @@
 /********************************************************************************/
 select pat.PATID
       ,pat.ENCOUNTERID
-      ,v.VITALID
+      --,v.VITALID
       ,to_date(to_char(trunc(v.MEASURE_DATE),'YYYY:MM:DD') || ' ' || to_char(v.MEASURE_TIME),
                'YYYY:MM:DD HH24:MI') MEASURE_DATE_TIME
       ,v.HT
@@ -25,7 +25,7 @@ select pat.PATID
 from AKI_onsets pat
 left join &&PCORNET_CDM.VITAL v
 on pat.PATID = v.PATID
-where v.MEASURE_DATE <= pat.DISCHARGE_DATE and
+where v.MEASURE_DATE between pat.ADMIT_DATE-60 and pat.DISCHARGE_DATE and
       coalesce(v.HT, v.WT, v.SYSTOLIC, v.DIASTOLIC, v.ORIGINAL_BMI) is not null
 order by PATID, ENCOUNTERID, MEASURE_DATE_TIME
 
