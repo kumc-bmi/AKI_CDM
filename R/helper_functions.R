@@ -104,3 +104,18 @@ execute_batch_sql<-function(conn,statements,verb,...){
     }
   }
 }
+
+## compress data frame
+compress_df<-function(dat,tbl=c("demo",),save=F){
+  if(tbl=="demo"){
+    tbl_zip<-dat %>% 
+      filter(key %in% c("AGE","HISPANIC","RACE","SEX")) %>%
+      group_by(PATID,ENCOUNTERID) %>%
+      dplyr::summarize(fstr=paste(value,collapse="_")) %>%
+      ungroup
+  }
+  
+  
+  if(save)
+    save(tbl_zip,file=paste0("./data/",tbl,"_zip.Rdata"))
+}
