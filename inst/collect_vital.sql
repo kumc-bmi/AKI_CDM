@@ -24,10 +24,9 @@ select pat.PATID
       ,case when v.TOBACCO_TYPE = 'NI' then null else v.TOBACCO_TYPE end as TOBACCO_TYPE
 from AKI_onsets pat
 left join &&PCORNET_CDM.VITAL v
-on pat.ENCOUNTERID = v.ENCOUNTERID
-where v.MEASURE_DATE is not null and v.MEASURE_TIME is not null and
-      coalesce(v.HT, v.WT, v.SYSTOLIC, v.DIASTOLIC, v.ORIGINAL_BMI) is not null and
-      coalesce(v.SMOKING, v.TOBACCO, v.TOBACCO_TYPE) is not null
+on pat.PATID = v.PATID
+where v.MEASURE_DATE <= pat.DISCHARGE_DATE and
+      coalesce(v.HT, v.WT, v.SYSTOLIC, v.DIASTOLIC, v.ORIGINAL_BMI) is not null
 order by PATID, ENCOUNTERID, MEASURE_DATE_TIME
 
 
