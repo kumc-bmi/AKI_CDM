@@ -24,7 +24,7 @@ conn<-dbConnect(Oracle(),
 
 #extract cohort --Table1
 cohort<-extract_cohort(conn,
-                       cdm_db_schema,
+                       cdm_db_schema=config_file$cdm_db_schema,
                        oracle_temp_schema=cdm_db_schema,
                        start_date="2010-01-01",
                        end_date="2018-12-31")
@@ -34,8 +34,10 @@ Table1<-cohort$aki_enc
 save(Table1,file="./data/Table1.Rdata")
 
 #print out attrition table
+consort_tbl<-cohort$attrition
+save(consort_tbl,file="./data/consort_tbl.Rdata")
 print(cohort$attrition)
-#Todo: consort diagram
+#TODO: consort diagram
 
 #collectand summarize variables
 load("./data/Table1.Rdata")
@@ -45,7 +47,7 @@ enc_tot<-length(unique(Table1$ENCOUNTERID))
 aki_stage_ind<-Table1 %>%
   dplyr::select(PATID, ENCOUNTERID, ADMIT_DATE, DISCHARGE_DATE,
                 NONAKI_ANCHOR, AKI1_ONSET,AKI2_ONSET,AKI3_ONSET) %>%
-  gather(chk_pt, critical_date, -ENCOUNTERID) %>%
+  gather(chk_pt, critical_date,-PATID,-ENCOUNTERID) %>%
   filter(!is.na(critical_date)) %>%
   mutate(chk_pt=gsub("_.*","",chk_pt)) %>%
   group_by(chk_pt) %>%
@@ -57,7 +59,7 @@ aki_stage_ind<-Table1 %>%
 ## demographic
 demo<-dbGetQuery(conn,
                  parse_sql("./inst/collect_demo.sql",
-                           cdm_db_schema=cdm_db_schema)$statement) %>%
+                           cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
                            AGE >= 26 & AGE <= 35 ~ "26-35",
                            AGE >= 36 & AGE <= 45 ~ "36-45",
@@ -66,47 +68,59 @@ demo<-dbGetQuery(conn,
                            AGE >= 66 ~ "66<=")) %>%
   dplyr::select(PATID,ENCOUNTERID,
                 AGE,AGE_GRP,SEX,RACE,HISPANIC,DDAYS_SINCE_ENC) %>%
-  gather(key,value,-PATID,-ENCOUNTERID)
+  replace_na(list(AGE="NI",
+                  AGE_GRP="NI",
+                  SEX="NI",
+                  RACE="NI",
+                  HISPANIC="NI")) %>%
+  gather(key,value,-PATID,-ENCOUNTERID) %>%
+  unique
+
 #save
 save(demo,file="./data/AKI_demo.Rdata")
 
+
 #summaries
 demo_summ<-aki_stage_ind %>% 
-  filter(!chk_pt %in% c("ADMIT","DISCHARGE")) %>%
+  filter(!chk_pt %in% c("DISCHARGE")) %>%
   dplyr::select(-critical_date) %>%
-  left_join(demo %>% filter(!(key %in% c("AGE","DDAYS_SINCE_ENC"))), 
+  left_join(demo %>% 
+              filter(!(key %in% c("AGE","DDAYS_SINCE_ENC"))), 
             by="ENCOUNTERID") %>%
-  group_by(chk_pt,stg_tot_cnt,demo_type,demo_val) %>%
+  group_by(chk_pt,stg_tot_cnt,key,value) %>%
   dplyr::summarize(enc_cnt = n(),
                    enc_prop = round(n()/stg_tot_cnt[1],2)) %>%
   ungroup %>% dplyr::select(-stg_tot_cnt) %>%
-  gather(summ,summ_val,-chk_pt,-demo_type,-demo_val) %>%
-  # decode demo_val
-  left_join(meta %>% dplyr::select(COLUMN_NAME,VAR_CODE,VAR_NAME),
-            by=c("demo_type"="COLUMN_NAME","demo_val"="VAR_CODE")) %>%
-  dplyr::mutate(demo_val = ifelse(!is.na(VAR_NAME),VAR_NAME,demo_val)) %>%
-  dplyr::select(-VAR_NAME) %>%
-  unite("demo_type_cat",c("demo_type","demo_val")) %>%
+  gather(summ,summ_val,-chk_pt,-key,-value) %>%
+  # # decode demo_val
+  # left_join(meta %>% dplyr::select(COLUMN_NAME,VAR_CODE,VAR_NAME),
+  #           by=c("demo_type"="COLUMN_NAME","demo_val"="VAR_CODE")) %>%
+  # dplyr::mutate(demo_val = ifelse(!is.na(VAR_NAME),VAR_NAME,demo_val)) %>%
+  # dplyr::select(-VAR_NAME) %>%
+  # unite("demo_type_cat",c("demo_type","demo_val")) %>%
   # attach totals at bottom
   bind_rows(aki_stage_ind %>%
+              filter(!chk_pt %in% c("DISCHARGE")) %>%
               dplyr::select(chk_pt,stg_tot_cnt) %>% 
               unique %>% 
               dplyr::rename(enc_cnt=stg_tot_cnt) %>%
               mutate(enc_prop=round(enc_cnt/enc_tot,2),
-                     demo_type_cat="TOTAL(%/overall)") %>%
-              gather(summ,summ_val,-chk_pt,-demo_type_cat) %>%
-              dplyr::select(chk_pt,demo_type_cat,summ,summ_val)) %>%
+                     key="TOTAL",
+                     value="(%/overall)") %>%
+              gather(summ,summ_val,-chk_pt,-key,-value) %>%
+              dplyr::select(key,value,chk_pt,summ,summ_val)) %>%
   unite("stg_summ",c("chk_pt","summ")) %>%
   unique %>% spread(stg_summ,summ_val) %>%
   replace(.,is.na(.),0)
-View(demo_summ)
+
+save(demo_summ,file="./data/demo_summ.Rdata")
 
 
 ## vital
 #vital: HT,WT,BMI
 vital<-dbGetQuery(conn,
                   parse_sql("./inst/collect_vital.sql",
-                            cdm_db_schema=cdm_db_schema)$statement) %>%
+                            cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
                              ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
                              ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
