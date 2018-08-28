@@ -35,7 +35,7 @@ AKI Stages are defined based on [KDIGO](http://www.kdigo.org/clinical_practice_g
 
 
 ##### Implementation: Extracting AKI Study Cohort
-```{r eval=FALSE}
+```{r echo=FALSE, eval=FALSE}
 #source utility functions
 source("./R/helper_functions.R")
 
@@ -69,48 +69,57 @@ Table1<-cohort$aki_enc
 save(Table1,file="./data/Table1.Rdata")
 ```
 
-The above codes extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output was automatically saved in the current working directory *r getwd()* as "Table1.Rdata" with columns: *r paste(colnames(Table1),collapse=","*. The following attrition table shows the loss of samples during the collection process, which finally resulted in *r length(unique(Table1$ENCOUNTERID))*. 
+We have extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output has been automatically saved in the current working directory *r getwd()* as "Table1.Rdata" with columns: *r paste(colnames(Table1),collapse=","*. The following consort diagram shows the loss of samples during the collection process, which finally resulted in *r length(unique(Table1$ENCOUNTERID))*. 
 
-
-```{r eval=FALSE}
-#nice print-out of attrition table
-kabel(cohort$attrition,caption="Attrition Table")
+```{r echo=FALSE, eval=FALSE}
+#nice print-out of consort diagram
+#Todo: turn into plot
+kabel(cohort$attrition,caption="Consort Diagram")
 ```
 
 
-#### Objective 1.2: Variable Collection (Table by Table) 
-
-##### Demographic
 ```{r echo=F, eval=F}
-# if date are not in proper format
-Table1 %<>%
-  dplyr::mutate(ADMIT_DATE=as.Date(as.character(ADMIT_DATE),"%Y-%m-%d"),
-                DISCHARGE_DATE=as.Date(as.character(DISCHARGE_DATE),"%Y-%m-%d"),
-                AKI1_ONSET=as.Date(as.character(AKI1_ONSET),"%Y-%m-%d"),
-                AKI2_ONSET=as.Date(as.character(AKI2_ONSET),"%Y-%m-%d"),
-                AKI3_ONSET=as.Date(as.character(AKI3_ONSET),"%Y-%m-%d"))
-
+# auxilliary summaries and tables
 enc_tot<-length(unique(Table1$ENCOUNTERID))
 
-# get AKI stage index
+# critical dates of AKI encounters
 aki_stage_ind<-tbl1 %>%
-  dplyr::select(ENCOUNTERID,
-                AKI1_SINCE_ADMIT,AKI2_SINCE_ADMIT,AKI3_SINCE_ADMIT) %>%
-  gather(aki_stg, days_since, -ENCOUNTERID) %>%
-  filter(!is.na(days_since)) %>%
-  dplyr::select(ENCOUNTERID, aki_stg)%>%
+  dplyr::select(ENCOUNTERID, ADMIT_DATE, DISCHARGE_DATE,
+                NONAKI_ANCHOR, AKI1_ONSET,AKI2_ONSET,AKI3_ONSET) %>%
+  gather(aki_stg, critical_date, -ENCOUNTERID) %>%
+  filter(!is.na(critical_date)) %>%
   mutate(aki_stg=gsub("_.*","",aki_stg)) %>%
   group_by(aki_stg) %>%
   dplyr::mutate(stg_tot_cnt=n()) %>%
   ungroup %>%
-  arrange(ENCOUNTERID, aki_stg, stg_tot_cnt)
+  arrange(ENCOUNTERID, aki_stg, critical_date, stg_tot_cnt)
 
 ```
 
 
+#### Objective 1.2: Variable Collection and Summaries (Table by Table)
+In this section, we will collect variables from PCORNET_CDM tables: *DEMOGRAPHIC*, *ENCOUNTER*, *VITAL*, *LAB_RESULT_CM*, *PRESCRIBING MEDICATION*, *DIAGNOSIS*, *PROCEDURE*, check data quality and generate variable summaries table by table.
+
+##### Demographic 
+Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*, *Ethnicity*.  
+
 ```{r echo=F, eval=F}
+# get and save demographic table
+demo<-dbGetQuery(conn,
+                 parse_sql("./inst/collect_demo.sql",
+                           cdm_db_schema=cdm_db_schema)$statement) %>%
+  mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
+                           AGE >= 26 & AGE <= 35 ~ "26-35",
+                           AGE >= 36 & AGE <= 45 ~ "36-45",
+                           AGE >= 46 & AGE <= 55 ~ "46-55",
+                           AGE >= 56 & AGE <= 65 ~ "56-65",
+                           AGE >= 66 ~ "66<=")) %>%
+  dplyr::select(PATID,ENCOUNTERID,AGE,AGE_GRP,SEX,RACE,HISPANIC,DDAYS_SINCE_ENC) %>%
+  gather(key,value,-PATID,-ENCOUNTERID)
+save(demo,file="./data/AKI_demo.Rdata")
+
 # collect demographic summaries
-demo_summ<-aki_stage_ind %>%
+demo_summ<-aki_stage_ind %>% dplyr::select(-critical_date) %>%
   left_join(demo %>%
               dplyr::select(-AGE) %>%
               gather(demo_type,demo_val,-PATID, -ENCOUNTERID), 
@@ -144,48 +153,37 @@ kabel(demo_summ,caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3")
 ```
 
 
+##### Vital 
+Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, Diastolic)*, *Smoking Status*. 
 
-```{r eval=F, echo=F}
-#collect all variables
-cdm_vari<-get_all_var(conn,
-                      cdm_db_schema=cdm_db_schema,
-                      oracle_temp_schema=cdm_db_schema)
-#save variable tables
-save(cdm_vari,file="./data/cdm_vari_tbls.Rdata")
-```
-
-
-#### Objective 1.3: Quality Check
-
-##### Records, Patients, Encounters and Date Range by Table
-
+###### Vital: HT, WT, BMI
 ```{r eval=F}
+# get and save vital table
+vital<-dbGetQuery(conn,
+                 parse_sql("./inst/collect_vital.sql",
+                           cdm_db_schema=cdm_db_schema)$statement) %>%
+  mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
+                             ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
+                             ORIGINAL_BMI >=31  ~ "BMI >= 31"))
+#save
+save(vital,file="./data/AKI_vital.Rdata")
 
-```
+# collect summaries
+ht_wt_bmi_summ<-ht_wt_bmi %>%
+  dplyr::select(PATID, HT, WT) %>%
+  dplyr::filter(!is.na(HT) | !is.na(WT)) %>%
+  left_join(aki_stage_idx, by="PATID") %>%
+  dplyr::summarize(HT_records=sum(!is.na(HT)),
+                   HT_mean=mean(HT,na.rm=T),
+                   HT_median=median(HT,na.rm=T),
+                   )
 
-
-##### Demographics
-
-
-
-
-##### Vital: HT, WT, BMI
-```{r eval=F}
-#vital
-#detect outliers - HT, WT, BMI
-ht_wt_bmi<-AKI_VITAL %>% 
+ht_wt_bmi<-vital %>% 
   dplyr::select(PATID, VITALID, MEASURE_DATE_TIME,
                 HT,WT,ORIGINAL_BMI) %>%
   dplyr::filter(!is.na(HT) & !is.na(WT)) %>%
-  left_join(AKI_DEMO %>% dplyr::select(PATID,AGE,SEX) %>% unique,
+  left_join(demo %>% dplyr::select(PATID,AGE_GRP,SEX) %>% unique,
             by="PATID") %>%
-  dplyr::mutate(age_grp= case_when(AGE < 30 ~ 1,
-                                   AGE >= 30 & AGE < 40 ~ 2,
-                                   AGE >= 40 & AGE < 50 ~ 3,
-                                   AGE >= 50 & AGE < 60 ~ 4,
-                                   AGE >= 60 & AGE < 70 ~ 5,
-                                   AGE >= 70 ~ 6)) %>%
-  dplyr::select(-AGE) %>%
   gather(key,val,-PATID,-age_grp,-SEX,-VITALID,-MEASURE_DATE_TIME) %>%
   group_by(age_grp,SEX,key) %>%
   dplyr::mutate(low_bd=ifelse(key=="ORIGINAL_BMI",
@@ -203,6 +201,11 @@ ht_wt_bmi %>% filter(outlier_ind==1) %>%
   View
 
 
+```
+
+
+###### Vital: Blood Pressure
+```{r echo=FALSE, eval=FALSE}
 #detect outliers - SYSTOLIC, DIASTOLIC, at encounter level
 # AKI_VITAL_test<-AKI_VITAL %>% dplyr::filter(PATID < 100)
 # scalability issue!
@@ -231,14 +234,11 @@ bp %>% filter(outlier_ind==1) %>%
                    up_bd=median(up_bd),
                    up_bd=min(up_bd)) %>%
   View  
+
 ```
 
-##### Vital: Blood Pressure
 
-
-
-##### Vital: Smoking Status
-
+###### Vital: Smoking Status
 
 
 
@@ -246,15 +246,23 @@ bp %>% filter(outlier_ind==1) %>%
 
 
 
-
 ##### Medications
 
 
+##### Admission DRG
 
 
+##### Diagnosis
 
-##### Diagnosis, Procedure
 
+##### Procedure
+
+
+##### Records, Patients, Encounters and Date Range by Table
+
+```{r eval=F}
+
+```
 
 
 

@@ -32,7 +32,7 @@ select * from
  )
 pivot 
 (min(SPECIMEN_DATE)
- for AKI_STAGE in (0 as NON_AKI_ANCHOR,
+ for AKI_STAGE in (0 as NONAKI_ANCHOR,
                    1 as AKI1_ONSET,
                    2 as AKI2_ONSET,
                    3 as AKI3_ONSET)
@@ -89,8 +89,8 @@ select pe.PATID
       ,pe.ADMIT_DATE
       ,trunc(init.DISCHARGE_DATE_TIME) DISCHARGE_DATE
       ,pe.SERUM_CREAT_BASE
-      ,ons.NON_AKI_ANCHOR
-      ,(ons.NON_AKI_ANCHOR-pe.ADMIT_DATE) NONAKI_SINCE_ADMIT
+      ,ons.NONAKI_ANCHOR
+      ,(ons.NONAKI_ANCHOR-pe.ADMIT_DATE) NONAKI_SINCE_ADMIT
       ,NON_AKI_SCR
       ,NON_AKI_INC
       ,ons.AKI1_ONSET
@@ -122,7 +122,7 @@ select distinct
       ,ADMIT_DATE
       ,DISCHARGE_DATE
       ,SERUM_CREAT_BASE
-      ,NON_AKI_ANCHOR
+      ,NONAKI_ANCHOR
       ,NONAKI_SINCE_ADMIT
       ,NON_AKI_SCR
       ,NON_AKI_INC
