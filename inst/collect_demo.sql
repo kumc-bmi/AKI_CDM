@@ -18,6 +18,7 @@ select distinct
       ,demo.RACE
       ,demo.HISPANIC
       ,dth.DEATH_DATE
+      ,(dth.DEATH_DATE - pat.DISCHARGE_DATE) DDAYS_SINCE_ENC
       ,dth.DEATH_DATE_IMPUTE
       ,dth.DEATH_SOURCE
 from AKI_onsets pat
