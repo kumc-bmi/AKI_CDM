@@ -39,6 +39,10 @@ save(consort_tbl,file="./data/consort_tbl.Rdata")
 print(cohort$attrition)
 #TODO: consort diagram
 
+#clean up
+rm(cohort,consort_tbl); gc()
+
+
 #collectand summarize variables
 load("./data/Table1.Rdata")
 # auxilliary summaries and tables
@@ -54,7 +58,6 @@ aki_stage_ind<-Table1 %>%
   dplyr::mutate(stg_tot_cnt=n()) %>%
   ungroup %>%
   arrange(PATID, ENCOUNTERID, chk_pt, critical_date, stg_tot_cnt)
-
 
 ## demographic
 demo<-dbGetQuery(conn,
@@ -114,101 +117,133 @@ demo_summ<-aki_stage_ind %>%
   replace(.,is.na(.),0)
 
 save(demo_summ,file="./data/demo_summ.Rdata")
-
+#clean up
+rm(demo,demo_summ); gc()
 
 ## vital
-#vital: HT,WT,BMI
+#vital: HT,WT,BMI,BP
 vital<-dbGetQuery(conn,
                   parse_sql("./inst/collect_vital.sql",
                             cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
                              ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
                              ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
-  gather(key,value,-PATID,-ENCOUNTERID,-VITALID,-MEASURE_DATE_TIME) %>%
-  filter(!is.na(key)) %>%
   left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
-            by="ENCOUNTERID") %>%
-  dplyr::mutate(dsa=MEASURE_DATE_TIME-critical_date) %>%
-  dplyr::select(PATID,ENCOUNTERID,key,value,dsa)
-  
+            by=c("PATID","ENCOUNTERID")) %>%
+  dplyr::mutate(dsa=round(as.numeric(difftime(MEASURE_DATE_TIME,critical_date,units="days")),2)) %>%
+  dplyr::select(-MEASURE_DATE_TIME,-critical_date,-chk_pt,-stg_tot_cnt) %>%
+  gather(key,value,-PATID,-ENCOUNTERID,-dsa) %>%
+  filter(!is.na(key) & !is.na(value)) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,dsa) %>%
+  mutate(key=recode(key,
+                    ORIGINAL_BMI="BMI",
+                    SYSTOLIC="BP_SYSTOLIC",
+                    DIASTOLIC="BP_DIASTOLIC")) %>%
+  unique
+
 #save
 save(vital,file="./data/AKI_vital.Rdata")
 
 
 # collect summaries
-ht_wt_bmi_summ<-ht_wt_bmi %>%
-  dplyr::select(PATID, HT, WT) %>%
-  dplyr::filter(!is.na(HT) | !is.na(WT)) %>%
-  left_join(aki_stage_idx, by="PATID") %>%
-  dplyr::summarize(HT_records=sum(!is.na(HT)),
-                   HT_mean=mean(HT,na.rm=T),
-                   HT_median=median(HT,na.rm=T))
-
-ht_wt_bmi<-vital %>% 
-  dplyr::select(PATID, VITALID, MEASURE_DATE_TIME,
-                HT,WT,ORIGINAL_BMI) %>%
-  dplyr::filter(!is.na(HT) & !is.na(WT)) %>%
-  left_join(demo %>% dplyr::select(PATID,AGE_GRP,SEX) %>% unique,
-            by="PATID") %>%
-  gather(key,val,-PATID,-age_grp,-SEX,-VITALID,-MEASURE_DATE_TIME) %>%
-  group_by(age_grp,SEX,key) %>%
-  dplyr::mutate(low_bd=ifelse(key=="ORIGINAL_BMI",
-                              pmax(10,median(val,na.rm=T)-3*IQR(val,na.rm=T,type=8)),
-                              pmax(50,median(val,na.rm=T)-3*IQR(val,na.rm=T,type=8))),   
-                up_bd=pmin(500,median(val,na.rm=T)+4.5*IQR(val,na.rm=T,type=8))) %>% 
+vital_summ<-vital %>%
+  dplyr::select(ENCOUNTERID, key, value, dsa) %>%
+  filter(key %in% c("HT","WT","BMI","BP_DIASTOLIC","BP_SYSTOLIC")) %>%
+  mutate(value=as.numeric(value)) %>%
+  mutate(param_low=case_when(key=="HT" ~ 0,
+                             key=="WT" ~ 0,
+                             key=="BMI" ~ 0,
+                             key %in% c("BP_DIASTOLIC",
+                                        "BP_SYSTOLIC") ~ 40),
+         param_high=case_when(key=="HT" ~ 94.99,
+                              key=="WT" ~ 350,
+                              key=="BMI" ~ 50,
+                              key=="BP_DIASTOLIC"~120,
+                              key=="BP_SYSTOLIC" ~ 210)) %>%
+  mutate(dsa_grp=case_when(dsa < 0 ~ "[-7,0)",
+                           dsa >=0 & dsa < 1 ~ "1",
+                           dsa >=1 & dsa < 2 ~ "2",
+                           dsa >=2 & dsa < 3 ~ "3",
+                           dsa >=3 ~ "3<")) %>%
+  group_by(key,dsa_grp) %>%
+  dplyr::summarize(record_cnt=n(),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   low_cnt=sum((value<param_low)),
+                   high_cnt=sum((value>param_high)),
+                   min=min(value,na.rm=T),
+                   mean=round(mean(value,na.rm=T)),
+                   sd=round(sd(value,na.rm=T)),
+                   median=round(median(value,na.rm=T)),
+                   max=max(value,na.rm=T)) %>%
+  mutate(cov=round(sd/mean,1)) %>%
   ungroup %>%
-  dplyr::mutate(outlier_ind = ifelse(val > up_bd | val < low_bd, 1,0))
+  gather(summ,summ_val,-key,-dsa_grp) %>%
+  spread(dsa_grp,summ_val) %>%
+  mutate(summ=recode(summ,
+                     enc_cnt="1.encounters#",
+                     record_cnt="2.records#",
+                     low_cnt="3.low_records#",
+                     high_cnt="4.high_records#",
+                     min="5a.min",
+                     median="5b.median",
+                     mean="5c.mean",
+                     sd="5d.sd",
+                     cov="5e.cov",
+                     max="5f.max")) %>%
+  arrange(key,summ)
 
-#outliers summaries
-ht_wt_bmi %>% filter(outlier_ind==1) %>%
-  group_by(age_grp,SEX,key,low_bd,up_bd) %>%
-  dplyr::summarize(pat_cnt=length(unique(PATID))) %>% 
-  ungroup %>% unique %>% arrange(age_grp,SEX,key) %>%
-  View
+#save
+save(vital_summ,file="./data/vital_summ.Rdata")
+rm(vital,vital_summ); gc()
 
-#vital: SBP, DBP
-#detect outliers - SYSTOLIC, DIASTOLIC, at encounter level
-# AKI_VITAL_test<-AKI_VITAL %>% dplyr::filter(PATID < 100)
-# scalability issue!
-bp<-AKI_VITAL %>% 
-  dplyr::select(ENCOUNTERID,VITALID, MEASURE_DATE_TIME,
-                SYSTOLIC, DIASTOLIC) %>%
-  dplyr::filter(!is.na(SYSTOLIC) & !is.na(DIASTOLIC)) %>%
-  gather(key,val,-ENCOUNTERID,-VITALID, -MEASURE_DATE_TIME) %>%
-  group_by(key,ENCOUNTERID) %>%
-  dplyr::mutate(measure_time=rank(MEASURE_DATE_TIME),
-                freq=n()) %>%
-  dplyr::mutate(loess_fit=predict(loess(val~measure_time),se=T)$fit,
-                loess_se=predict(loess(val~measure_time),se=T)$se) %>%
-  dplyr::mutate(low_bd=loess_fit-1.5*sqrt(freq)*loess_se,
-                up_bd=loess_fit+1.5*sqrt(freq)*loess_se) %>%
-  ungroup %>%
-  dplyr::mutate(outlier_ind = ifelse(val > up_bd | val < low_bd, 1,0))
-
-
-#outliers summaries
-bp %>% filter(outlier_ind==1) %>%
-  group_by(key) %>%
-  dplyr::summarize(enc_cnt=length(unique(ENCOUNTERID)),
-                   low_bd=median(low_bd),
-                   low_bd_max=max(low_bd),
-                   up_bd=median(up_bd),
-                   up_bd=min(up_bd)) %>%
-  View  
+##TODO: scalability issue
+# # personalized outlier identification - SBP, DBP
+# vital_summ2<-vital %>%
+#   dplyr::select(ENCOUNTERID, key, value, dsa) %>%
+#   filter(key %in% c("BP_DIASTOLIC","BP_SYSTOLIC")) %>%
+#   group_by(ENCOUNTERID,key) %>%
+#   dplyr::mutate(freq=n())
+#   
+# freq_filter<-quantile(vital_summ2$freq,probs=0.05)  
+# 
+# vital_summ2 %<>%
+#   filter(freq >= freq_filter) %>%
+#   dplyr::mutate(loess_fit=predict(loess(value~dsa),se=T)$fit,
+#                 loess_se=predict(loess(value~dsa),se=T)$se) %>%
+#   dplyr::mutate(low_bd=loess_fit-2.33*sqrt(freq)*loess_se,
+#                 up_bd=loess_fit+2.33*sqrt(freq)*loess_se) %>%
+#   ungroup %>%
+#   dplyr::mutate(outlier_ind = ifelse(value > up_bd | value < low_bd, 1,0)) %>%
+#   group_by(ENCOUNTERID) %>%
+#   dplyr::mutate(outlier_prop=mean(outlier_ind)) %>%
+#   ungroup %>%
+#   group_by(key) %>%
+#   dplyr::summarize(low_bd_mean=mean(low_bd,na.rm=T),
+#                    low_bd_sd=sd(low_bd,na.rm=T),
+#                    up_bd_mean=mean(up_bd,na.rm=T),
+#                    up_bd_sd=sd(up_bd,na.rm=T),
+#                    outliers_prop_mean=mean(outlier_prop))
+# 
+# save(vital_summ2,file="./data/vital_summ2.Rdata")  
 
 
 ## labs
 lab<-dbGetQuery(conn,
                 parse_sql("./inst/collect_lab.sql",
-                          cdm_db_schema=cdm_db_schema)$statement) %>%
-  dplyr::select(PATID,ENCOUNTERID,VITALID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME) %>%
+                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+  dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME) %>%
   left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
-            by="ENCOUNTERID") %>%
+            by=c("PATID","ENCOUNTERID")) %>%
   dplyr::mutate(dsa=SPECIMEN_DATE_TIME-critical_date) %>%
-  dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,dsa) %>%
+  dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,unit,dsa) %>%
+  filter(!is.na(key) & !is.na(value)) %>%
   unique
 #save
 save(lab,file="./data/AKI_lab.Rdata")
+
+#
+
 
 
 ## medication

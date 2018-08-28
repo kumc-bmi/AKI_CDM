@@ -27,5 +27,6 @@ select distinct
 from AKI_onsets pat
 join &&PCORNET_CDM.LAB_RESULT_CM l
 on pat.ENCOUNTERID = l.ENCOUNTERID
-order by pat.PATID, pat.ENCOUNTERID, SPECIMEN_DATE_TIME;
+order by pat.PATID, pat.ENCOUNTERID, SPECIMEN_DATE_TIME
+
 
