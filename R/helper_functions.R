@@ -105,8 +105,7 @@ execute_batch_sql<-function(conn,statements,verb,...){
   }
 }
 
-## compress data frame into a condensed format
-#
+## compress dataframe into a condensed format
 compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save=F){
   if(tbl=="demo"){
     tbl_zip<-dat %>% 

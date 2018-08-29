@@ -2,10 +2,16 @@
 
 extract_cohort<-function(conn,
                          cdm_db_schema,
-                         oracle_temp_schema=cdm_db_schema,
+                         oracle_temp_schema,
                          start_date="2010-01-01",
                          end_date="2018-12-31",
                          verb=T){
+  
+  #make sure we are on the writable server: oracle_temp_schema
+  dbSendQuery(conn,
+              paste("alter session set current_schema =",
+                    oracle_temp_schema))
+  cat("R is currently connected to schema",oracle_temp_schema,".\n")
   
   #execute the following sql snippets on Oracle
   statements<-c("./inst/cohort_initial.sql",
@@ -21,6 +27,17 @@ extract_cohort<-function(conn,
                     oracle_temp_schema=cdm_db_schema,
                     start_date="2010-01-01",
                     end_date="2018-12-31")
+  
+  #clean out intermediate tables
+  for(i in 1:(length(statements)-1)){
+    parse_out<-parse_sql(statements[i])
+    if(parse_out$action=="write"){
+      drop_temp<-paste("drop table",parse_out$tbl_out,"purge")
+      dbSendQuery(conn,drop_temp)
+    }else{
+      warning("no temporary table was created by this statment!")
+    }
+  }
 
   #collect attrition info
   attrition<-dbGetQuery(conn,
