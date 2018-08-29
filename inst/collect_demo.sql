@@ -3,7 +3,7 @@
 /*
 /*in: AKI_onsets
 /*
-/*params: &&PCORNET_CDM
+/*params: &&PCORNET_CDM, @server
 /*
 /*out: AKI_DEMO
 /*
@@ -22,9 +22,9 @@ select distinct
       ,dth.DEATH_DATE_IMPUTE
       ,dth.DEATH_SOURCE
 from AKI_onsets pat
-left join &&PCORNET_CDM.DEMOGRAPHIC demo
+left join &&PCORNET_CDM.DEMOGRAPHIC@server demo
 on pat.PATID = demo.PATID
-left join &&PCORNET_CDM.DEATH dth
+left join &&PCORNET_CDM.DEATH@server dth
 on pat.PATID = dth.PATID
 order by pat.PATID, pat.ENCOUNTERID
 

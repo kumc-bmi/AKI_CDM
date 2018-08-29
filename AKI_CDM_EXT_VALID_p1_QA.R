@@ -27,6 +27,8 @@ conn<-dbConnect(Oracle(),
 
 
 #extract cohort --Table1
+# by default, we assume cdm schema is on the same server as current schema,
+# if not, set same_server=F and cdm_db_server=...(server name)
 cohort<-extract_cohort(conn,
                        cdm_db_schema=config_file$cdm_db_schema,
                        oracle_temp_schema=config_file$oracle_temp_schema,
@@ -39,14 +41,15 @@ save(Table1,file="./data/Table1.Rdata")
 #print out attrition table
 consort_tbl<-cohort$attrition
 save(consort_tbl,file="./data/consort_tbl.Rdata")
-
-
 #clean up
 rm(cohort,consort_tbl); gc()
 
+# collect summaries
+tbl1_summ<-Table1 %>%
+
 
 #collectand summarize variables
-load("./data/Table1.Rdata")
+# load("./data/Table1.Rdata")
 # auxilliary summaries and tables
 enc_tot<-length(unique(Table1$ENCOUNTERID))
 # critical dates of AKI encounters
@@ -60,6 +63,7 @@ aki_stage_ind<-Table1 %>%
   dplyr::mutate(stg_tot_cnt=n()) %>%
   ungroup %>%
   arrange(PATID, ENCOUNTERID, chk_pt, critical_date, stg_tot_cnt)
+
 
 ## demographic
 demo<-dbGetQuery(conn,

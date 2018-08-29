@@ -17,10 +17,11 @@ require_libraries<-function(package_list){
 ## parse Oracle sql lines
 parse_sql<-function(file_path,...){
   param_val<-list(...)
-  param_val<-c(param_val[1],
-               paste0("'",param_val[2],"'"),
-               paste0("'",param_val[3],"'"))
-  
+  param_val<-c(param_val[1],                 #cdm schema
+               paste0("@",param_val[2]),     #cdm server
+               paste0("'",param_val[3],"'"), #start date (observation window)
+               paste0("'",param_val[4],"'")) #end date (observation window)
+
   #read file
   con<-file(file_path,"r")
   

@@ -1,8 +1,10 @@
 #### extract AKI cohort ####
 
 extract_cohort<-function(conn,
-                         cdm_db_schema,
                          oracle_temp_schema,
+                         cdm_db_schema,
+                         same_server=T,
+                         cdm_db_server=" ",
                          start_date="2010-01-01",
                          end_date="2018-12-31",
                          verb=T){
@@ -12,6 +14,11 @@ extract_cohort<-function(conn,
               paste("alter session set current_schema =",
                     oracle_temp_schema))
   cat("R is currently connected to schema",oracle_temp_schema,".\n")
+  
+  #check if cdm_db_server has been specified
+  if(!same_server & cdm_db_server=" "){
+    warning("must specify the db server name where CDM is sitting!")
+  }
   
   #execute the following sql snippets on Oracle
   statements<-c("./inst/cohort_initial.sql",
@@ -24,7 +31,8 @@ extract_cohort<-function(conn,
                 "./inst/cohort_final.sql")
 
   execute_batch_sql(conn,statements,verb,
-                    oracle_temp_schema=cdm_db_schema,
+                    cdm_db_schema=cdm_db_schema,
+                    cdm_db_server=cdm_db_server,
                     start_date="2010-01-01",
                     end_date="2018-12-31")
   
