@@ -50,6 +50,7 @@ select distinct
       ,ENC_TYPE
       ,DISCHARGE_DISPOSITION
       ,DISCHARGE_STATUS
+from DRG
 order by PATID, ENCOUNTERID, DRG_DATE
 
 

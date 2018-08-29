@@ -129,8 +129,8 @@ compress_df<-function(dat,tbl=c("demo","vital","lab"),save=F){
       ungroup
   }else if(tbl=="lab"){
     tbl_zip<-dat %>%
-      mutate(lab_idx=rank(key)) %>%
-      unite("val_unit_date",c("value","unit","dsa")) %>%
+      mutate(lab_idx=paste0("lab",rank(key))) %>%
+      unite("val_unit_date",c("value","unit","dsa"),sep=",") %>%
       group_by(PATID,ENCOUNTERID,lab_idx) %>%
       dplyr::summarize(fstr=paste0("[",paste(val_unit_date,collapse="];["),"]")) %>%
       ungroup %>%
@@ -142,7 +142,14 @@ compress_df<-function(dat,tbl=c("demo","vital","lab"),save=F){
   }else if(tbl=="DRG"){
     tbl_zip<-dat
   }else if(tbl=="med"){
-    
+    tbl_zip<-dat %>%
+      mutate(med_idx=paste0("med",rank(key))) %>%
+      unite("med_val_date",c("med_idx","value","dsa"),sep=";") %>%
+      spread(med_idx,fstr,fill=0) %>% #impute 0 for alignment
+      gather(med_idx,fstr,-PATID,-ENCOUNTERID) %>%
+      group_by(PATID,ENCOUNTERID) %>%
+      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
+      ungroup
   }else if(tbl=="dx"){
     
   }else if(tbl=="px"){

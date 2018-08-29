@@ -285,15 +285,48 @@ rm(lab,lab_summ); gc()
 
 
 ## admission DRG
-DRG<-dbGetQuery(conn,
+uhc_DRG<-dbGetQuery(conn,
                 parse_sql("./inst/collect_DRG.sql",
                           cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
-  dplyr::select(PATID,ENCOUNTERID,DRG_TYPE,DRG) %>%
-  unite("key",c("key1","key2"),sep=":") %>% 
-  mutate(value=1) %>% unique %>%
-  dplyr::select(PATID, ENCOUNTERID, key, value)
+  dplyr::select(PATID,ENCOUNTERID,DRG_TYPE,DRG,DRG_DATE) %>%
+  filter(!is.na(DRG)) %>%
+  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
+            by=c("PATID","ENCOUNTERID")) %>%
+  dplyr::mutate(dsa=round(as.numeric(difftime(DRG_DATE,critical_date,units="days")))) %>%
+  dplyr::rename(key1=DRG_TYPE,key2=DRG) %>% mutate(value=1) %>%
+  dplyr::select(PATID,ENCOUNTERID,key1,key2,value,dsa) %>% 
+  unique
 #save
-save(admit_DRG,file="./data/AKI_DRG.Rdata")
+save(uhc_DRG,file="./data/AKI_DRG.Rdata")
+
+#collect summaries
+DRG_summ<-uhc_DRG %>%
+  group_by(key1,key2) %>%
+  dplyr::summarize(record_cnt=n(),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min_history=min(dsa,na.rm=T),
+                   mean_history=round(mean(dsa,na.rm=T)),
+                   sd_history=round(sd(dsa,na.rm=T)),
+                   median_history=round(median(dsa,na.rm=T)),
+                   max_history=max(dsa,na.rm=T)) %>%
+  ungroup %>%
+  gather(summ,summ_val,-key1,-key2) %>%
+  spread(key1,summ_val) %>%
+  dplyr::mutate(summ=recode(summ,
+                            enc_cnt="1.encounters#",
+                            record_cnt="2.records#",
+                            min_history="3a.min_history",
+                            median_history="3b.median_history",
+                            mean_history="3c.mean_history",
+                            sd_history="3d.sd_history",
+                            max_history="3f.max_history")) %>%
+  arrange(key2,summ)
+
+#save
+save(DRG_summ,file="./data/DRG_summ.Rdata")
+
+#clean up
+rm(uhc_DRG,DRG_summ); gc()
 
 
 ## diagnosis
@@ -409,7 +442,6 @@ save(med_summ,file="./data/med_summ.Rdata")
 
 #clean up
 rm(med,med2,med_summ); gc()
-
 
 
 
