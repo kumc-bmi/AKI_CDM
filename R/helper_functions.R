@@ -139,9 +139,18 @@ compress_df<-function(dat,tbl=c("demo","vital","lab"),save=F){
       group_by(PATID,ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup
+  }else if(tbl=="DRG"){
+    tbl_zip<-dat
+  }else if(tbl=="med"){
+    
+  }else if(tbl=="dx"){
+    
+  }else if(tbl=="px"){
+    
+  }else{
+    warning("data elements not considered!")
   }
-  
-  
+
   if(save)
     save(tbl_zip,file=paste0("./data/",tbl,"_zip.Rdata"))
 }

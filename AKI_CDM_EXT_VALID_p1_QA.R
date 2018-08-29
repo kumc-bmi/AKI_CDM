@@ -284,41 +284,16 @@ save(lab_summ,file="./data/lab_summ.Rdata")
 rm(lab,lab_summ); gc()
 
 
-## medication
-med<-dbGetQuery(conn,
-                parse_sql("./inst/collect_med.sql",
-                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
-  dplyr::mutate(RX_EXPOS=pmin(RX_END_DATE_ADJ,RX_END_DATE,na.rm=T)-RX_START_DATE) %>%
-  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_EXPOS) %>%
-  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
-            by=c("PATID","ENCOUNTERID")) %>%
-  dplyr::mutate(dsa=round(as.numeric(difftime(RX_START_DATE,critical_date,units="days")))) %>%
-  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_EXPOS,RX_QUANTITY_DAILY,dsa) %>%
-  unique
-
-#expand table with daily exposure 
-med_expand<-med[rep(rownames(med),each=med$RX_EXPOS),] %>%
-  mutate(RX_EXPOS=1)
-
-#collect summaries
-
-
-
-#save
-save(med_expand,file="./data/AKI_med.Rdata")
-
-
 ## admission DRG
-admit_DRG<-dbGetQuery(conn,
-                      parse_sql("./inst/collect_enc.sql",
-                                cdm_db_schema=cdm_db_schema)$statement) %>%
-  dplyr::select(PATID,ENCOUNTERID,DRG,ADMITTING_SOURCE) %>%
-  gather(key1,key2,-PATID,-ENCOUNTERID) %>%
+DRG<-dbGetQuery(conn,
+                parse_sql("./inst/collect_DRG.sql",
+                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+  dplyr::select(PATID,ENCOUNTERID,DRG_TYPE,DRG) %>%
   unite("key",c("key1","key2"),sep=":") %>% 
   mutate(value=1) %>% unique %>%
   dplyr::select(PATID, ENCOUNTERID, key, value)
 #save
-save(admit_DRG,file="./data/AKI_admit_DRG.Rdata")
+save(admit_DRG,file="./data/AKI_DRG.Rdata")
 
 
 ## diagnosis
@@ -348,8 +323,96 @@ px<-dbGetQuery(conn,
 save(px,file="./data/AKI_px.Rdata")  
 
 
+## medication
+med<-dbGetQuery(conn,
+                parse_sql("./inst/collect_med.sql",
+                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+  dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
+                                    pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
+  replace_na(list(RX_QUANTITY_DAILY=1)) %>%
+  group_by(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS) %>%
+  dplyr::summarize(RX_START_DATE=min(RX_START_DATE),
+                   RX_END_DATE=max(RX_END_DATE),
+                   RX_QUANTITY_DAILY=max(RX_QUANTITY_DAILY,na.rm=T),
+                   RX_EXPOS=max(RX_EXPOS,na.rm=T)) %>%
+  ungroup %>%
+  dplyr::mutate(RX_EXPOS=pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),
+                              RX_EXPOS,na.rm=T)) %>%
+  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
+            by=c("PATID","ENCOUNTERID")) %>%
+  dplyr::mutate(sdsa=round(as.numeric(difftime(RX_START_DATE,critical_date,units="days")))) %>%
+  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
+  unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
 
+
+batch<-20
+expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch)))
+med2<-med %>% filter(RX_EXPOS<=1) %>% 
+  dplyr::mutate(dsa=as.character(sdsa),edsa=sdsa,value=RX_QUANTITY_DAILY) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
+
+for(i in seq_len(length(expos_quant)-1)){
+  start_i<-Sys.time()
   
+  med_sub<-med %>% filter(RX_EXPOS > expos_quant[i] & RX_EXPOS <= expos_quant[i+1])
+  med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
+    group_by(PATID,ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
+    dplyr::mutate(expos_daily=1:n()-1) %>% 
+    dplyr::summarize(edsa=max(sdsa+expos_daily),
+                     dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
+    ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
+    dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
+  med2 %<>% bind_rows(med_expand)
+
+  lapse_i<-Sys.time()-start_i
+  cat("batch",i,"of exposures between",expos_quant[i],"and",expos_quant[i+1],
+      "days are collected in",lapse_i,units(lapse_i),".\n")
+  
+  gc()
+}
+
+save(med2,file="./data/AKI_med.Rdata")
+
+
+#collect summaries
+med_summ<-med %>% 
+  mutate(dsa_grp=case_when(sdsa < 0 ~ "[-7,0)",
+                           sdsa >=0 & sdsa < 1 ~ "1",
+                           sdsa >=1 & sdsa < 2 ~ "2",
+                           sdsa >=2 & sdsa < 3 ~ "3",
+                           sdsa >=3 ~ "3<")) %>%
+  group_by(key,dsa_grp) %>%
+  dplyr::summarize(record_cnt=n(),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min_expos=min(RX_EXPOS,na.rm=T),
+                   mean_expos=round(mean(RX_EXPOS,na.rm=T)),
+                   sd_expos=round(sd(RX_EXPOS,na.rm=T)),
+                   median_expos=round(median(RX_EXPOS,na.rm=T)),
+                   max_expos=max(RX_EXPOS,na.rm=T)) %>%
+  ungroup %>%
+  dplyr::mutate(cov_expos=round(sd_expos/mean_expos,1)) %>%
+  gather(summ,summ_val,-key,-dsa_grp) %>%
+  spread(dsa_grp,summ_val) %>%
+  dplyr::mutate(summ=recode(summ,
+                            enc_cnt="1.encounters#",
+                            record_cnt="2.records#",
+                            min_expos="3a.min_expos",
+                            median_expos="3b.median_expos",
+                            mean_expos="3c.mean_expos",
+                            sd_expos="3d.sd_expos",
+                            cov_expos="3e.cov_expos",
+                            max_expos="3f.max_expos")) %>%
+  arrange(key,summ) 
+
+#save
+save(med_summ,file="./data/med_summ.Rdata")
+
+#clean up
+rm(med,med2,med_summ); gc()
+
+
+
+
 #illogical dates (aki onsets before birth or after death)
 aki_bad_dates<-aki_stage_ind<-tbl1 %>%
   dplyr::select(ENCOUNTERID,
