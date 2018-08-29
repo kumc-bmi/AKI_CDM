@@ -146,6 +146,7 @@ save(vital,file="./data/AKI_vital.Rdata")
 
 
 # collect summaries
+load("./data/AKI_vital.Rdata")
 vital_summ<-vital %>%
   dplyr::select(ENCOUNTERID, key, value, dsa) %>%
   filter(key %in% c("HT","WT","BMI","BP_DIASTOLIC","BP_SYSTOLIC")) %>%
@@ -160,11 +161,15 @@ vital_summ<-vital %>%
                               key=="BMI" ~ 50,
                               key=="BP_DIASTOLIC"~120,
                               key=="BP_SYSTOLIC" ~ 210)) %>%
-  mutate(dsa_grp=case_when(dsa < 0 ~ "[-7,0)",
+  mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
                            dsa >=0 & dsa < 1 ~ "1",
                            dsa >=1 & dsa < 2 ~ "2",
                            dsa >=2 & dsa < 3 ~ "3",
-                           dsa >=3 ~ "3<")) %>%
+                           dsa >=3 & dsa < 4 ~ "4",
+                           dsa >=4 & dsa < 5 ~ "5",
+                           dsa >=5 & dsa < 6 ~ "6",
+                           dsa >=6 & dsa < 7 ~ "7",
+                           dsa >=7 ~ "7<")) %>%
   group_by(key,dsa_grp) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
@@ -225,6 +230,9 @@ rm(vital,vital_summ); gc()
 #                    outliers_prop_mean=mean(outlier_prop))
 # 
 # save(vital_summ2,file="./data/vital_summ2.Rdata")  
+
+#vital: smoking and tobacco
+
 
 
 ## labs
@@ -293,34 +301,43 @@ uhc_DRG<-dbGetQuery(conn,
   left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
             by=c("PATID","ENCOUNTERID")) %>%
   dplyr::mutate(dsa=round(as.numeric(difftime(DRG_DATE,critical_date,units="days")))) %>%
-  dplyr::rename(key1=DRG_TYPE,key2=DRG) %>% mutate(value=1) %>%
-  group_by(PATID,ENCOUNTERID,key1,key2,value) %>% 
-  top_n(n=1,wt=dsa) %>% ungroup
+  dplyr::rename(key1=DRG_TYPE,key2=DRG) %>% 
+  dplyr::select(PATID,ENCOUNTERID,key1,key2,dsa) %>%
+  unique
 #save
 save(uhc_DRG,file="./data/AKI_DRG.Rdata")
 
+
 #collect summaries
+load("./data/AKI_DRG.Rdata")
 DRG_summ<-uhc_DRG %>%
   group_by(key1,key2) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
+                   pat_cnt=length(unique(PATID)),
                    min_history=min(dsa,na.rm=T),
                    mean_history=round(mean(dsa,na.rm=T)),
                    sd_history=round(sd(dsa,na.rm=T)),
                    median_history=round(median(dsa,na.rm=T)),
                    max_history=max(dsa,na.rm=T)) %>%
   ungroup %>%
+  #HIPPA, low counts masking
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",pat_cnt),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt)) %>%
   gather(summ,summ_val,-key1,-key2) %>%
-  spread(key1,summ_val) %>%
   dplyr::mutate(summ=recode(summ,
-                            enc_cnt="1.encounters#",
-                            record_cnt="2.records#",
-                            min_history="3a.min_history",
-                            median_history="3b.median_history",
-                            mean_history="3c.mean_history",
-                            sd_history="3d.sd_history",
-                            max_history="3f.max_history")) %>%
-  arrange(key2,summ)
+                            pat_cnt="1.patients#",
+                            enc_cnt="2.encounters#",
+                            record_cnt="3.records#",
+                            max_history="4a.min_history",
+                            median_history="4b.median_history",
+                            mean_history="4c.mean_history",
+                            sd_history="4d.sd_history",
+                            min_history="4f.max_history")) %>%
+  unite("key_summ",c("key1","summ")) %>%
+  spread(key_summ,summ_val) %>%
+  arrange(key2)
 
 #save
 save(DRG_summ,file="./data/DRG_summ.Rdata")
@@ -333,27 +350,101 @@ rm(uhc_DRG,DRG_summ); gc()
 load("./data/ccs_icd_cw.Rdata")
 dx<-dbGetQuery(conn,
                parse_sql("./inst/collect_dx.sql",
-                         cdm_db_schema=cdm_db_schema)$statement) %>%
+                         cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   #attach CCS diagnosis grouping
   dplyr::mutate(DX_ICD=paste0("ICD",DX_TYPE,":",DX)) %>%
   left_join(ccs_icd %>% select(-ccs_name),by=c("DX_ICD"="icd_w_type")) %>%
   unique %>% filter(!is.na(ccs_code)) %>%
-  dplyr::rename(DX_CCS=ccs_code) %>%
-  dplyr::select(PATID,ENCOUNTERID,DX_ICD,DX_CCS,DAYS_SINCE_ADMIT) %>%
+  dplyr::rename(key=ccs_code, dsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
   unique
 #save
 save(dx,file="./data/AKI_dx.Rdata")  
+
+#collect summaries
+# load("./data/AKI_dx.Rdata")
+dx_summ<-dx %>%
+  group_by(key) %>%
+  dplyr::summarize(record_cnt=n(),
+                   pat_cnt=length(unique(PATID)),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min_history=min(dsa,na.rm=T),
+                   mean_history=round(mean(dsa,na.rm=T)),
+                   sd_history=round(sd(dsa,na.rm=T)),
+                   median_history=round(median(dsa,na.rm=T)),
+                   max_history=max(dsa,na.rm=T)) %>%
+  ungroup %>%
+  #HIPPA, low counts masking
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",pat_cnt),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt)) %>%
+  gather(summ,summ_val,-key) %>%
+  dplyr::mutate(summ=recode(summ,
+                            pat_cnt="1.patient#",
+                            enc_cnt="2.encounter#",
+                            record_cnt="3.records#",
+                            max_history="4a.min_history",
+                            median_history="4b.median_history",
+                            mean_history="4c.mean_history",
+                            sd_history="4d.sd_history",
+                            min_history="4f.max_history")) %>%
+  spread(summ,summ_val) %>%
+  arrange(key)
+
+#save summary
+save(dx_summ,file="./data/dx_summ.Rdata")
+
+#clean up
+rm(dx,dx_summ); gc()
 
 
 ## procedure
 px<-dbGetQuery(conn,
                parse_sql("./inst/collect_px.sql",
-                         cdm_db_schema=cdm_db_schema)$statement) %>%
+                         cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   dplyr::mutate(PX=paste0(PX_TYPE,":",PX)) %>%
   dplyr::select(PATID,ENCOUNTERID,PX,DAYS_SINCE_ADMIT) %>%
+  dplyr::rename(key=PX, dsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
   unique
 #save
 save(px,file="./data/AKI_px.Rdata")  
+
+load("./data/AKI_px.Rdata")
+px_summ<-px %>%
+  group_by(key) %>%
+  dplyr::summarize(record_cnt=n(),
+                   pat_cnt=length(unique(PATID)),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min_history=min(dsa,na.rm=T),
+                   mean_history=round(mean(dsa,na.rm=T)),
+                   sd_history=round(sd(dsa,na.rm=T)),
+                   median_history=round(median(dsa,na.rm=T)),
+                   max_history=max(dsa,na.rm=T)) %>%
+  ungroup %>%
+  #HIPPA, low counts masking
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",pat_cnt),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt),
+         sd_history=ifelse(is.na(sd_history),0,sd_history)) %>%
+  gather(summ,summ_val,-key) %>%
+  dplyr::mutate(summ=recode(summ,
+                            pat_cnt="1.patient#",
+                            enc_cnt="2.encounter#",
+                            record_cnt="3.records#",
+                            max_history="4a.min_history",
+                            median_history="4b.median_history",
+                            mean_history="4c.mean_history",
+                            sd_history="4d.sd_history",
+                            min_history="4f.max_history")) %>%
+  spread(summ,summ_val) %>%
+  arrange(key)
+
+#save summary
+save(px_summ,file="./data/px_summ.Rdata")
+
+#clean up
+rm(px,px_summ); gc()
 
 
 ## medication
@@ -409,7 +500,7 @@ save(med2,file="./data/AKI_med.Rdata")
 
 #collect summaries
 med_summ<-med %>% 
-  mutate(dsa_grp=case_when(sdsa < 0 ~ "[-7,0)",
+  mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
                            sdsa >=0 & sdsa < 1 ~ "1",
                            sdsa >=1 & sdsa < 2 ~ "2",
                            sdsa >=2 & sdsa < 3 ~ "3",
@@ -422,7 +513,10 @@ med_summ<-med %>%
                    sd_expos=round(sd(RX_EXPOS,na.rm=T)),
                    median_expos=round(median(RX_EXPOS,na.rm=T)),
                    max_expos=max(RX_EXPOS,na.rm=T)) %>%
-  ungroup %>%
+  #HIPPA, low counts masking
+  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt),
+         sd_expos=ifelse(is.na(sd_expos),0,sd_expos)) %>%
   dplyr::mutate(cov_expos=round(sd_expos/mean_expos,1)) %>%
   gather(summ,summ_val,-key,-dsa_grp) %>%
   spread(dsa_grp,summ_val) %>%

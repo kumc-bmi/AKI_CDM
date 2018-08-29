@@ -105,8 +105,9 @@ execute_batch_sql<-function(conn,statements,verb,...){
   }
 }
 
-## compress data frame
-compress_df<-function(dat,tbl=c("demo","vital","lab"),save=F){
+## compress data frame into a condensed format
+#
+compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save=F){
   if(tbl=="demo"){
     tbl_zip<-dat %>% 
       filter(key %in% c("AGE","HISPANIC","RACE","SEX")) %>%
@@ -129,44 +130,56 @@ compress_df<-function(dat,tbl=c("demo","vital","lab"),save=F){
       ungroup
   }else if(tbl=="lab"){
     tbl_zip<-dat %>%
-      mutate(lab_idx=paste0("lab",rank(key))) %>%
+      mutate(lab_idx=paste0("lab",dense_rank(key))) %>%
       unite("val_unit_date",c("value","unit","dsa"),sep=",") %>%
       group_by(PATID,ENCOUNTERID,lab_idx) %>%
       dplyr::summarize(fstr=paste0("[",paste(val_unit_date,collapse="];["),"]")) %>%
       ungroup %>%
-      spread(lab_idx,fstr,fill=0) %>% #impute 0 for alignment
-      gather(lab_idx,fstr,-PATID,-ENCOUNTERID) %>%
       group_by(PATID,ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup
   }else if(tbl=="DRG"){
     tbl_zip<-dat %>%
-      mutate(uhc_idx=paste0("dx",rank(key2))) %>%
-      spread(uhc_idx,dsa,fill="0") %>%
-      gather(uhc_idx,dsa,-PATID,-ENCOUNTERID,-key1) %>%
-      unite("fstr",c("uhc_idx","dsa"),sep=";") %>%
+      mutate(uhc_idx=paste0("dx",dense_rank(key2))) %>%
       group_by(PATID,ENCOUNTERID,key1,uhc_idx) %>%
-      dplyr::summarize(fstr=paste0("[",paste(fstr,collapse="]_["),"]")) %>%
+      dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
+      ungroup %>%
+      unite("fstr",c("uhc_idx","dsa"),sep=";") %>%
+      group_by(PATID,ENCOUNTERID,key1) %>%
+      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
+      ungroup %>%
       group_by(PATID,ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="|")) %>%
       ungroup %>% unique
   }else if(tbl=="dx"){
-    
+    tbl_zip<-dat %>%
+      group_by(PATID,ENCOUNTERID,key) %>%
+      dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
+      ungroup %>%
+      unite("fstr",c("key","dsa"),sep=";") %>%
+      group_by(PATID,ENCOUNTERID) %>%
+      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
+      ungroup %>% unique
   }else if(tbl=="px"){
-    
+    tbl_zip<-px %>%
+      mutate(px_idx=paste0("px",dense_rank(key))) %>%
+      group_by(PATID,ENCOUNTERID,px_idx) %>%
+      dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
+      ungroup %>%
+      unite("fstr",c("px_idx","dsa"),sep=";") %>%
+      group_by(PATID,ENCOUNTERID) %>%
+      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
+      ungroup %>% unique
   }else if(tbl=="med"){
     tbl_zip<-dat %>%
-      mutate(med_idx=paste0("med",rank(key))) %>%
+      mutate(med_idx=paste0("med",dense_rank(key))) %>%
       unite("med_val_date",c("med_idx","value","dsa"),sep=";") %>%
-      spread(med_idx,fstr,fill=0) %>% #impute 0 for alignment
-      gather(med_idx,fstr,-PATID,-ENCOUNTERID) %>%
       group_by(PATID,ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup
   }else{
     warning("data elements not considered!")
   }
-
   if(save)
     save(tbl_zip,file=paste0("./data/",tbl,"_zip.Rdata"))
 }
