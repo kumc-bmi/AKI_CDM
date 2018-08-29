@@ -294,8 +294,8 @@ uhc_DRG<-dbGetQuery(conn,
             by=c("PATID","ENCOUNTERID")) %>%
   dplyr::mutate(dsa=round(as.numeric(difftime(DRG_DATE,critical_date,units="days")))) %>%
   dplyr::rename(key1=DRG_TYPE,key2=DRG) %>% mutate(value=1) %>%
-  dplyr::select(PATID,ENCOUNTERID,key1,key2,value,dsa) %>% 
-  unique
+  group_by(PATID,ENCOUNTERID,key1,key2,value) %>% 
+  top_n(n=1,wt=dsa) %>% ungroup
 #save
 save(uhc_DRG,file="./data/AKI_DRG.Rdata")
 

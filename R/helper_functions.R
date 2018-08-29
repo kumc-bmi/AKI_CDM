@@ -140,7 +140,20 @@ compress_df<-function(dat,tbl=c("demo","vital","lab"),save=F){
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup
   }else if(tbl=="DRG"){
-    tbl_zip<-dat
+    tbl_zip<-dat %>%
+      mutate(uhc_idx=paste0("dx",rank(key2))) %>%
+      spread(uhc_idx,dsa,fill="0") %>%
+      gather(uhc_idx,dsa,-PATID,-ENCOUNTERID,-key1) %>%
+      unite("fstr",c("uhc_idx","dsa"),sep=";") %>%
+      group_by(PATID,ENCOUNTERID,key1,uhc_idx) %>%
+      dplyr::summarize(fstr=paste0("[",paste(fstr,collapse="]_["),"]")) %>%
+      group_by(PATID,ENCOUNTERID) %>%
+      dplyr::summarize(fstr=paste(fstr,collapse="|")) %>%
+      ungroup %>% unique
+  }else if(tbl=="dx"){
+    
+  }else if(tbl=="px"){
+    
   }else if(tbl=="med"){
     tbl_zip<-dat %>%
       mutate(med_idx=paste0("med",rank(key))) %>%
@@ -150,10 +163,6 @@ compress_df<-function(dat,tbl=c("demo","vital","lab"),save=F){
       group_by(PATID,ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup
-  }else if(tbl=="dx"){
-    
-  }else if(tbl=="px"){
-    
   }else{
     warning("data elements not considered!")
   }
