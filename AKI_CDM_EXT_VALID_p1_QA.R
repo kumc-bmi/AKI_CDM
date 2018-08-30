@@ -187,7 +187,7 @@ vital<-dbGetQuery(conn,
 
 # collect summaries
 load("./data/AKI_vital.Rdata")
-vital %<>%
+vital_summ<-vital %>%
   dplyr::select(ENCOUNTERID, key, value, dsa) %>%
   filter(key %in% c("HT","WT","BMI","BP_DIASTOLIC","BP_SYSTOLIC")) %>%
   mutate(value=as.numeric(value)) %>%
@@ -209,9 +209,7 @@ vital %<>%
                            dsa >=4 & dsa < 5 ~ "5",
                            dsa >=5 & dsa < 6 ~ "6",
                            dsa >=6 & dsa < 7 ~ "7",
-                           dsa >=7 ~ "7<"))
-
-vital_summ<-vital %>%
+                           dsa >=7 ~ "7<")) %>%
   group_by(key) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
@@ -278,7 +276,7 @@ vital_summ<-vital %>%
   arrange(key,summ)
 
 load("./data/AKI_vital.Rdata")
-vital_smoke<-vital %>%
+vital_smoke_summ<-vital %>%
   dplyr::select(PATID,ENCOUNTERID, key, value) %>%
   filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
   unique %>%
@@ -297,6 +295,10 @@ vital_smoke<-vital %>%
   dplyr::summarize(pat_cnt=length(unique(PATID)),
                    enc_cnt=length(unique(ENCOUNTERID)),
                    record_cnt=n()) %>%
+  #HIPPA, low counts masking
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11 & as.numeric(pat_cnt)>0,"<11",as.character(pat_cnt)),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
+         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt))) %>%
   gather(summ,summ_val,-key_cat) %>%
   mutate(summ=recode(summ,
                      pat_cnt="1.patients#",
@@ -308,7 +310,7 @@ vital_smoke<-vital %>%
 #save
 save(vital,file="./data/AKI_vital.Rdata")
 save(vital_summ,file="./data/vital_summ.Rdata")
-save(vital_smoke,file="./data/vital_smoke.Rdata")
+save(vital_smoke_summ,file="./data/vital_smoke_summ.Rdata")
 #clean up
 rm(vital,vital_summ); gc()
 
