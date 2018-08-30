@@ -2,7 +2,7 @@ rm(list=ls())
 gc()
 
 #holders for final results
-tbl_lst<-list()
+final_out<-list()
 tbl_cnt<-1
 
 ############################# set up #############################
@@ -47,6 +47,7 @@ final_out[[paste0("Table",tbl_cnt)]]<-consort_tbl
 tbl_cnt<-tbl_cnt+1
 #---------------add to result list----------------#
 
+
 ############################# summarize Table1 ##################################
 # collect summaries
 enc_tot<-length(unique(Table1$ENCOUNTERID))
@@ -72,32 +73,35 @@ tbl1_summ<-tbl1_dsa %>%
                    q3_time=quantile(days_since_admit,probs=0.75,na.rm=T),
                    max_time=max(days_since_admit,na.rm=T),
                    sd_time=round(sd(days_since_admit,na.rm=T),2)) %>%
-  mutate(semi_IQR_time=0.5*(q3_time-q1_time))
+  mutate(semi_IQR_time=0.5*(q3_time-q1_time)) %>%
+  #HIPPA, low counts masking
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",as.character(pat_cnt)),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt)))
 
 #---------------add to result list----------------#
 final_out[[paste0("Table",tbl_cnt)]]<-tbl1_summ
 tbl_cnt<-tbl_cnt+1
 #---------------add to result list----------------#
 
-tbl1_summ2<-tbl1_dsa %>%
-  mutate(dsa_bin=case_when(days_since_admit <10 ~ paste0("0",days_since_admit," days"),
-                           days_since_admit >=10 & days_since_admit < 31 ~ paste(days_since_admit,"days"),
-                           days_since_admit >=31 ~ '31 days(1mth) <')) %>%
-  group_by(stage,dsa_bin) %>%
-  dplyr::summarize(enc_cnt=length(unique(ENCOUNTERID))) %>%
-  spread(stage,enc_cnt,fill=0) %>%
-  mutate(AKI1_cum=cumsum(AKI1),
-         AKI2_cum=cumsum(AKI2),
-         AKI3_cum=cumsum(AKI3),
-         NONAKI_cum=cumsum(NONAKI)) %>%
-  arrange(desc(dsa_bin)) %>%
-  mutate(NONAKI=cumsum(NONAKI)) %>%
-  arrange(dsa_bin)
-
-#---------------add to result list----------------#
-final_out[[paste0("Table",tbl_cnt)]]<-tbl1_summ2
-tbl_cnt<-tbl_cnt+1
-#---------------add to result list----------------#
+# tbl1_summ2<-tbl1_dsa %>%
+#   mutate(dsa_bin=case_when(days_since_admit <10 ~ paste0("0",days_since_admit," days"),
+#                            days_since_admit >=10 & days_since_admit < 31 ~ paste(days_since_admit,"days"),
+#                            days_since_admit >=31 ~ '31 days(1mth) <')) %>%
+#   group_by(stage,dsa_bin) %>%
+#   dplyr::summarize(enc_cnt=length(unique(ENCOUNTERID))) %>%
+#   spread(stage,enc_cnt,fill=0) %>%
+#   mutate(AKI1_cum=cumsum(AKI1),
+#          AKI2_cum=cumsum(AKI2),
+#          AKI3_cum=cumsum(AKI3),
+#          NONAKI_cum=cumsum(NONAKI)) %>%
+#   arrange(desc(dsa_bin)) %>%
+#   mutate(NONAKI=cumsum(NONAKI)) %>%
+#   arrange(dsa_bin)
+# 
+# #---------------add to result list----------------#
+# final_out[[paste0("Table",tbl_cnt)]]<-tbl1_summ2
+# tbl_cnt<-tbl_cnt+1
+# #---------------add to result list----------------#
 
 #save on disk?
 # save(Table1,file="./data/Table1.Rdata")
@@ -105,7 +109,7 @@ tbl_cnt<-tbl_cnt+1
 # save(tbl1_summ,file="./data/tbl1_summ.Rdata")
 # save(tbl1_summ2,file="./data/tbl1_summ2.Rdata")
 #clean up
-rm(cohort,consort_tbl,tbl1_summ,tbl1_summ2); gc()
+rm(cohort,consort_tbl,tbl1_summ); gc()
 
 #collect and summarize variables
 # auxilliary summaries and tables
@@ -662,7 +666,7 @@ med<-dbGetQuery(conn,
   dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
   unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
 
-
+#estimate daily exposure
 batch<-20
 expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch)))
 med2<-med %>% filter(RX_EXPOS<=1) %>% 
@@ -704,9 +708,10 @@ med_summ<-med %>%
                    sd_expos=round(sd(RX_EXPOS,na.rm=T)),
                    median_expos=round(median(RX_EXPOS,na.rm=T)),
                    max_expos=max(RX_EXPOS,na.rm=T)) %>%
+  ungroup %>%
   #HIPPA, low counts masking
-  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
-         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt),
+  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt)),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",as.character(record_cnt)),
          sd_expos=ifelse(is.na(sd_expos),0,sd_expos)) %>%
   dplyr::mutate(cov_expos=round(sd_expos/mean_expos,1)) %>%
   gather(summ,summ_val,-key,-dsa_grp) %>%
@@ -723,8 +728,8 @@ med_summ<-med %>%
   arrange(key,summ) 
 
 #---------------add to result list-------------------#
+#last table
 final_out[[paste0("Table",tbl_cnt)]]<-med_summ
-# tbl_cnt<-tbl_cnt+1
 #---------------add to result list-------------------#
 
 #save
@@ -735,4 +740,4 @@ final_out[[paste0("Table",tbl_cnt)]]<-med_summ
 rm(med,med2,med_summ); gc()
 
 ############################# write final workbook ##########################
-write.xlsx(final_out,file="./data/AKI_CDM_EXT_VALID_p1_QA_T.xlsx")
+write.xlsx(final_out,file="./data/AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx")

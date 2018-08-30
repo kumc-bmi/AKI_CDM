@@ -1,4 +1,4 @@
-#### visulizations ####
+#### visualizations ####
 require_libraries("diagram")
 consort_diag<-function(consort_tbl){
   tbl<-consort_tbl %>% 
