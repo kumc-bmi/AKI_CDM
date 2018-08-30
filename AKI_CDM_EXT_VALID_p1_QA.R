@@ -1,6 +1,11 @@
 rm(list=ls())
 gc()
 
+#holders for final results
+tbl_lst<-list()
+tbl_cnt<-1
+
+############################# set up #############################
 #source utility functions
 source("./R/helper_functions.R")
 source("./R/extract_cohort.R")
@@ -11,13 +16,13 @@ require_libraries(c("tidyr",
                     "magrittr",
                     "stringr",
                     "ROracle",
-                    "DBI"))
+                    "DBI",
+                    "openxlsx"))
 
 
 #establish the connection between r-studio and a writable schema where
 # - intermediate tables can be created and
 # - can talk to CDM server
-
 config_file_path<-"../config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
 conn<-dbConnect(Oracle(),
@@ -26,7 +31,7 @@ conn<-dbConnect(Oracle(),
                 config_file$access)
 
 
-#extract cohort --Table1
+############################# extract cohort --Table1 #############################
 # by default, we assume cdm schema is on the same server as current schema,
 # if not, set same_server=F and cdm_db_server=...(server name)
 cohort<-extract_cohort(conn,
@@ -34,12 +39,16 @@ cohort<-extract_cohort(conn,
                        cdm_db_schema=config_file$cdm_db_schema,
                        start_date="2010-01-01",
                        end_date="2018-12-31")
-#save results
 Table1<-cohort$aki_enc
 consort_tbl<-cohort$attrition
 
+#---------------add to result list----------------#
+final_out[[paste0("Table",tbl_cnt)]]<-consort_tbl
+tbl_cnt<-tbl_cnt+1
+#---------------add to result list----------------#
+
+############################# summarize Table1 ##################################
 # collect summaries
-load("./data/Table1.Rdata")
 enc_tot<-length(unique(Table1$ENCOUNTERID))
 
 tbl1_dsa<-Table1 %>% 
@@ -65,6 +74,11 @@ tbl1_summ<-tbl1_dsa %>%
                    sd_time=round(sd(days_since_admit,na.rm=T),2)) %>%
   mutate(semi_IQR_time=0.5*(q3_time-q1_time))
 
+#---------------add to result list----------------#
+final_out[[paste0("Table",tbl_cnt)]]<-tbl1_summ
+tbl_cnt<-tbl_cnt+1
+#---------------add to result list----------------#
+
 tbl1_summ2<-tbl1_dsa %>%
   mutate(dsa_bin=case_when(days_since_admit <10 ~ paste0("0",days_since_admit," days"),
                            days_since_admit >=10 & days_since_admit < 31 ~ paste(days_since_admit,"days"),
@@ -79,18 +93,21 @@ tbl1_summ2<-tbl1_dsa %>%
   arrange(desc(dsa_bin)) %>%
   mutate(NONAKI=cumsum(NONAKI)) %>%
   arrange(dsa_bin)
-  
-  
-#save results
-save(Table1,file="./data/Table1.Rdata")
-save(consort_tbl,file="./data/consort_tbl.Rdata")
-save(tbl1_summ,file="./data/tbl1_summ.Rdata")
-save(tbl1_summ2,file="./data/tbl1_summ2.Rdata")
+
+#---------------add to result list----------------#
+final_out[[paste0("Table",tbl_cnt)]]<-tbl1_summ2
+tbl_cnt<-tbl_cnt+1
+#---------------add to result list----------------#
+
+#save on disk?
+# save(Table1,file="./data/Table1.Rdata")
+# save(consort_tbl,file="./data/consort_tbl.Rdata")
+# save(tbl1_summ,file="./data/tbl1_summ.Rdata")
+# save(tbl1_summ2,file="./data/tbl1_summ2.Rdata")
 #clean up
-rm(cohort,consort_tbl); gc()
+rm(cohort,consort_tbl,tbl1_summ,tbl1_summ2); gc()
 
-
-#collectand summarize variables
+#collect and summarize variables
 # auxilliary summaries and tables
 aki_stage_ind<-Table1 %>%
   dplyr::select(PATID, ENCOUNTERID, ADMIT_DATE, DISCHARGE_DATE,
@@ -104,10 +121,11 @@ aki_stage_ind<-Table1 %>%
   arrange(PATID, ENCOUNTERID, chk_pt, critical_date, stg_tot_cnt)
 
 
-## demographic
+############################# demographic #######################################
 demo<-dbGetQuery(conn,
                  parse_sql("./inst/collect_demo.sql",
-                           cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+                           cdm_db_schema=config_file$cdm_db_schema,
+                           cdm_db_server=" ")$statement) %>%
   mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
                            AGE >= 26 & AGE <= 35 ~ "26-35",
                            AGE >= 36 & AGE <= 45 ~ "36-45",
@@ -157,17 +175,22 @@ demo_summ<-aki_stage_ind %>%
   unique %>% spread(stg_summ,summ_val) %>%
   replace(.,is.na(.),0)
 
+#---------------add to result list----------------#
+final_out[[paste0("Table",tbl_cnt)]]<-demo_summ
+tbl_cnt<-tbl_cnt+1
+#---------------add to result list----------------#
+
 #save results
-save(demo,file="./data/AKI_demo.Rdata")
-save(demo_summ,file="./data/demo_summ.Rdata")
+# save(demo,file="./data/AKI_demo.Rdata")
+# save(demo_summ,file="./data/demo_summ.Rdata")
 #clean up
 rm(demo,demo_summ); gc()
 
-
-## vital
+############################# vital ################################################
 vital<-dbGetQuery(conn,
                   parse_sql("./inst/collect_vital.sql",
-                            cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+                            cdm_db_schema=config_file$cdm_db_schema,
+                            cdm_db_server=" ")$statement) %>%
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
                              ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
                              ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
@@ -184,10 +207,7 @@ vital<-dbGetQuery(conn,
                     DIASTOLIC="BP_DIASTOLIC")) %>%
   unique
 
-
-# collect summaries
-load("./data/AKI_vital.Rdata")
-vital_summ<-vital %>%
+vital1<-vital %>%
   dplyr::select(ENCOUNTERID, key, value, dsa) %>%
   filter(key %in% c("HT","WT","BMI","BP_DIASTOLIC","BP_SYSTOLIC")) %>%
   mutate(value=as.numeric(value)) %>%
@@ -209,7 +229,9 @@ vital_summ<-vital %>%
                            dsa >=4 & dsa < 5 ~ "5",
                            dsa >=5 & dsa < 6 ~ "6",
                            dsa >=6 & dsa < 7 ~ "7",
-                           dsa >=7 ~ "7<")) %>%
+                           dsa >=7 ~ "7<"))
+# collect summaries
+vital_summ<-vital1
   group_by(key) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
@@ -240,7 +262,7 @@ vital_summ<-vital %>%
                      cov="5e.cov",
                      max="5f.max")) %>%
   left_join(
-    vital %>%
+    vital1 %>%
       group_by(key,dsa_grp) %>%
       dplyr::summarize(record_cnt=n(),
                        enc_cnt=length(unique(ENCOUNTERID)),
@@ -275,6 +297,13 @@ vital_summ<-vital %>%
   ) %>%
   arrange(key,summ)
 
+
+#---------------add to result list----------------#
+final_out[[paste0("Table",tbl_cnt)]]<-vital_summ
+tbl_cnt<-tbl_cnt+1
+#---------------add to result list----------------#
+
+
 vital_smoke_summ<-vital %>%
   dplyr::select(PATID,ENCOUNTERID, key, value) %>%
   filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
@@ -305,11 +334,15 @@ vital_smoke_summ<-vital %>%
                      record_cnt="3.records#")) %>%
   spread(summ,summ_val)
 
+#---------------add to result list-------------------#
+final_out[[paste0("Table",tbl_cnt)]]<-vital_smoke_summ
+tbl_cnt<-tbl_cnt+1
+#---------------add to result list-------------------#
 
 #save
-save(vital,file="./data/AKI_vital.Rdata")
-save(vital_summ,file="./data/vital_summ.Rdata")
-save(vital_smoke_summ,file="./data/vital_smoke_summ.Rdata")
+# save(vital,file="./data/AKI_vital.Rdata")
+# save(vital_summ,file="./data/vital_summ.Rdata")
+# save(vital_smoke_summ,file="./data/vital_smoke_summ.Rdata")
 #clean up
 rm(vital,vital_summ); gc()
 
@@ -344,10 +377,11 @@ rm(vital,vital_summ); gc()
 # save(vital_summ2,file="./data/vital_summ2.Rdata")  
 
 
-## labs
+############################# labs ###########################################
 lab<-dbGetQuery(conn,
                 parse_sql("./inst/collect_lab.sql",
-                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+                          cdm_db_schema=config_file$cdm_db_schema,
+                          cdm_db_server=" ")$statement) %>%
   dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME) %>%
   left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
             by=c("PATID","ENCOUNTERID")) %>%
@@ -426,21 +460,26 @@ lab_summ<-lab %>%
   arrange(freq_rk,summ) %>%
   #additional 
   mutate(at_admission=ifelse(is.na(`1`),0,1),
-         within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1),
-         daily_moniter_3d=ifelse(!is.na(`1`)&!is.na(`2`)&!is.na(`3`),1,0))
+         within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1))
+
+#---------------add to result list-------------------#
+final_out[[paste0("Table",tbl_cnt)]]<-lab_summ
+tbl_cnt<-tbl_cnt+1
+#---------------add to result list-------------------#
 
 #save
-save(lab,file="./data/AKI_lab.Rdata")
-save(lab_summ,file="./data/lab_summ.Rdata")
+# save(lab,file="./data/AKI_lab.Rdata")
+# save(lab_summ,file="./data/lab_summ.Rdata")
 
 #clean up
 rm(lab,lab_summ); gc()
 
 
-## admission DRG
+############################# admission DRG ####################################
 uhc_DRG<-dbGetQuery(conn,
                 parse_sql("./inst/collect_DRG.sql",
-                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+                          cdm_db_schema=config_file$cdm_db_schema,
+                          cdm_db_server=" ")$statement) %>%
   dplyr::select(PATID,ENCOUNTERID,DRG_TYPE,DRG,DRG_DATE) %>%
   filter(!is.na(DRG)) %>%
   left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
@@ -480,15 +519,20 @@ DRG_summ<-uhc_DRG %>%
   spread(summ,summ_val) %>%
   arrange(DRG)
 
+#---------------add to result list-------------------#
+final_out[[paste0("Table",tbl_cnt)]]<-DRG_summ
+tbl_cnt<-tbl_cnt+1
+#---------------add to result list-------------------#
+
 #save
-save(uhc_DRG,file="./data/AKI_DRG.Rdata")
-save(DRG_summ,file="./data/DRG_summ.Rdata")
+# save(uhc_DRG,file="./data/AKI_DRG.Rdata")
+# save(DRG_summ,file="./data/DRG_summ.Rdata")
 
 #clean up
 rm(uhc_DRG,DRG_summ); gc()
 
 
-## diagnosis
+############################# diagnosis (CCS) #######################################################
 load("./data/ccs_icd_cw.Rdata")
 dx<-dbGetQuery(conn,
                parse_sql("./inst/collect_dx.sql",
@@ -530,20 +574,24 @@ dx_summ<-dx %>%
   spread(summ,summ_val) %>%
   arrange(key)
 
+#---------------add to result list-------------------#
+final_out[[paste0("Table",tbl_cnt)]]<-dx_summ
+tbl_cnt<-tbl_cnt+1
+#---------------add to result list-------------------#
+
 #save
-save(dx,file="./data/AKI_dx.Rdata")  
-save(dx_summ,file="./data/dx_summ.Rdata")
+# save(dx,file="./data/AKI_dx.Rdata")  
+# save(dx_summ,file="./data/dx_summ.Rdata")
 
 #clean up
 rm(dx,dx_summ); gc()
 
-load("./data/dx_summ.Rdata")
 
-
-## procedure
+############################# procedure ####################################
 px<-dbGetQuery(conn,
                parse_sql("./inst/collect_px.sql",
-                         cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+                         cdm_db_schema=config_file$cdm_db_schema,
+                         cdm_db_server=" ")$statement) %>%
   dplyr::mutate(PX=paste0(PX_TYPE,":",PX)) %>%
   dplyr::select(PATID,ENCOUNTERID,PX,DAYS_SINCE_ADMIT) %>%
   dplyr::rename(key=PX, dsa=DAYS_SINCE_ADMIT) %>%
@@ -579,18 +627,24 @@ px_summ<-px %>%
   spread(summ,summ_val) %>%
   arrange(key)
 
+#---------------add to result list-------------------#
+final_out[[paste0("Table",tbl_cnt)]]<-px_summ
+tbl_cnt<-tbl_cnt+1
+#---------------add to result list-------------------#
+
 #save
-save(px,file="./data/AKI_px.Rdata")  
-save(px_summ,file="./data/px_summ.Rdata")
+# save(px,file="./data/AKI_px.Rdata")  
+# save(px_summ,file="./data/px_summ.Rdata")
 
 #clean up
 rm(px,px_summ); gc()
 
 
-## medication
+############################# medication ####################################
 med<-dbGetQuery(conn,
                 parse_sql("./inst/collect_med.sql",
-                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+                          cdm_db_schema=config_file$cdm_db_schema,
+                          cdm_db_server=" ")$statement) %>%
   dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
                                     pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
@@ -668,10 +722,17 @@ med_summ<-med %>%
                             max_expos="3f.max_expos")) %>%
   arrange(key,summ) 
 
+#---------------add to result list-------------------#
+final_out[[paste0("Table",tbl_cnt)]]<-med_summ
+# tbl_cnt<-tbl_cnt+1
+#---------------add to result list-------------------#
+
 #save
-save(med2,file="./data/AKI_med.Rdata")
-save(med_summ,file="./data/med_summ.Rdata")
+# save(med2,file="./data/AKI_med.Rdata")
+# save(med_summ,file="./data/med_summ.Rdata")
 
 #clean up
 rm(med,med2,med_summ); gc()
 
+############################# write final workbook ##########################
+write.xlsx(final_out,file="./data/AKI_CDM_EXT_VALID_p1_QA_T.xlsx")
