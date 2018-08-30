@@ -17,8 +17,8 @@ require_libraries<-function(package_list){
 ## parse Oracle sql lines
 parse_sql<-function(file_path,...){
   param_val<-list(...)
-  param_val<-c(param_val[1],                 #cdm schema
-               paste0("@",param_val[2]),     #cdm server
+  param_val<-c(param_val[1], #cdm schema
+               paste0(ifelse(param_val[2]!=" ","@",""),param_val[2]), #cdm server
                paste0("'",param_val[3],"'"), #start date (observation window)
                paste0("'",param_val[4],"'")) #end date (observation window)
 
@@ -60,7 +60,7 @@ parse_sql<-function(file_path,...){
   }
   close(con)
   
-  #update parameters, if applicable
+  #update parameters as needed
   if(params_ind){
     for(i in seq_along(params)){
       sql_string<-gsub(params[i],param_val[i],sql_string)

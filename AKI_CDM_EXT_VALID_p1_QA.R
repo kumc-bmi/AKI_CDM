@@ -30,29 +30,68 @@ conn<-dbConnect(Oracle(),
 # by default, we assume cdm schema is on the same server as current schema,
 # if not, set same_server=F and cdm_db_server=...(server name)
 cohort<-extract_cohort(conn,
-                       cdm_db_schema=config_file$cdm_db_schema,
                        oracle_temp_schema=config_file$oracle_temp_schema,
+                       cdm_db_schema=config_file$cdm_db_schema,
                        start_date="2010-01-01",
                        end_date="2018-12-31")
-#save Table1
+#save results
 Table1<-cohort$aki_enc
-save(Table1,file="./data/Table1.Rdata")
-
-#print out attrition table
 consort_tbl<-cohort$attrition
+
+# collect summaries
+load("./data/Table1.Rdata")
+enc_tot<-length(unique(Table1$ENCOUNTERID))
+
+tbl1_dsa<-Table1 %>% 
+  dplyr::select(PATID, ENCOUNTERID,
+                NONAKI_SINCE_ADMIT, 
+                AKI1_SINCE_ADMIT,
+                AKI2_SINCE_ADMIT,
+                AKI3_SINCE_ADMIT) %>%
+  gather(stage, days_since_admit,-PATID,-ENCOUNTERID) %>%
+  mutate(stage=gsub("_.*","",stage)) %>% 
+  filter(!is.na(days_since_admit)) 
+
+tbl1_summ<-tbl1_dsa %>%
+  group_by(stage) %>%
+  dplyr::summarize(pat_cnt=length(unique(PATID)),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min_time=min(days_since_admit,na.rm=T),
+                   q1_time=quantile(days_since_admit,probs=0.25,na.rm=T),
+                   median_time=median(days_since_admit,na.rm=T),
+                   mean_time=round(mean(days_since_admit,na.rm=T),1),
+                   q3_time=quantile(days_since_admit,probs=0.75,na.rm=T),
+                   max_time=max(days_since_admit,na.rm=T),
+                   sd_time=round(sd(days_since_admit,na.rm=T),2)) %>%
+  mutate(semi_IQR_time=0.5*(q3_time-q1_time))
+
+tbl1_summ2<-tbl1_dsa %>%
+  mutate(dsa_bin=case_when(days_since_admit <10 ~ paste0("0",days_since_admit," days"),
+                           days_since_admit >=10 & days_since_admit < 31 ~ paste(days_since_admit,"days"),
+                           days_since_admit >=31 ~ '31 days(1mth) <')) %>%
+  group_by(stage,dsa_bin) %>%
+  dplyr::summarize(enc_cnt=length(unique(ENCOUNTERID))) %>%
+  spread(stage,enc_cnt,fill=0) %>%
+  mutate(AKI1_cum=cumsum(AKI1),
+         AKI2_cum=cumsum(AKI2),
+         AKI3_cum=cumsum(AKI3),
+         NONAKI_cum=cumsum(NONAKI)) %>%
+  arrange(desc(dsa_bin)) %>%
+  mutate(NONAKI=cumsum(NONAKI)) %>%
+  arrange(dsa_bin)
+  
+  
+#save results
+save(Table1,file="./data/Table1.Rdata")
 save(consort_tbl,file="./data/consort_tbl.Rdata")
+save(tbl1_summ,file="./data/tbl1_summ.Rdata")
+save(tbl1_summ2,file="./data/tbl1_summ2.Rdata")
 #clean up
 rm(cohort,consort_tbl); gc()
 
-# collect summaries
-tbl1_summ<-Table1 %>%
-
 
 #collectand summarize variables
-# load("./data/Table1.Rdata")
 # auxilliary summaries and tables
-enc_tot<-length(unique(Table1$ENCOUNTERID))
-# critical dates of AKI encounters
 aki_stage_ind<-Table1 %>%
   dplyr::select(PATID, ENCOUNTERID, ADMIT_DATE, DISCHARGE_DATE,
                 NONAKI_ANCHOR, AKI1_ONSET,AKI2_ONSET,AKI3_ONSET) %>%
@@ -85,12 +124,7 @@ demo<-dbGetQuery(conn,
   gather(key,value,-PATID,-ENCOUNTERID) %>%
   unique
 
-#save
-save(demo,file="./data/AKI_demo.Rdata")
-
-
-#summaries
-load("./data/AKI_demo.Rdata")
+#collect summaries
 demo_summ<-aki_stage_ind %>% 
   filter(!chk_pt %in% c("DISCHARGE")) %>%
   dplyr::select(-critical_date) %>%
@@ -123,12 +157,14 @@ demo_summ<-aki_stage_ind %>%
   unique %>% spread(stg_summ,summ_val) %>%
   replace(.,is.na(.),0)
 
+#save results
+save(demo,file="./data/AKI_demo.Rdata")
 save(demo_summ,file="./data/demo_summ.Rdata")
 #clean up
 rm(demo,demo_summ); gc()
 
+
 ## vital
-#vital: HT,WT,BMI,BP
 vital<-dbGetQuery(conn,
                   parse_sql("./inst/collect_vital.sql",
                             cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
@@ -147,9 +183,6 @@ vital<-dbGetQuery(conn,
                     SYSTOLIC="BP_SYSTOLIC",
                     DIASTOLIC="BP_DIASTOLIC")) %>%
   unique
-
-#save
-save(vital,file="./data/AKI_vital.Rdata")
 
 
 # collect summaries
@@ -244,9 +277,39 @@ vital_summ<-vital %>%
   ) %>%
   arrange(key,summ)
 
+load("./data/AKI_vital.Rdata")
+vital_smoke<-vital %>%
+  dplyr::select(PATID,ENCOUNTERID, key, value) %>%
+  filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
+  unique %>%
+  group_by(PATID,ENCOUNTERID, key) %>%
+  dplyr::mutate(value=paste(value[order(value)],collapse = ",")) %>% 
+  ungroup %>% unique %>%
+  spread(key,value) %>%
+  right_join(Table1 %>% dplyr::select(PATID,ENCOUNTERID),
+             by=c("PATID","ENCOUNTERID")) %>%
+  replace_na(list(SMOKING="NI",
+                  TOBACCO="NI",
+                  TOBACCO_TYPE="NI")) %>%
+  gather(key,value,-PATID,-ENCOUNTERID) %>%
+  unite("key_cat",c("key","value")) %>%
+  group_by(key_cat) %>%
+  dplyr::summarize(pat_cnt=length(unique(PATID)),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   record_cnt=n()) %>%
+  gather(summ,summ_val,-key_cat) %>%
+  mutate(summ=recode(summ,
+                     pat_cnt="1.patients#",
+                     enc_cnt="2.encounters#",
+                     record_cnt="3.records#")) %>%
+  spread(summ,summ_val)
+
 
 #save
+save(vital,file="./data/AKI_vital.Rdata")
 save(vital_summ,file="./data/vital_summ.Rdata")
+save(vital_smoke,file="./data/vital_smoke.Rdata")
+#clean up
 rm(vital,vital_summ); gc()
 
 ##TODO: scalability issue

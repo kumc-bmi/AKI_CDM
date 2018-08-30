@@ -16,7 +16,7 @@ extract_cohort<-function(conn,
   cat("R is currently connected to schema",oracle_temp_schema,".\n")
   
   #check if cdm_db_server has been specified
-  if(!same_server & cdm_db_server=" "){
+  if(!same_server & cdm_db_server==" "){
     warning("must specify the db server name where CDM is sitting!")
   }
   
@@ -36,6 +36,14 @@ extract_cohort<-function(conn,
                     start_date="2010-01-01",
                     end_date="2018-12-31")
   
+  #collect attrition info
+  attrition<-dbGetQuery(conn,
+                        parse_sql("./inst/consort_diagram.sql")$statement)
+  
+  #query back final cohort
+  aki_enc<-dbGetQuery(conn,
+                      "select * from AKI_onsets")
+  
   #clean out intermediate tables
   for(i in 1:(length(statements)-1)){
     parse_out<-parse_sql(statements[i])
@@ -45,15 +53,10 @@ extract_cohort<-function(conn,
     }else{
       warning("no temporary table was created by this statment!")
     }
+    if(verb){
+      cat("temp table",toupper(parse_out$tbl_out),"purged.\n")
+    }
   }
-
-  #collect attrition info
-  attrition<-dbGetQuery(conn,
-                        parse_sql("./inst/consort_diagram.sql")$statement)
-  
-  #query back final cohort
-  aki_enc<-dbGetQuery(conn,
-                      "select * from AKI_onsets")
   
   #output
   out<-list(aki_enc=aki_enc,

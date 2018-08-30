@@ -35,9 +35,11 @@ AKI Stages are defined based on [KDIGO](http://www.kdigo.org/clinical_practice_g
 
 
 ##### Implementation: Extracting AKI Study Cohort
-```{r echo=FALSE, eval=FALSE}
+```{r echo=FALSE}
+#source utility functions
 #source utility functions
 source("./R/helper_functions.R")
+source("./R/extract_cohort.R")
 
 #load libraries
 require_libraries(c("knitr",
@@ -58,41 +60,68 @@ conn<-dbConnect(Oracle(),
                 config_file$access)
 
 #extract cohort --Table1
+# by default, we assume cdm schema is on the same server as current schema,
+# if not, set same_server=F and cdm_db_server=...(server name)
 cohort<-extract_cohort(conn,
-                       cdm_db_schema,
-                       oracle_temp_schema=cdm_db_schema,
+                       oracle_temp_schema=config_file$oracle_temp_schema,
+                       cdm_db_schema=config_file$cdm_db_schema,
                        start_date="2010-01-01",
                        end_date="2018-12-31")
 
-#save Table1
+#save results
 Table1<-cohort$aki_enc
+consort_tbl<-cohort$attrition
+
+# collect summaries
+tbl1_summ<-Table1 %>% 
+  dplyr::select(PATID, ENCOUNTERID,
+                NONAKI_SINCE_ADMIT, 
+                AKI1_SINCE_ADMIT,
+                AKI2_SINCE_ADMIT,
+                AKI3_SINCE_ADMIT) %>%
+  gather(stage, days_since_admit,-PATID,-ENCOUNTERID) %>%
+  mutate(stage=gsub("_.*","",stage)) %>% 
+  group_by(stage) %>%
+  dplyr::summarize(min_time=min(days_since_admit,na.rm=T),
+                   q1_time=quantile(days_since_admit,probs=0.25,na.rm=T),
+                   median_time=median(days_since_admit,na.rm=T),
+                   mean_time=mean(days_since_admit,na.rm=T),
+                   q3_time=quantile(days_since_admit,probs=0.75,na.rm=T),
+                   max_time=max(days_since_admit,na.rm=T),
+                   sd_time=sd(days_since_admit,na.rm=T)) %>%
+  mutate(semi_IQR_time=0.5*(q3_time-q1_time))
+  
+#save results
 save(Table1,file="./data/Table1.Rdata")
-```
+save(consort_tbl,file="./data/consort_tbl.Rdata")
 
-We have extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output has been automatically saved in the current working directory *r getwd()* as "Table1.Rdata" with columns: *r paste(colnames(Table1),collapse=","*. The following consort diagram shows the loss of samples during the collection process, which finally resulted in *r length(unique(Table1$ENCOUNTERID))*. 
-
-```{r echo=FALSE, eval=FALSE}
 #nice print-out of consort diagram
-#Todo: turn into plot
-kabel(cohort$attrition,caption="Consort Diagram")
+load("./data/consort_tbl.Rdata") #temp
+kable(consort_tbl,caption="Consort Table")
+
+#clean up
+rm(cohort,consort_tbl); gc()
 ```
 
+We have extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output has been automatically saved in the current working directory *r getwd()* as "Table1.Rdata" with columns: *r paste(colnames(Table1),collapse=","*. The above consort diagram shows the loss of samples during the collection process, which finally resulted in *r length(unique(Table1$ENCOUNTERID))* eligible encounters for study. 
 
-```{r echo=F, eval=F}
+
+```{r echo=F}
+load("./data/Table1.Rdata")
+
 # auxilliary summaries and tables
 enc_tot<-length(unique(Table1$ENCOUNTERID))
-
 # critical dates of AKI encounters
-aki_stage_ind<-tbl1 %>%
-  dplyr::select(ENCOUNTERID, ADMIT_DATE, DISCHARGE_DATE,
+aki_stage_ind<-Table1 %>%
+  dplyr::select(PATID, ENCOUNTERID, ADMIT_DATE, DISCHARGE_DATE,
                 NONAKI_ANCHOR, AKI1_ONSET,AKI2_ONSET,AKI3_ONSET) %>%
-  gather(aki_stg, critical_date, -ENCOUNTERID) %>%
+  gather(chk_pt, critical_date,-PATID,-ENCOUNTERID) %>%
   filter(!is.na(critical_date)) %>%
-  mutate(aki_stg=gsub("_.*","",aki_stg)) %>%
-  group_by(aki_stg) %>%
+  mutate(chk_pt=gsub("_.*","",chk_pt)) %>%
+  group_by(chk_pt) %>%
   dplyr::mutate(stg_tot_cnt=n()) %>%
   ungroup %>%
-  arrange(ENCOUNTERID, aki_stg, critical_date, stg_tot_cnt)
+  arrange(PATID, ENCOUNTERID, chk_pt, critical_date, stg_tot_cnt)
 
 ```
 
@@ -104,52 +133,68 @@ In this section, we will collect variables from PCORNET_CDM tables: *DEMOGRAPHIC
 Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*, *Ethnicity*.  
 
 ```{r echo=F, eval=F}
-# get and save demographic table
+## demographic
 demo<-dbGetQuery(conn,
                  parse_sql("./inst/collect_demo.sql",
-                           cdm_db_schema=cdm_db_schema)$statement) %>%
+                           cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
                            AGE >= 26 & AGE <= 35 ~ "26-35",
                            AGE >= 36 & AGE <= 45 ~ "36-45",
                            AGE >= 46 & AGE <= 55 ~ "46-55",
                            AGE >= 56 & AGE <= 65 ~ "56-65",
                            AGE >= 66 ~ "66<=")) %>%
-  dplyr::select(PATID,ENCOUNTERID,AGE,AGE_GRP,SEX,RACE,HISPANIC,DDAYS_SINCE_ENC) %>%
-  gather(key,value,-PATID,-ENCOUNTERID)
-save(demo,file="./data/AKI_demo.Rdata")
+  dplyr::select(PATID,ENCOUNTERID,
+                AGE,AGE_GRP,SEX,RACE,HISPANIC,DDAYS_SINCE_ENC) %>%
+  replace_na(list(AGE="NI",
+                  AGE_GRP="NI",
+                  SEX="NI",
+                  RACE="NI",
+                  HISPANIC="NI")) %>%
+  gather(key,value,-PATID,-ENCOUNTERID) %>%
+  unique
 
-# collect demographic summaries
-demo_summ<-aki_stage_ind %>% dplyr::select(-critical_date) %>%
-  left_join(demo %>%
-              dplyr::select(-AGE) %>%
-              gather(demo_type,demo_val,-PATID, -ENCOUNTERID), 
+#collect summaries
+demo_summ<-aki_stage_ind %>% 
+  filter(!chk_pt %in% c("DISCHARGE")) %>%
+  dplyr::select(-critical_date) %>%
+  left_join(demo %>% 
+              filter(!(key %in% c("AGE","DDAYS_SINCE_ENC"))), 
             by="ENCOUNTERID") %>%
-  group_by(aki_stg,stg_tot_cnt,demo_type,demo_val) %>%
+  group_by(chk_pt,stg_tot_cnt,key,value) %>%
   dplyr::summarize(enc_cnt = n(),
                    enc_prop = round(n()/stg_tot_cnt[1],2)) %>%
   ungroup %>% dplyr::select(-stg_tot_cnt) %>%
-  gather(summ,summ_val,-aki_stg,-demo_type,-demo_val) %>%
-  # decode demo_val
-  left_join(meta %>% dplyr::select(COLUMN_NAME,VAR_CODE,VAR_NAME),
-            by=c("demo_type"="COLUMN_NAME","demo_val"="VAR_CODE")) %>%
-  dplyr::mutate(demo_val = ifelse(!is.na(VAR_NAME),VAR_NAME,demo_val)) %>%
-  dplyr::select(-VAR_NAME) %>%
-  unite("demo_type_cat",c("demo_type","demo_val")) %>%
+  gather(summ,summ_val,-chk_pt,-key,-value) %>%
+  # # decode demo_val
+  # left_join(meta %>% dplyr::select(COLUMN_NAME,VAR_CODE,VAR_NAME),
+  #           by=c("demo_type"="COLUMN_NAME","demo_val"="VAR_CODE")) %>%
+  # dplyr::mutate(demo_val = ifelse(!is.na(VAR_NAME),VAR_NAME,demo_val)) %>%
+  # dplyr::select(-VAR_NAME) %>%
+  # unite("demo_type_cat",c("demo_type","demo_val")) %>%
   # attach totals at bottom
   bind_rows(aki_stage_ind %>%
-              dplyr::select(aki_stg,stg_tot_cnt) %>% 
+              filter(!chk_pt %in% c("DISCHARGE")) %>%
+              dplyr::select(chk_pt,stg_tot_cnt) %>% 
               unique %>% 
               dplyr::rename(enc_cnt=stg_tot_cnt) %>%
-              mutate(enc_prop=round(enc_cnt/117453,2),
-                     demo_type_cat="TOTAL(%/overall)") %>%
-              gather(summ,summ_val,-aki_stg,-demo_type_cat) %>%
-              dplyr::select(aki_stg,demo_type_cat,summ,summ_val)) %>%
-  unite("stg_summ",c("aki_stg","summ")) %>%
+              mutate(enc_prop=round(enc_cnt/enc_tot,2),
+                     key="TOTAL",
+                     value="(%/overall)") %>%
+              gather(summ,summ_val,-chk_pt,-key,-value) %>%
+              dplyr::select(key,value,chk_pt,summ,summ_val)) %>%
+  unite("stg_summ",c("chk_pt","summ")) %>%
   unique %>% spread(stg_summ,summ_val) %>%
   replace(.,is.na(.),0)
 
-#nice print-out of demographic summaries for different AKI stages
-kabel(demo_summ,caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3")
+#save results
+save(demo,file="./data/AKI_demo.Rdata")
+save(demo_summ,file="./data/demo_summ.Rdata")
+
+#nice print-out
+kable(demo_summ,caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3")
+
+#clean up
+rm(demo,demo_summ); gc()
 ```
 
 
@@ -158,49 +203,129 @@ Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, D
 
 ###### Vital: HT, WT, BMI
 ```{r eval=F}
-# get and save vital table
+## vital
 vital<-dbGetQuery(conn,
-                 parse_sql("./inst/collect_vital.sql",
-                           cdm_db_schema=cdm_db_schema)$statement) %>%
+                  parse_sql("./inst/collect_vital.sql",
+                            cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
                              ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
-                             ORIGINAL_BMI >=31  ~ "BMI >= 31"))
-#save
-save(vital,file="./data/AKI_vital.Rdata")
+                             ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
+  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
+            by=c("PATID","ENCOUNTERID")) %>%
+  dplyr::mutate(dsa=round(as.numeric(difftime(MEASURE_DATE_TIME,critical_date,units="days")),2)) %>%
+  dplyr::select(-MEASURE_DATE_TIME,-critical_date,-chk_pt,-stg_tot_cnt) %>%
+  gather(key,value,-PATID,-ENCOUNTERID,-dsa) %>%
+  filter(!is.na(key) & !is.na(value)) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,dsa) %>%
+  mutate(key=recode(key,
+                    ORIGINAL_BMI="BMI",
+                    SYSTOLIC="BP_SYSTOLIC",
+                    DIASTOLIC="BP_DIASTOLIC")) %>%
+  unique
+
 
 # collect summaries
-ht_wt_bmi_summ<-ht_wt_bmi %>%
-  dplyr::select(PATID, HT, WT) %>%
-  dplyr::filter(!is.na(HT) | !is.na(WT)) %>%
-  left_join(aki_stage_idx, by="PATID") %>%
-  dplyr::summarize(HT_records=sum(!is.na(HT)),
-                   HT_mean=mean(HT,na.rm=T),
-                   HT_median=median(HT,na.rm=T),
-                   )
+load("./data/AKI_vital.Rdata")
+vital %<>%
+  dplyr::select(ENCOUNTERID, key, value, dsa) %>%
+  filter(key %in% c("HT","WT","BMI","BP_DIASTOLIC","BP_SYSTOLIC")) %>%
+  mutate(value=as.numeric(value)) %>%
+  mutate(param_low=case_when(key=="HT" ~ 0,
+                             key=="WT" ~ 0,
+                             key=="BMI" ~ 0,
+                             key %in% c("BP_DIASTOLIC",
+                                        "BP_SYSTOLIC") ~ 40),
+         param_high=case_when(key=="HT" ~ 94.99,
+                              key=="WT" ~ 350,
+                              key=="BMI" ~ 50,
+                              key=="BP_DIASTOLIC"~120,
+                              key=="BP_SYSTOLIC" ~ 210)) %>%
+  mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
+                           dsa >=0 & dsa < 1 ~ "1",
+                           dsa >=1 & dsa < 2 ~ "2",
+                           dsa >=2 & dsa < 3 ~ "3",
+                           dsa >=3 & dsa < 4 ~ "4",
+                           dsa >=4 & dsa < 5 ~ "5",
+                           dsa >=5 & dsa < 6 ~ "6",
+                           dsa >=6 & dsa < 7 ~ "7",
+                           dsa >=7 ~ "7<"))
 
-ht_wt_bmi<-vital %>% 
-  dplyr::select(PATID, VITALID, MEASURE_DATE_TIME,
-                HT,WT,ORIGINAL_BMI) %>%
-  dplyr::filter(!is.na(HT) & !is.na(WT)) %>%
-  left_join(demo %>% dplyr::select(PATID,AGE_GRP,SEX) %>% unique,
-            by="PATID") %>%
-  gather(key,val,-PATID,-age_grp,-SEX,-VITALID,-MEASURE_DATE_TIME) %>%
-  group_by(age_grp,SEX,key) %>%
-  dplyr::mutate(low_bd=ifelse(key=="ORIGINAL_BMI",
-                              pmax(10,median(val,na.rm=T)-3*IQR(val,na.rm=T,type=8)),
-                              pmax(50,median(val,na.rm=T)-3*IQR(val,na.rm=T,type=8))),   
-                up_bd=pmin(500,median(val,na.rm=T)+4.5*IQR(val,na.rm=T,type=8))) %>% 
+vital_summ<-vital %>%
+  group_by(key) %>%
+  dplyr::summarize(record_cnt=n(),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   low_cnt=sum((value<param_low)),
+                   high_cnt=sum((value>param_high)),
+                   min=min(value,na.rm=T),
+                   mean=round(mean(value,na.rm=T)),
+                   sd=round(sd(value,na.rm=T)),
+                   median=round(median(value,na.rm=T)),
+                   max=max(value,na.rm=T)) %>%
   ungroup %>%
-  dplyr::mutate(outlier_ind = ifelse(val > up_bd | val < low_bd, 1,0))
+  mutate(cov=round(sd/mean,1)) %>%
+  #HIPPA, low counts masking
+  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",enc_cnt),
+         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",record_cnt),
+         low_cnt=ifelse(as.numeric(low_cnt)<11 & as.numeric(low_cnt)>0,"<11",as.character(low_cnt)),
+         high_cnt=ifelse(as.numeric(high_cnt)<11 & as.numeric(high_cnt)>0,"<11",as.character(high_cnt))) %>%
+  gather(summ,overall,-key) %>%
+  mutate(summ=recode(summ,
+                     enc_cnt="1.encounters#",
+                     record_cnt="2.records#",
+                     low_cnt="3.low_records#",
+                     high_cnt="4.high_records#",
+                     min="5a.min",
+                     median="5b.median",
+                     mean="5c.mean",
+                     sd="5d.sd",
+                     cov="5e.cov",
+                     max="5f.max")) %>%
+  left_join(
+    vital %>%
+      group_by(key,dsa_grp) %>%
+      dplyr::summarize(record_cnt=n(),
+                       enc_cnt=length(unique(ENCOUNTERID)),
+                       low_cnt=sum((value<param_low)),
+                       high_cnt=sum((value>param_high)),
+                       min=min(value,na.rm=T),
+                       mean=round(mean(value,na.rm=T)),
+                       sd=round(sd(value,na.rm=T)),
+                       median=round(median(value,na.rm=T)),
+                       max=max(value,na.rm=T)) %>%
+      ungroup %>%
+      mutate(cov=round(sd/mean,1)) %>%
+      #HIPPA, low counts masking
+      mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",enc_cnt),
+             record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",record_cnt),
+             low_cnt=ifelse(as.numeric(low_cnt)<11 & as.numeric(low_cnt)>0,"<11",as.character(low_cnt)),
+             high_cnt=ifelse(as.numeric(high_cnt)<11 & as.numeric(high_cnt)>0,"<11",as.character(high_cnt))) %>%
+      gather(summ,summ_val,-key,-dsa_grp) %>%
+      spread(dsa_grp,summ_val) %>%
+      mutate(summ=recode(summ,
+                         enc_cnt="1.encounters#",
+                         record_cnt="2.records#",
+                         low_cnt="3.low_records#",
+                         high_cnt="4.high_records#",
+                         min="5a.min",
+                         median="5b.median",
+                         mean="5c.mean",
+                         sd="5d.sd",
+                         cov="5e.cov",
+                         max="5f.max")),
+    by=c("key","summ")
+  ) %>%
+  arrange(key,summ)
 
-#outliers summaries
-ht_wt_bmi %>% filter(outlier_ind==1) %>%
-  group_by(age_grp,SEX,key,low_bd,up_bd) %>%
-  dplyr::summarize(pat_cnt=length(unique(PATID))) %>% 
-  ungroup %>% unique %>% arrange(age_grp,SEX,key) %>%
-  View
 
+#save
+save(vital,file="./data/AKI_vital.Rdata")
+save(vital_summ,file="./data/vital_summ.Rdata")
 
+#nice print-out
+kabel(vital_summ,caption="Table2 - Vital (HT,WT,BMI,SBP,DBP) Summaries")
+
+#clean up
+rm(vital,vital_summ); gc()
 ```
 
 
