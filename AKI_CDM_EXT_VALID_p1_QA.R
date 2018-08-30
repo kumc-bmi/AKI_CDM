@@ -275,7 +275,6 @@ vital_summ<-vital %>%
   ) %>%
   arrange(key,summ)
 
-load("./data/AKI_vital.Rdata")
 vital_smoke_summ<-vital %>%
   dplyr::select(PATID,ENCOUNTERID, key, value) %>%
   filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
@@ -344,8 +343,6 @@ rm(vital,vital_summ); gc()
 # 
 # save(vital_summ2,file="./data/vital_summ2.Rdata")  
 
-#vital: smoking and tobacco
-
 
 ## labs
 lab<-dbGetQuery(conn,
@@ -360,11 +357,7 @@ lab<-dbGetQuery(conn,
   filter(!is.na(key) & !is.na(value)) %>%
   unique
 
-#save
-save(lab,file="./data/AKI_lab.Rdata")
-
 #collect summaries
-load("./data/AKI_lab.Rdata")
 lab %<>%
   mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
                            dsa >=0 & dsa < 1 ~ "1",
@@ -435,7 +428,9 @@ lab_summ<-lab %>%
   mutate(at_admission=ifelse(is.na(`1`),0,1),
          within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1),
          daily_moniter_3d=ifelse(!is.na(`1`)&!is.na(`2`)&!is.na(`3`),1,0))
-  
+
+#save
+save(lab,file="./data/AKI_lab.Rdata")
 save(lab_summ,file="./data/lab_summ.Rdata")
 
 #clean up
@@ -454,12 +449,8 @@ uhc_DRG<-dbGetQuery(conn,
   dplyr::rename(key1=DRG_TYPE,key2=DRG) %>% 
   dplyr::select(PATID,ENCOUNTERID,key1,key2,dsa) %>%
   unique
-#save
-save(uhc_DRG,file="./data/AKI_DRG.Rdata")
-
 
 #collect summaries
-load("./data/AKI_DRG.Rdata")
 DRG_summ<-uhc_DRG %>%
   group_by(key1,key2) %>%
   dplyr::summarize(record_cnt=n(),
@@ -490,6 +481,7 @@ DRG_summ<-uhc_DRG %>%
   arrange(DRG)
 
 #save
+save(uhc_DRG,file="./data/AKI_DRG.Rdata")
 save(DRG_summ,file="./data/DRG_summ.Rdata")
 
 #clean up
@@ -508,11 +500,8 @@ dx<-dbGetQuery(conn,
   dplyr::rename(key=ccs_code, dsa=DAYS_SINCE_ADMIT) %>%
   dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
   unique
-#save
-save(dx,file="./data/AKI_dx.Rdata")  
 
 #collect summaries
-# load("./data/AKI_dx.Rdata")
 dx_summ<-dx %>%
   group_by(key) %>%
   dplyr::summarize(record_cnt=n(),
@@ -541,11 +530,14 @@ dx_summ<-dx %>%
   spread(summ,summ_val) %>%
   arrange(key)
 
-#save summary
+#save
+save(dx,file="./data/AKI_dx.Rdata")  
 save(dx_summ,file="./data/dx_summ.Rdata")
 
 #clean up
 rm(dx,dx_summ); gc()
+
+load("./data/dx_summ.Rdata")
 
 
 ## procedure
@@ -557,10 +549,7 @@ px<-dbGetQuery(conn,
   dplyr::rename(key=PX, dsa=DAYS_SINCE_ADMIT) %>%
   dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
   unique
-#save
-save(px,file="./data/AKI_px.Rdata")  
 
-load("./data/AKI_px.Rdata")
 px_summ<-px %>%
   group_by(key) %>%
   dplyr::summarize(record_cnt=n(),
@@ -590,7 +579,8 @@ px_summ<-px %>%
   spread(summ,summ_val) %>%
   arrange(key)
 
-#save summary
+#save
+save(px,file="./data/AKI_px.Rdata")  
 save(px_summ,file="./data/px_summ.Rdata")
 
 #clean up
@@ -645,9 +635,6 @@ for(i in seq_len(length(expos_quant)-1)){
   gc()
 }
 
-save(med2,file="./data/AKI_med.Rdata")
-
-
 #collect summaries
 med_summ<-med %>% 
   mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
@@ -682,18 +669,9 @@ med_summ<-med %>%
   arrange(key,summ) 
 
 #save
+save(med2,file="./data/AKI_med.Rdata")
 save(med_summ,file="./data/med_summ.Rdata")
 
 #clean up
 rm(med,med2,med_summ); gc()
 
-
-
-#illogical dates (aki onsets before birth or after death)
-aki_bad_dates<-aki_stage_ind<-tbl1 %>%
-  dplyr::select(ENCOUNTERID,
-                AKI1_ONSET,AKI2_ONSET,AKI3_ONSET) %>%
-  gather(chk_pt, onset, -ENCOUNTERID) %>%
-  filter(!is.na(onset)) %>%
-  dplyr::select(ENCOUNTERID, chk_pt)%>%
-  mutate(chk_pt=gsub("_.*","",chk_pt))
