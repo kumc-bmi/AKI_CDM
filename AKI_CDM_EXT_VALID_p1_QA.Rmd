@@ -77,7 +77,7 @@ cohort<-extract_cohort(conn,
 
 The above codes extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output will be automatically saved in the current working directory `r getwd()` as "Table1.Rdata". More details are included in the following consort diagram.  
 
-```{r tbl1 echo=F, message=F, warning=F}
+```{r tbl1, echo=F, message=F, warning=F}
 Table1<-cohort$aki_enc
 consort_tbl<-cohort$attrition
 
@@ -137,7 +137,7 @@ consort_diag(consort_tbl)
 ```
 
 
-```{r temp include=F}
+```{r temp, include=F}
 # auxilliary summaries and tables
 enc_tot<-length(unique(Table1$ENCOUNTERID))
 # critical dates of AKI encounters
@@ -161,7 +161,7 @@ In this section, we will collect variables from PCORNET_CDM tables: *DEMOGRAPHIC
 ##### Demographic 
 Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*, *Ethnicity*.  
 
-```{r demo include=F}
+```{r demo, include=F}
 ## demographic
 conn<-dbConnect(Oracle(),
                 config_file$username,
@@ -231,7 +231,7 @@ rm(demo); gc()
 
 Demographic characterizations for patients at different AKI stages are summarized in the following table:
 
-```{r demo_out echo=F}
+```{r demo_out, echo=F}
 demo_nice_tbl<-demo_summ %>%
   gather(summ,summ_val,-key,-value) %>%
   mutate(summ_val=ifelse(grepl("_prop",summ),paste0(summ_val*100,"%"),as.character(summ_val))) %>%
@@ -257,8 +257,9 @@ kable(demo_nice_tbl,caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3"
 ##### Vital 
 Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, Diastolic)*, *Smoking Status*. 
 
+
 ###### Vital: HT, WT, BMI
-```{r vital include=F}
+```{r vital, include=F}
 ## vital
 conn<-dbConnect(Oracle(),
                 config_file$username,
@@ -419,13 +420,13 @@ rm(vital); gc()
 ```
 
 
-```{r vital_out1 echo=F, warning=F, message=F}
+```{r vital_out1, echo=F, warning=F, message=F}
 kable(vital_summ,caption="Table 2a - Vital (HT,WT,BMI,SBP,DBP) Summaries")
 ```
 
 Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
 
-```{r vital_out2 echo=F, warning=F, message=F}
+```{r vital_out2, echo=F, warning=F, message=F}
 kable(vital_smoke_summ,caption="Table 2b - Vital (SMOKING, TABACCO) Summaries")
 ```
 
@@ -436,7 +437,7 @@ Table 2b identifies unreliable reporting of smoking status. A significant mismat
 
 
 ##### Labs
-```{r lab include=F}
+```{r lab, include=F}
 ## labs
 conn<-dbConnect(Oracle(),
                 config_file$username,
@@ -536,7 +537,7 @@ rm(lab); gc()
 ```
 
 
-```{r lab_out echo=F, warning=F, message=F}
+```{r lab_out, echo=F, warning=F, message=F}
 kable(lab_summ %>% filter(freq_rk <=20), 
       caption="Table 3 - Lab Summaries (top20)")
 
@@ -568,7 +569,7 @@ A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which 
 
 
 ##### UHC Diagnoses (Historical and on admission)
-```{r include=F}
+```{r uhc, include=F}
 ## admission DRG
 conn<-dbConnect(Oracle(),
                 config_file$username,
@@ -627,7 +628,7 @@ rm(uhc_DRG); gc()
 ```
 
 
-```{r, echo=F, warning=F, message=F}
+```{r uhc_out, echo=F, warning=F, message=F}
 kable(DRG_summ %>% arrange(desc(`2.encounters#`)) %>% slice(1:20),
       caption="Table 4 - UHC DRG Summaries (top20)")
 
@@ -650,7 +651,7 @@ A Total of `r length(unique(DRG_summ$DRG))` has been assigned to patients at or 
 ***
 
 ##### Diagnosis
-```{r include=F}
+```{r dx, include=F}
 ## diagnosis
 load("./data/ccs_icd_cw.Rdata")
 
@@ -709,7 +710,7 @@ rm(dx); gc()
 ```
 
 
-```{r, echo=F, warning=F, message=F}
+```{r dx_out, echo=F, warning=F, message=F}
 kable(dx_summ %>% dplyr::arrange(desc(`2.encounters#`)) %>% slice(1:20), 
       caption="Table 5 - Historical Diagnoses Summaries (top20)")
 
@@ -731,7 +732,7 @@ ggplot(dx_temp,aes(x=`4c.mean_history`,y=`2.encounters#`)) +
 
 
 ##### Procedure
-```{r include=F}
+```{r px, include=F}
 ## procedure
 conn<-dbConnect(Oracle(),
                 config_file$username,
@@ -786,7 +787,7 @@ rm(px); gc()
 ```
 
 
-```{r, echo=F, warning=F, message=F}
+```{r px_out, echo=F, warning=F, message=F}
 kable(px_summ %>% arrange(desc(`2.encounters#`)) %>% slice(1:20),
       caption="Table 6 - Historical Procedures Summaries (top20)")
 
@@ -808,7 +809,7 @@ ggplot(px_temp,aes(x=`4c.mean_history`,y=`2.encounters#`)) +
 
 
 ##### Medications
-```{r include=F}
+```{r med, include=F}
 ## medication
 conn<-dbConnect(Oracle(),
                 config_file$username,
@@ -906,7 +907,7 @@ rm(med,med2); gc()
 
 
 
-```{r, echo=F, warning=F, message=F}
+```{r med_out, echo=F, warning=F, message=F}
 med_temp<-med_summ %>% 
   filter(summ %in% c("1.encounters#","3b.median_expos")) %>% 
   gather(dsa_grp,summ_val,-summ,-key) %>%
@@ -927,7 +928,7 @@ ggplot(med_temp,aes(x=dsa_grp,y=`3b.median_expos`,color=`1.encounters#`)) +
 Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd and after 3rd days since admission. It helps detect drugs of suspecious high exposures.
 
 
-```{r include=F}
+```{r final, include=F}
 final_out<-list(Table1=consort_tbl,
                 Table2=tbl1_summ,
                 Table3=demo_nice_tbl,
