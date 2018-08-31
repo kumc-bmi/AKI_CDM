@@ -137,7 +137,7 @@ consort_diag(consort_tbl)
 ```
 
 
-```{r include=F}
+```{r temp include=F}
 # auxilliary summaries and tables
 enc_tot<-length(unique(Table1$ENCOUNTERID))
 # critical dates of AKI encounters
@@ -161,7 +161,7 @@ In this section, we will collect variables from PCORNET_CDM tables: *DEMOGRAPHIC
 ##### Demographic 
 Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*, *Ethnicity*.  
 
-```{r include=F}
+```{r demo include=F}
 ## demographic
 conn<-dbConnect(Oracle(),
                 config_file$username,
@@ -231,7 +231,7 @@ rm(demo); gc()
 
 Demographic characterizations for patients at different AKI stages are summarized in the following table:
 
-```{r, include=F}
+```{r demo_out echo=F}
 demo_nice_tbl<-demo_summ %>%
   gather(summ,summ_val,-key,-value) %>%
   mutate(summ_val=ifelse(grepl("_prop",summ),paste0(summ_val*100,"%"),as.character(summ_val))) %>%
@@ -247,9 +247,6 @@ demo_nice_tbl<-demo_summ %>%
   spread(summ,summ_val) %>%
   arrange(key,value) %>%
   mutate(key=ifelse(value==" ",key," "))
-```
-
-```{r echo=F}
 kable(demo_nice_tbl,caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3")
 ```
 
@@ -261,7 +258,7 @@ kable(demo_nice_tbl,caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3"
 Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, Diastolic)*, *Smoking Status*. 
 
 ###### Vital: HT, WT, BMI
-```{r include=F}
+```{r vital include=F}
 ## vital
 conn<-dbConnect(Oracle(),
                 config_file$username,
@@ -422,13 +419,13 @@ rm(vital); gc()
 ```
 
 
-```{r, echo=F, warning=F, message=F}
+```{r vital_out1 echo=F, warning=F, message=F}
 kable(vital_summ,caption="Table 2a - Vital (HT,WT,BMI,SBP,DBP) Summaries")
 ```
 
 Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
 
-```{r, echo=F, warning=F, message=F}
+```{r vital_out2 echo=F, warning=F, message=F}
 kable(vital_smoke_summ,caption="Table 2b - Vital (SMOKING, TABACCO) Summaries")
 ```
 
@@ -439,7 +436,7 @@ Table 2b identifies unreliable reporting of smoking status. A significant mismat
 
 
 ##### Labs
-```{r include=F}
+```{r lab include=F}
 ## labs
 conn<-dbConnect(Oracle(),
                 config_file$username,
@@ -476,12 +473,12 @@ lab_summ<-lab %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
                    min=min(value,na.rm=T),
-                   mean=round(mean(value,na.rm=T)),
-                   sd=round(sd(value,na.rm=T)),
+                   mean=round(mean(value,na.rm=T),2),
+                   sd=round(sd(value,na.rm=T),3),
                    median=round(median(value,na.rm=T)),
                    max=max(value,na.rm=T)) %>%
   ungroup %>%
-  mutate(cov=round(sd/mean,1)) %>%
+  mutate(cov=round(sd/mean,3)) %>%
   mutate(freq_rk=rank(-enc_cnt,ties.method="first")) %>%
   #HIPPA, low counts masking
   mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
@@ -502,12 +499,12 @@ lab_summ<-lab %>%
       dplyr::summarize(record_cnt=n(),
                        enc_cnt=length(unique(ENCOUNTERID)),
                        min=min(value,na.rm=T),
-                       mean=round(mean(value,na.rm=T)),
-                       sd=round(sd(value,na.rm=T)),
+                       mean=round(mean(value,na.rm=T),2),
+                       sd=round(sd(value,na.rm=T),3),
                        median=round(median(value,na.rm=T)),
                        max=max(value,na.rm=T)) %>%
       ungroup %>%
-      mutate(cov=round(sd/mean,1)) %>%
+      mutate(cov=round(sd/mean,3)) %>%
       #HIPPA, low counts masking
       mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
              record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt)),
@@ -539,12 +536,32 @@ rm(lab); gc()
 ```
 
 
-```{r, echo=F, warning=F, message=F}
-kable(lab_summ %>% filter(freq_rk <=5), 
-      caption="Table 3 - Lab Summaries (top)")
+```{r lab_out echo=F, warning=F, message=F}
+kable(lab_summ %>% filter(freq_rk <=20), 
+      caption="Table 3 - Lab Summaries (top20)")
+
+lab_temp<-lab_summ %>%
+  filter(summ %in% c("1.encounters#",
+                     "2.records#",
+                     "3e.cov")) %>%
+  dplyr::select(key,summ,overall) %>% unique %>%
+  mutate(overall=ifelse(overall=="<11",10,as.numeric(overall))) %>%
+  spread(summ,overall) %>%
+  mutate(record_per_enc=round(`2.records#`/`1.encounters#`)) %>%
+  arrange(desc(`1.encounters#`))
+
+lab_top<-lab_temp %>% slice(1:20)
+
+ggplot(lab_temp,aes(x=`3e.cov`,y=`1.encounters#`,color=record_per_enc)) +
+  geom_point()+scale_color_gradient2(low="grey",mid="blue",high="red")+
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+                                         name = 'Percentage'))+
+  geom_text(lab_top,aes(label=key),hjust=0,vjust=0)+
+  labs(x="COV",y="Encounter Counts",
+       title="Figure 2 - Data Density vs. Variability for Labs")
 ```
 
-A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. The summaries `r unique(lab_summ$summ)[-(1:2)]` help identify odd lab values (e.g., 2160-0 (SCr) has some really strange trend in 3f.max in terms of days in hospital).
+A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 2 shows the data density and variablity of labs concepts, which can help identify common labs or labs with suspiciously high variations.
 
 
 ***
@@ -611,17 +628,20 @@ rm(uhc_DRG); gc()
 
 
 ```{r, echo=F, warning=F, message=F}
-kable(DRG_summ %>% arrange(desc(`1.patients#`)) %>% slice(1:20),
-      caption="Table 4 - UHC DRG Summaries (top)")
+kable(DRG_summ %>% arrange(desc(`2.encounters#`)) %>% slice(1:20),
+      caption="Table 4 - UHC DRG Summaries (top20)")
 
 drg_temp<-DRG_summ %>% 
-  dplyr::select(key1,`2.encounters#`,`4c.mean_history`) %>% 
-  filter(`4c.mean_history`!= "<11") %>%
+  dplyr::select(key1,key2,`2.encounters#`,`4c.mean_history`) %>%
+  mutate(`4c.mean_history`=="<11",10,as.numeric(`4c.mean_history`)) %>%
   mutate(`2.encounters#`=as.numeric(`2.encounters#`),
          `4c.mean_history`=as.numeric(`4c.mean_history`))
 
+drg_top<-drg_temp %>% group_by(key1) %>% slice(1:10) %>% ungroup
+
 ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1)) +
-  geom_point() + labs(color="DRG type", title="Figure 2 - Data Density vs. Recency")
+  geom_point() + geom_text(drg_top,aes(label=key2),hjust=0,vjust=0)+
+  labs(color="DRG type", title="Figure 2 - Data Density vs. Recency")
 ```
 
 A Total of `r length(unique(DRG_summ$DRG))` has been assigned to patients at or before admission. All DRGs at admission should be aligned at 0 in Figure 2. Historical DRGs clustered around 30 days prior to admission.
@@ -691,16 +711,18 @@ rm(dx); gc()
 
 ```{r, echo=F, warning=F, message=F}
 kable(dx_summ %>% dplyr::arrange(desc(`2.encounters#`)) %>% slice(1:20), 
-      caption="Table 5 - Historical Diagnoses Summaries (top)")
+      caption="Table 5 - Historical Diagnoses Summaries (top20)")
 
 dx_temp<-dx_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>% 
-  filter(`4c.mean_history`!= "<11") %>%
+  mutate(`4c.mean_history`=="<11",10,as.numeric(`4c.mean_history`)) %>%
   mutate(`2.encounters#`=as.numeric(`2.encounters#`),
          `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
-  dplyr::arrange(`2.encounters#`)
+  dplyr::arrange(desc(`2.encounters#`))
+
+dx_top<-dx_temp %>% slice(1:20) %>% ungroup
 
 ggplot(dx_temp,aes(x=`4c.mean_history`,y=`2.encounters#`)) +
-  geom_point() +
+  geom_point() + geom_text(dx_top,aes(label=key),hjust=0,vjust=0)+
   labs(title="Figure 3 - Data Density vs. Recency (CCS)")
 ```
 
@@ -766,16 +788,18 @@ rm(px); gc()
 
 ```{r, echo=F, warning=F, message=F}
 kable(px_summ %>% arrange(desc(`2.encounters#`)) %>% slice(1:20),
-      caption="Table 6 - Historical Procedures Summaries (top)")
+      caption="Table 6 - Historical Procedures Summaries (top20)")
 
 px_temp<-px_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>% 
-  filter(`4c.mean_history`!= "<11") %>%
+  mutate(`4c.mean_history`=="<11",10,as.numeric(`4c.mean_history`)) %>%
   mutate(`2.encounters#`=as.numeric(`2.encounters#`),
          `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
-  arrange(`2.encounters#`)
+  arrange(desc(`2.encounters#`))
+
+px_top<-px_temp %>% slice(1:20) %>% ungroup
 
 ggplot(px_temp,aes(x=`4c.mean_history`,y=`2.encounters#`)) +
-  geom_point() +
+  geom_point() + geom_text(px_top,aes(label=key),hjust=0,vjust=0)+
   labs(title="Figure 4 - Data Density vs. Recency (PX)")
 ```
 
@@ -892,8 +916,11 @@ med_temp<-med_summ %>%
   spread(summ,summ_val) %>%
   arrange(desc(`1.encounters#`))
 
+med_top<-med_temp %>% slice(1:20)
+
 ggplot(med_temp,aes(x=dsa_grp,y=`3b.median_expos`,color=`1.encounters#`)) +
   geom_point() + scale_color_gradient2(low="grey",mid="blue",high="red")+
+  geom_text(med_top,aes(label=key),hjust=0,vjust=0)+
   labs(x="Start Date",title="Figure 5 - Medication Exposure Summaries")
 ```
 

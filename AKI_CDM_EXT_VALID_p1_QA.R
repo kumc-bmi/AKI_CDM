@@ -235,7 +235,7 @@ vital1<-vital %>%
                            dsa >=6 & dsa < 7 ~ "7",
                            dsa >=7 ~ "7<"))
 # collect summaries
-vital_summ<-vital1
+vital_summ<-vital1 %>%
   group_by(key) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
@@ -417,7 +417,7 @@ lab_summ<-lab %>%
                    median=round(median(value,na.rm=T)),
                    max=max(value,na.rm=T)) %>%
   ungroup %>%
-  mutate(cov=round(sd/mean,1)) %>%
+  mutate(cov=round(sd/(mean+1e-2),1)) %>%
   mutate(freq_rk=rank(-enc_cnt,ties.method="first")) %>%
   #HIPPA, low counts masking
   mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
@@ -443,7 +443,7 @@ lab_summ<-lab %>%
                        median=round(median(value,na.rm=T)),
                        max=max(value,na.rm=T)) %>%
       ungroup %>%
-      mutate(cov=round(sd/mean,1)) %>%
+      mutate(cov=round(sd/(mean+1e-2),2)) %>%
       #HIPPA, low counts masking
       mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
              record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt)),
@@ -741,3 +741,4 @@ rm(med,med2,med_summ); gc()
 
 ############################# write final workbook ##########################
 write.xlsx(final_out,file="./data/AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx")
+#Note: .xlsx cannot opened directly, but can be opened by read.xlsx in R
