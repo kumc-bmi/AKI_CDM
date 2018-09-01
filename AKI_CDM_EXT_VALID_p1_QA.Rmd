@@ -229,7 +229,6 @@ save(demo,file="./data/AKI_demo.Rdata")
 rm(demo); gc()
 ```
 
-Demographic characterizations for patients at different AKI stages are summarized in the following table:
 
 ```{r demo_out, echo=F}
 demo_nice_tbl<-demo_summ %>%
@@ -250,6 +249,7 @@ demo_nice_tbl<-demo_summ %>%
 kable(demo_nice_tbl,caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3")
 ```
 
+Demographic characterizations for patients at different AKI stages are summarized in Table 1.
 
 ***
 
@@ -257,8 +257,6 @@ kable(demo_nice_tbl,caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3"
 ##### Vital 
 Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, Diastolic)*, *Smoking Status*. 
 
-
-###### Vital: HT, WT, BMI
 ```{r vital, include=F}
 ## vital
 conn<-dbConnect(Oracle(),
