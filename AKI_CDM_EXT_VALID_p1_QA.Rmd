@@ -561,7 +561,7 @@ ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`))+
   geom_text(data=lab_top,aes(label=key, hjust=hjust, vjust=vjust))+
   labs(x="Average Records per Encounter",
        y="Encounter Counts",
-       title="Figure 2 - Data Density vs. Records Intensity")
+       title="Figure 1 - Data Density vs. Records Intensity")
 ```
 
 A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 2 shows the data density and variablity of labs concepts, which can help identify common labs or labs with suspiciously high variations.
