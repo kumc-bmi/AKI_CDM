@@ -538,28 +538,30 @@ rm(lab); gc()
 
 
 ```{r lab_out, echo=F, warning=F, message=F}
-kable(lab_summ %>% filter(freq_rk <=20), 
-      caption="Table 3 - Lab Summaries (top20)")
-
 lab_temp<-lab_summ %>%
-  filter(summ %in% c("1.encounters#",
-                     "2.records#",
-                     "3e.cov")) %>%
-  dplyr::select(key,summ,overall) %>% unique %>%
+  filter(summ %in% c("1.encounters#","2.records#")) %>%
   mutate(overall=ifelse(overall=="<11",10,as.numeric(overall))) %>%
-  spread(summ,overall) %>%
-  mutate(record_per_enc=round(`2.records#`/`1.encounters#`)) %>%
+  dplyr::select(key,summ,overall) %>% unique %>%
+  spread(summ,overall,fill=0) %>%
+  mutate(record_intensity=round(`2.records#`/`1.encounters#`,2)) %>%
   arrange(desc(`1.encounters#`))
 
-lab_top<-lab_temp %>% slice(1:20)
+lab_top<-lab_temp %>% slice(1:10) %>% 
+  mutate(hjust=rep(c(1.5,-0.5),each=5),
+         vjust=rep(c(0,1,2,3,4),2)) %>%
+  bind_rows(lab_temp %>% arrange(desc(record_intensity)) %>%
+              slice(1:2) %>%
+              mutate(hjust=c(1,1),
+                     vjust=c(0,0)))
 
-ggplot(lab_temp,aes(x=`3e.cov`,y=`1.encounters#`,color=record_per_enc)) +
-  geom_point()+scale_color_gradient2(low="grey",mid="blue",high="red")+
-  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`))+
+  geom_point()+
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./117469,
                                          name = 'Percentage'))+
-  geom_text(lab_top,aes(label=key),hjust=0,vjust=0)+
-  labs(x="COV",y="Encounter Counts",
-       title="Figure 2 - Data Density vs. Variability for Labs")
+  geom_text(data=lab_top,aes(label=key, hjust=hjust, vjust=vjust))+
+  labs(x="Average Records per Encounter",
+       y="Encounter Counts",
+       title="Figure 2 - Data Density vs. Records Intensity")
 ```
 
 A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 2 shows the data density and variablity of labs concepts, which can help identify common labs or labs with suspiciously high variations.
@@ -629,23 +631,23 @@ rm(uhc_DRG); gc()
 
 
 ```{r uhc_out, echo=F, warning=F, message=F}
-kable(DRG_summ %>% arrange(desc(`2.encounters#`)) %>% slice(1:20),
-      caption="Table 4 - UHC DRG Summaries (top20)")
-
 drg_temp<-DRG_summ %>% 
-  dplyr::select(key1,key2,`2.encounters#`,`4c.mean_history`) %>%
-  mutate(`4c.mean_history`=="<11",10,as.numeric(`4c.mean_history`)) %>%
-  mutate(`2.encounters#`=as.numeric(`2.encounters#`),
-         `4c.mean_history`=as.numeric(`4c.mean_history`))
+  dplyr::select(key1,DRG,`2.encounters#`,`4c.mean_history`) %>%
+  mutate(`2.encounters#`=ifelse(`2.encounters#`=="<11",10,
+                                  as.numeric(`2.encounters#`)),
+         `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
+  arrange(desc(`2.encounters#`))
 
-drg_top<-drg_temp %>% group_by(key1) %>% slice(1:10) %>% ungroup
+drg_top<-drg_temp %>% group_by(key1) %>% slice(1:5) %>% ungroup
 
-ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1)) +
-  geom_point() + geom_text(drg_top,aes(label=key2),hjust=0,vjust=0)+
+ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1))+geom_point()+ 
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./117469,
+                                         name = 'Percentage'))+
+  geom_text(data=drg_top,aes(label=DRG),hjust=0,vjust=0)+
   labs(color="DRG type", title="Figure 2 - Data Density vs. Recency")
 ```
 
-A Total of `r length(unique(DRG_summ$DRG))` has been assigned to patients at or before admission. All DRGs at admission should be aligned at 0 in Figure 2. Historical DRGs clustered around 30 days prior to admission.
+A Total of `r length(unique(DRG_summ$DRG))` has been assigned to patients at or before admission. All DRGs at admission should be aligned at 0 in Figure 2. Historical DRGs are summerized based on their median time lapses prior to admission. 
 
 
 ***
@@ -711,21 +713,25 @@ rm(dx); gc()
 
 
 ```{r dx_out, echo=F, warning=F, message=F}
-kable(dx_summ %>% dplyr::arrange(desc(`2.encounters#`)) %>% slice(1:20), 
-      caption="Table 5 - Historical Diagnoses Summaries (top20)")
-
 dx_temp<-dx_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>% 
-  mutate(`4c.mean_history`=="<11",10,as.numeric(`4c.mean_history`)) %>%
-  mutate(`2.encounters#`=as.numeric(`2.encounters#`),
+  mutate(`2.encounters#`=ifelse(`2.encounters#`=="<11",10,
+                                as.numeric(`2.encounters#`)),
          `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
   dplyr::arrange(desc(`2.encounters#`))
 
-dx_top<-dx_temp %>% slice(1:20) %>% ungroup
+dx_top<-dx_temp %>% slice(1:10) %>% ungroup %>%
+  mutate(hjust=c(0,0,0,1,-0.1,0,-0.5,1,0,0),
+         vjust=c(0,0,-0.5,0,0.1,0.2,0,0,0,0))
 
-ggplot(dx_temp,aes(x=`4c.mean_history`,y=`2.encounters#`)) +
-  geom_point() + geom_text(dx_top,aes(label=key),hjust=0,vjust=0)+
+ggplot(dx_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./117469,
+                                         name = 'Percentage'))+
+  geom_text(data=dx_top,aes(label=key,hjust=hjust,vjust=vjust))+
   labs(title="Figure 3 - Data Density vs. Recency (CCS)")
 ```
+
+
+A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnosis has been assigned to patients before the encounter of interest. Figure 3 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses. 
 
 
 ***
@@ -788,21 +794,24 @@ rm(px); gc()
 
 
 ```{r px_out, echo=F, warning=F, message=F}
-kable(px_summ %>% arrange(desc(`2.encounters#`)) %>% slice(1:20),
-      caption="Table 6 - Historical Procedures Summaries (top20)")
-
 px_temp<-px_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>% 
-  mutate(`4c.mean_history`=="<11",10,as.numeric(`4c.mean_history`)) %>%
-  mutate(`2.encounters#`=as.numeric(`2.encounters#`),
+  mutate(`2.encounters#`=ifelse(`2.encounters#`=="<11",10,as.numeric(`2.encounters#`)),
          `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
   arrange(desc(`2.encounters#`))
 
-px_top<-px_temp %>% slice(1:20) %>% ungroup
+px_top<-px_temp %>% slice(1:6) %>% ungroup %>%
+  mutate(hjust=c(-0.2,1.2,-0.2,1.2,-0.2,1.2),
+         vjust=c(0,0,1,1,0,0))
 
-ggplot(px_temp,aes(x=`4c.mean_history`,y=`2.encounters#`)) +
-  geom_point() + geom_text(px_top,aes(label=key),hjust=0,vjust=0)+
+ggplot(px_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+ 
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./117469,
+                                         name = 'Percentage'))+
+  geom_text(data=px_top,aes(label=key,hjust=hjust,vjust=vjust))+
   labs(title="Figure 4 - Data Density vs. Recency (PX)")
 ```
+
+
+A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before the encounter of interest. Figure 4 gives an overview of average history of patients' procedures prior to tne encounter of interest as well as the highly frequent historical procedures they had recieved. Figure3, Figure 4 and Figure 5 may display similar distributions as a result of corrlations between diagnoses and procedures.
 
 
 ***
@@ -866,11 +875,15 @@ for(i in seq_len(length(expos_quant)-1)){
 
 #collect summaries
 med_summ<-med %>% 
-  mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
-                           sdsa >=0 & sdsa < 1 ~ "1",
-                           sdsa >=1 & sdsa < 2 ~ "2",
-                           sdsa >=2 & sdsa < 3 ~ "3",
-                           sdsa >=3 ~ "3<")) %>%
+  mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
+                           dsa >=0 & dsa < 1 ~ "1",
+                           dsa >=1 & dsa < 2 ~ "2",
+                           dsa >=2 & dsa < 3 ~ "3",
+                           dsa >=3 & dsa < 4 ~ "4",
+                           dsa >=4 & dsa < 5 ~ "5",
+                           dsa >=5 & dsa < 6 ~ "6",
+                           dsa >=6 & dsa < 7 ~ "7",
+                           dsa >=7 ~ "7<"))
   group_by(key,dsa_grp) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
@@ -915,17 +928,21 @@ med_temp<-med_summ %>%
   filter(!is.na(summ_val)) %>%
   mutate(summ_val=as.numeric(summ_val)) %>%
   spread(summ,summ_val) %>%
-  arrange(desc(`1.encounters#`))
+  arrange(`1.encounters#`)
 
-med_top<-med_temp %>% slice(1:20)
+med_top<-med_temp %>% arrange(desc(`3b.median_expos`)) %>%
+  slice(1:10) %>%
+  mutate(hjust=c(0,1,-0.2,0,0,0,0,0.2,0.2,0.2),
+         vjust=c(0,0,0,0,0,0,0,0,0,0))
 
 ggplot(med_temp,aes(x=dsa_grp,y=`3b.median_expos`,color=`1.encounters#`)) +
   geom_point() + scale_color_gradient2(low="grey",mid="blue",high="red")+
-  geom_text(med_top,aes(label=key),hjust=0,vjust=0)+
-  labs(x="Start Date",title="Figure 5 - Medication Exposure Summaries")
+  geom_text(data=med_top,aes(label=key,hjust=hjust,vjust=vjust))+
+  labs(x="Start Date",y="Median Exposure",color="Number of Encounters",
+       title="Figure 5 - Medication Exposure Summaries")
 ```
 
-Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd and after 3rd days since admission. It helps detect drugs of suspecious high exposures.
+Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd and after 3rd days since admission. It helps detect drugs of suspecious long exposures.
 
 
 ```{r final, include=F}
