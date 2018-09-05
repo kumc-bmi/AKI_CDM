@@ -699,7 +699,11 @@ med_summ<-med %>%
                            sdsa >=0 & sdsa < 1 ~ "1",
                            sdsa >=1 & sdsa < 2 ~ "2",
                            sdsa >=2 & sdsa < 3 ~ "3",
-                           sdsa >=3 ~ "3<")) %>%
+                           sdsa >=3 & sdsa < 4 ~ "4",
+                           sdsa >=4 & sdsa < 5 ~ "5",
+                           sdsa >=5 & sdsa < 6 ~ "6",
+                           sdsa >=6 & sdsa < 7 ~ "7",
+                           sdsa >=7 ~ "7<")) %>%
   group_by(key,dsa_grp) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),

@@ -20,7 +20,15 @@ select l.PATID
       ,l.RESULT_DATE
       ,l.RESULT_TIME
 from &&PCORNET_CDM.LAB_RESULT_CM@server l
-where UPPER(l.LAB_NAME) = 'CREATININE' and 
+where /*UPPER(l.LAB_NAME) = 'CREATININE' and --LAB_NAME deprecated since v4.0*/
+      l.LAB_LOINC in ('2160-0'
+                     ,'38483-4'
+                     ,'14682-9'
+                     ,'21232-4'
+                     ,'35203-9'
+                     ,'44784-7'
+                     ,'59826-8'
+                     ) /*ref: https://github.com/kumc-bmi/h2p-mapping/blob/master/Oracle/lab_loinc_mapping.csv*/
       UPPER(l.RESULT_UNIT) = 'MG/DL' and
       l.SPECIMEN_SOURCE <> 'URINE' and  /*only serum creatinine*/
       l.RESULT_NUM > 0 and /*value 0 could exist*/

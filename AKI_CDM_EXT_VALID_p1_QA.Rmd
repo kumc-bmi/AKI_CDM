@@ -554,7 +554,7 @@ lab_top<-lab_temp %>% slice(1:10) %>%
 
 ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`))+
   geom_point()+
-  scale_y_continuous(sec.axis = sec_axis(trans= ~./117469,
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
   geom_text(data=lab_top,aes(label=key, hjust=hjust, vjust=vjust))+
   labs(x="Average Records per Encounter",
@@ -641,7 +641,7 @@ drg_top<-drg_temp %>% group_by(key1) %>% slice(1:5) %>% ungroup
 ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1))+geom_point()+ 
   scale_y_continuous(sec.axis = sec_axis(trans= ~./117469,
                                          name = 'Percentage'))+
-  geom_text(data=drg_top,aes(label=DRG),hjust=0,vjust=0)+
+  geom_text(data=drg_top,aes(label=DRG),hjust=0.2,vjust=0)+
   labs(color="DRG type", title="Figure 2 - Data Density vs. Recency")
 ```
 
@@ -890,6 +890,7 @@ med_summ<-med %>%
                    sd_expos=round(sd(RX_EXPOS,na.rm=T)),
                    median_expos=round(median(RX_EXPOS,na.rm=T)),
                    max_expos=max(RX_EXPOS,na.rm=T)) %>%
+  ungroup %>%
   #HIPPA, low counts masking
   mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt)),
          record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",as.character(record_cnt)),
@@ -928,10 +929,11 @@ med_temp<-med_summ %>%
   spread(summ,summ_val) %>%
   arrange(`1.encounters#`)
 
-med_top<-med_temp %>% arrange(desc(`3b.median_expos`)) %>%
+med_top<-med_temp %>% 
+  arrange(desc(`3b.median_expos`)) %>%
   slice(1:10) %>%
-  mutate(hjust=c(0,1,-0.2,0,0,0,0,0.2,0.2,0.2),
-         vjust=c(0,0,0,0,0,0,0,0,0,0))
+  dplyr::mutate(hjust=c(0,1,-0.2,0,0,0,0,0.2,0.2,0.2),
+                vjust=c(0,0,0,0,0,0,0,0,0,0))
 
 ggplot(med_temp,aes(x=dsa_grp,y=`3b.median_expos`,color=`1.encounters#`)) +
   geom_point() + scale_color_gradient2(low="grey",mid="blue",high="red")+
