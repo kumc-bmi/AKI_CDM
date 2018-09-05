@@ -32,19 +32,19 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 1. Get `AKI_CDM` code
   - download the [AKI_CDM] repository as a .zip file, unzip and save folder as `AKI_CDM`, *OR*
   - clone [AKI_CDM] repository (using [git command]): 
-    i) nevigate to the location where you want to save the repository locally: `cd <local repo>` 
-    ii) clone the AKI_CDM repository: `git clone https://github.com/kumc-bmi/AKI_CDM` 
+      ...i) nevigate to the location where you want to save the repository locally: `cd <local repo>`.. 
+      ...ii) clone the AKI_CDM repository: `git clone https://github.com/kumc-bmi/AKI_CDM` ..
 
 
 2. Prepare configeration file `config.csv` and save alongside the AKI_CDM project folder
-    i) download the empty `config_template.csv` file
-    ii) fill in the content accordingly (or you can manually create the file using the following format):
+      ...i) download the empty `config_template.csv` file..
+      ...ii) fill in the content accordingly (or you can manually create the file using the following format):
     
     |username     |password    |access         |cdm_db_schema     |cdm_db_server         |oracle_temp_schema                            |
     |:------------|:-----------|:--------------|:-----------------|:---------------------|:---------------------------------------------|
     |your_username|your_passwd |//host:port/sid|current CDM schema|sid where CDM is saved|schema where intermediate tables will be saved|
     
-    iii. save as `config.csv` under the parent directory of AKI_CDM (so it would be at the same level as the AKI_CDM folder)
+      iii) save as `config.csv` under the parent directory of AKI_CDM (so it would be at the same level as the AKI_CDM folder)
 
 [AKI_CDM]: https://github.com/kumc-bmi/AKI_CDM
 [git command]: https://git-scm.com/book/en/v2/Git-Basics-Getting-a-Git-Repository
@@ -53,12 +53,12 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 
 3. Extract AKI cohort and generate final report
   - Knit `AKI_CDM_EXT_VALID_p1_QA.Rmd` and report the outputs 
-    i) `AKI_CDM_EXT_VALID_p1_QA.html` 
-    ii) `AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx` in the `data` folder 
+    ...i) `AKI_CDM_EXT_VALID_p1_QA.html`.. 
+    ...ii) `AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx` in the `data` folder.. 
     
   *OR*
   - Run `AKI_CDM_EXT_VALID_p1_QA.R` and report the output 
-    i) `AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx` in the `data` folder 
+    ...i) `AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx` in the `data` folder.. 
 
 
 *Remark*: all the counts (patient, encounter, record) are masked as "<11" if the number is below 11
