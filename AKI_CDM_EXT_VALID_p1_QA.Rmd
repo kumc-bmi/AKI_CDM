@@ -873,15 +873,15 @@ for(i in seq_len(length(expos_quant)-1)){
 
 #collect summaries
 med_summ<-med %>% 
-  mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
-                           dsa >=0 & dsa < 1 ~ "1",
-                           dsa >=1 & dsa < 2 ~ "2",
-                           dsa >=2 & dsa < 3 ~ "3",
-                           dsa >=3 & dsa < 4 ~ "4",
-                           dsa >=4 & dsa < 5 ~ "5",
-                           dsa >=5 & dsa < 6 ~ "6",
-                           dsa >=6 & dsa < 7 ~ "7",
-                           dsa >=7 ~ "7<"))
+  mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
+                           sdsa >=0 & sdsa < 1 ~ "1",
+                           sdsa >=1 & sdsa < 2 ~ "2",
+                           sdsa >=2 & sdsa < 3 ~ "3",
+                           sdsa >=3 & sdsa < 4 ~ "4",
+                           sdsa >=4 & sdsa < 5 ~ "5",
+                           sdsa >=5 & sdsa < 6 ~ "6",
+                           sdsa >=6 & sdsa < 7 ~ "7",
+                           sdsa >=7 ~ "7<"))
   group_by(key,dsa_grp) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
