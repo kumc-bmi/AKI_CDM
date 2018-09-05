@@ -32,8 +32,8 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 1. Get `AKI_CDM` code
   - download the [AKI_CDM] repository as a .zip file, unzip and save folder as `AKI_CDM`, *OR*
   - clone [AKI_CDM] repository (using [git command]): 
-      ...i) nevigate to the location where you want to save the repository locally: `cd <local repo>`.. 
-      ...ii) clone the AKI_CDM repository: `git clone https://github.com/kumc-bmi/AKI_CDM` ..
+      i) nevigate to the location where you want to save the repository locally: `cd <local repo>`     
+      ii) clone the AKI_CDM repository: `git clone https://github.com/kumc-bmi/AKI_CDM`     
 
 
 2. Prepare configeration file `config.csv` and save alongside the AKI_CDM project folder
