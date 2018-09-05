@@ -7,7 +7,7 @@ tbl_cnt<-1
 
 ############################# set up #############################
 #source utility functions
-source("./R/helper_functions.R")
+source("./R/util.R")
 source("./R/extract_cohort.R")
 
 #load libraries
@@ -744,5 +744,5 @@ final_out[[paste0("Table",tbl_cnt)]]<-med_summ
 rm(med,med2,med_summ); gc()
 
 ############################# write final workbook ##########################
-write.xlsx(final_out,file="./data/AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx")
-#Note: .xlsx cannot opened directly, but can be opened by read.xlsx in R
+write.xlsx(final_out,file="./output/AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx")
+#Note: if .xlsx cannot opened directly, try open it by read.xlsx in R

@@ -38,7 +38,7 @@ AKI Stages are defined based on [KDIGO](http://www.kdigo.org/clinical_practice_g
 ##### Implementation: Extracting AKI Study Cohort
 ```{r setup, include=F}
 #source utility functions
-source("./R/helper_functions.R")
+source("./R/util.R")
 source("./R/extract_cohort.R")
 source("./R/viz.R")
 
@@ -77,7 +77,7 @@ cohort<-extract_cohort(conn,
 
 The above codes extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output will be automatically saved in the current working directory `r getwd()` as "Table1.Rdata". More details are included in the following consort diagram.  
 
-```{r tbl1, echo=F, message=F, warning=F}
+```{r tbl1, include=F}
 Table1<-cohort$aki_enc
 consort_tbl<-cohort$attrition
 
@@ -131,7 +131,9 @@ save(Table1,file="./data/Table1.Rdata")
 
 #clean up
 rm(cohort); gc()
+```
 
+```{r consort, echo=F}
 #consort diagram
 consort_diag(consort_tbl)
 ```
@@ -639,7 +641,7 @@ drg_temp<-DRG_summ %>%
 drg_top<-drg_temp %>% group_by(key1) %>% slice(1:5) %>% ungroup
 
 ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1))+geom_point()+ 
-  scale_y_continuous(sec.axis = sec_axis(trans= ~./117469,
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
   geom_text(data=drg_top,aes(label=DRG),hjust=0.2,vjust=0)+
   labs(color="DRG type", title="Figure 2 - Data Density vs. Recency")
@@ -722,7 +724,7 @@ dx_top<-dx_temp %>% slice(1:10) %>% ungroup %>%
          vjust=c(0,0,-0.5,0,0.1,0.2,0,0,0,0))
 
 ggplot(dx_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+
-  scale_y_continuous(sec.axis = sec_axis(trans= ~./117469,
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
   geom_text(data=dx_top,aes(label=key,hjust=hjust,vjust=vjust))+
   labs(title="Figure 3 - Data Density vs. Recency (CCS)")
@@ -802,7 +804,7 @@ px_top<-px_temp %>% slice(1:6) %>% ungroup %>%
          vjust=c(0,0,1,1,0,0))
 
 ggplot(px_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+ 
-  scale_y_continuous(sec.axis = sec_axis(trans= ~./117469,
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
   geom_text(data=px_top,aes(label=key,hjust=hjust,vjust=vjust))+
   labs(title="Figure 4 - Data Density vs. Recency (PX)")
@@ -942,7 +944,7 @@ ggplot(med_temp,aes(x=dsa_grp,y=`3b.median_expos`,color=`1.encounters#`)) +
        title="Figure 5 - Medication Exposure Summaries")
 ```
 
-Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd and after 3rd days since admission. It helps detect drugs of suspecious long exposures.
+Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps detect drugs of suspecious long exposures.
 
 
 ```{r final, include=F}
@@ -956,6 +958,6 @@ final_out<-list(Table1=consort_tbl,
                 Table8=dx_summ,
                 Table9=px_summ,
                 Table10=med_summ)
-write.xlsx(final_out,file="./data/AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx")
+write.xlsx(final_out,file="./output/AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx")
 ```
 
