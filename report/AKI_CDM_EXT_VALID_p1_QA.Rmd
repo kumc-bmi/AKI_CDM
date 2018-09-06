@@ -126,7 +126,7 @@ tbl1_summ<-tbl1_dsa %>%
 #   arrange(dsa_bin)
 
 #save results
-save(Table1,file="./data/Table1.Rdata")
+# save(Table1,file="./data/Table1.Rdata")
 # save(consort_tbl,file="./data/consort_tbl.Rdata")
 
 #clean up
@@ -224,7 +224,7 @@ demo_summ<-aki_stage_ind %>%
   replace(.,is.na(.),0)
 
 #save results
-save(demo,file="./data/AKI_demo.Rdata")
+# save(demo,file="./data/AKI_demo.Rdata")
 # save(demo_summ,file="./data/demo_summ.Rdata")
 
 #clean up
@@ -411,7 +411,7 @@ vital_smoke_summ<-vital %>%
 
 
 #save
-save(vital,file="./data/AKI_vital.Rdata")
+# save(vital,file="./data/AKI_vital.Rdata")
 # save(vital_summ,file="./data/vital_summ.Rdata")
 # save(vital_smoke_summ,file="./data/vital_smoke_summ.Rdata")
 
@@ -529,7 +529,7 @@ lab_summ<-lab %>%
          within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1))
 
 #save
-save(lab,file="./data/AKI_lab.Rdata")
+# save(lab,file="./data/AKI_lab.Rdata")
 # save(lab_summ,file="./data/lab_summ.Rdata")
 
 #clean up
@@ -622,7 +622,7 @@ DRG_summ<-uhc_DRG %>%
   arrange(DRG)
 
 #save
-save(uhc_DRG,file="./data/AKI_DRG.Rdata")
+# save(uhc_DRG,file="./data/AKI_DRG.Rdata")
 # save(DRG_summ,file="./data/DRG_summ.Rdata")
 
 #clean up
@@ -704,7 +704,7 @@ dx_summ<-dx %>%
   arrange(key)
 
 #save
-save(dx,file="./data/AKI_dx.Rdata")  
+# save(dx,file="./data/AKI_dx.Rdata")  
 # save(dx_summ,file="./data/dx_summ.Rdata")
 
 #clean up
@@ -785,7 +785,7 @@ px_summ<-px %>%
   arrange(key)
 
 #save
-save(px,file="./data/AKI_px.Rdata")  
+# save(px,file="./data/AKI_px.Rdata")  
 # save(px_summ,file="./data/px_summ.Rdata")
 
 #clean up
@@ -913,7 +913,7 @@ med_summ<-med %>%
   arrange(key,summ) 
 
 #save
-save(med2,file="./data/AKI_med.Rdata")
+# save(med2,file="./data/AKI_med.Rdata")
 # save(med_summ,file="./data/med_summ.Rdata")
 
 #clean up
