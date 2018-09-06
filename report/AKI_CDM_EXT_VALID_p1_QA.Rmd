@@ -932,7 +932,7 @@ med_temp<-med_summ %>%
   spread(summ,summ_val) %>%
   mutate(`1.encounters#`=ifelse(`1.encounters#` == "<11", 10,
                                 as.numeric(`1.encounters#`))) %>%
-  arrange(`1.encounters#`) %>%
+  arrange(`1.encounters#`)
 
 med_top<-med_temp %>% 
   arrange(desc(`3b.median_expos`)) %>%

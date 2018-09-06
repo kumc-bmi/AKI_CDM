@@ -33,9 +33,9 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
   - **download** the [AKI_CDM] repository as a .zip file, unzip and save folder as `path-to-dir/AKI_CDM`    
   *OR*  
   - **clone** [AKI_CDM] repository (using [git command]):   
-      i) navigate to the location `path-to-dir` where you want to save the repository locally and     
-      type command line: `cd <path-to-dir>`   
-      ii) clone the AKI_CDM repository by typing command line: `git clone https://github.com/kumc-bmi/AKI_CDM`  
+      i) navigate to the local directory `path-to-dir` where you want to save the project repository and     
+      type command line: `$ cd <path-to-dir>`   
+      ii) clone the AKI_CDM repository by typing command line: `$ git clone https://github.com/kumc-bmi/AKI_CDM`  
 
 
 2. Prepare configeration file `config.csv` and save alongside the AKI_CDM project folder    
@@ -61,7 +61,7 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
       
       ii) **run** r script `render_report.R`      
       
-      iii) **collect** output files from `\output` folder   
+      iii) **collect and report** all output files from `\output` folder   
         - 1. AKI_CDM_EXT_VALID_p1_QA.html - html report with description, figures and partial tables    
         - 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx - excel with full summary tables    
 
@@ -69,3 +69,6 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 
 *Remark*: all the counts (patient, encounter, record) are masked as "<11" if the number is below 11
 
+
+## Benchmarking
+It takes about **1 ~ 1.5 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd). At peak time, it will use about **30 ~ 35GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of output for Part I is about **6MB**.
