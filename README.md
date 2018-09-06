@@ -38,7 +38,7 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 **DBMS connection**: Valid channel should also be established between R and DBMS so that communication between R and CDM database can be supported.    
 **Dependencies**: A list of core R packages as well as their dependencies are required. However, their installations have been included in the codes. 
 * [DBI] (>=0.2-5): for communication between R and relational database    
-* [ROracle] (>=1.3-1): an Oracle JDBC driver    
+* [ROracle] (>=1.3-1): an Oracle JDBC driver
 * [rmarkdown] (>=1.10): for rendering report from .Rmd file (*Note: installation may trip over dependencies [digest] and [htmltools] (>=0.3.5), when manually installation is required*).     
 * [dplyr] (>=0.7.5): for efficient data manipulation    
 * [tidyr] (>=0.8.1): for efficient data manipulation    
@@ -47,6 +47,7 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 * [knitr] (>=1.20): for generating nice tables    
 * [ggplot2] (>=2.2.1): for generating nice plots    
 * [openxlsx] (>=4.1.0): to save tables into multiple sheets within a single .xlsx file    
+
 
 [R Program]: https://www.r-project.org/
 [R studio]: https://www.rstudio.com/
@@ -60,6 +61,8 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 [knitr]: https://cran.r-project.org/web/packages/knitr/knitr.pdf
 [ggplot2]: https://cran.r-project.org/web/packages/ggplot2/ggplot2.pdf
 [openxlsx]: https://cran.r-project.org/web/packages/openxlsx/openxlsx.pdf
+[digest]: https://cran.r-project.org/web/packages/digest/digest.pdf
+[htmltools]: https://cran.r-project.org/web/packages/htmltools/htmltools.pdf
 
 
 ***

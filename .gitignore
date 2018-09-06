@@ -4,6 +4,6 @@
 .Ruserdata
 AKI_CDM_EXT_VALID_p1_QA_sim.Rmd
 *config.csv
-output/
+*.xlsx
 
 

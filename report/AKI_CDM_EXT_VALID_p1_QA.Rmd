@@ -942,7 +942,7 @@ med_top<-med_temp %>%
                 vjust=c(0,0,0,0,0,-0.5,-0.3,-0.1,0.1,0.3))
 
 ggplot(med_temp,aes(x=dsa_grp,y=`3b.median_expos`,color=`1.encounters#`)) +
-  geom_point() + scale_color_gradient2(low="grey",mid="blue",high="red")+
+  geom_point() + scale_color_gradient2(high="red")+
   geom_text(data=med_top,aes(label=key,hjust=hjust,vjust=vjust))+
   labs(x="Start Date",y="Median Exposure",color="Number of Encounters",
        title="Figure 5 - Medication Exposure Summaries")
