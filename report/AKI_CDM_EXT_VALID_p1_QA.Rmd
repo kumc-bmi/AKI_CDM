@@ -60,7 +60,7 @@ require_libraries(c("knitr",
 #establish the connection between r-studio and CDM server
 config_file_path<-"../config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-dbConnect(Oracle(),
+conn<-dbConnect(ROracle::Oracle(),
                 config_file$username,
                 config_file$password,
                 config_file$access)
