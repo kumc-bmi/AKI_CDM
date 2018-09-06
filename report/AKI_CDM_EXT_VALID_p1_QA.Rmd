@@ -915,7 +915,7 @@ med_summ<-med %>%
 
 #save
 # save(med2,file="./data/AKI_med.Rdata")
-# save(med_summ,file="./data/med_summ.Rdata")
+save(med_summ,file="./data/med_summ.Rdata")
 
 #clean up
 rm(med,med2); gc()
@@ -937,18 +937,22 @@ med_temp<-med_summ %>%
 
 med_top<-med_temp %>% 
   arrange(desc(`3b.median_expos`)) %>%
-  slice(1:10) %>%
-  dplyr::mutate(hjust=c(0,1,-0.2,0,0,0,0,0.2,0.2,0.2),
+  slice(1:5) %>%
+  bind_rows(med_temp %>%
+              arrange(desc(`1.encounters#`) %>%
+                        slice(1:5))) %>%
+  dplyr::mutate(hjust=c(0,0.2,-0.2,0,0,0,0,0.2,0.2,0.2),
                 vjust=c(0,0,0,0,0,-0.5,-0.3,-0.1,0.1,0.3))
+  
 
 ggplot(med_temp,aes(x=dsa_grp,y=`3b.median_expos`,color=`1.encounters#`)) +
   geom_point() + scale_color_gradient2(high="red")+
   geom_text(data=med_top,aes(label=key,hjust=hjust,vjust=vjust))+
-  labs(x="Start Date",y="Median Exposure",color="Number of Encounters",
+  labs(x="Start Date",y="Median Exposure (days)",color="Number of Encounters",
        title="Figure 5 - Medication Exposure Summaries")
 ```
 
-Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps detect drugs of suspecious long exposures.
+Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay, as well as drugs of suspecious long exposures (e.g. 308395(vitamin C), 245723(vitamin A derivative)).
 
 
 ```{r final, include=F}
