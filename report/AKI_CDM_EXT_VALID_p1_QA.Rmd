@@ -540,7 +540,7 @@ rm(lab); gc()
 ```{r lab_out, echo=F, warning=F, message=F}
 lab_temp<-lab_summ %>%
   filter(summ %in% c("1.encounters#","2.records#")) %>%
-  mutate(overall=ifelse(overall=="<11",10,as.numeric(overall))) %>%
+  mutate(overall=suppressWarnings(ifelse(overall=="<11",10,as.numeric(overall)))) %>%
   dplyr::select(key,summ,overall) %>% unique %>%
   spread(summ,overall,fill=0) %>%
   mutate(record_intensity=round(`2.records#`/`1.encounters#`,2)) %>%
@@ -633,8 +633,8 @@ rm(uhc_DRG); gc()
 ```{r uhc_out, echo=F, warning=F, message=F}
 drg_temp<-DRG_summ %>% 
   dplyr::select(key1,DRG,`2.encounters#`,`4c.mean_history`) %>%
-  mutate(`2.encounters#`=ifelse(`2.encounters#`=="<11",10,
-                                  as.numeric(`2.encounters#`)),
+  mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
+                                                 as.numeric(`2.encounters#`))),
          `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
   arrange(desc(`2.encounters#`))
 
@@ -714,8 +714,8 @@ rm(dx); gc()
 
 ```{r dx_out, echo=F, warning=F, message=F}
 dx_temp<-dx_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>% 
-  mutate(`2.encounters#`=ifelse(`2.encounters#`=="<11",10,
-                                as.numeric(`2.encounters#`)),
+  mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
+                                                 as.numeric(`2.encounters#`))),
          `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
   dplyr::arrange(desc(`2.encounters#`))
 
@@ -795,7 +795,8 @@ rm(px); gc()
 
 ```{r px_out, echo=F, warning=F, message=F}
 px_temp<-px_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>% 
-  mutate(`2.encounters#`=ifelse(`2.encounters#`=="<11",10,as.numeric(`2.encounters#`)),
+  mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
+                                                 as.numeric(`2.encounters#`))),
          `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
   arrange(desc(`2.encounters#`))
 
@@ -929,7 +930,9 @@ med_temp<-med_summ %>%
   filter(!is.na(summ_val)) %>%
   mutate(summ_val=as.numeric(summ_val)) %>%
   spread(summ,summ_val) %>%
-  arrange(`1.encounters#`)
+  mutate(`1.encounters#`=ifelse(`1.encounters#` == "<11", 10,
+                                as.numeric(`1.encounters#`))) %>%
+  arrange(`1.encounters#`) %>%
 
 med_top<-med_temp %>% 
   arrange(desc(`3b.median_expos`)) %>%

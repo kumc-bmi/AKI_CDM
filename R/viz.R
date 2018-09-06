@@ -15,6 +15,7 @@ consort_diag<-function(consort_tbl){
                        "Excluded: Burn Patients",
                        "Excluded: Pre-existance of \nrenal failure",
                        "Total eligible encounters",
+                       "Non-AKI",
                        "AKI1",
                        "AKI2",
                        "AKI1 to AKI2",
@@ -22,7 +23,7 @@ consort_diag<-function(consort_tbl){
                        "AKI2 to AKI3",
                        "AKI1 to AKI2 to AKI3")) %>%
     mutate(label=paste(label_txt,"\n",label_val)) %>%
-    mutate(node_id=c(2,5,7,9,10,12,13,15,17,22,23,25,24,26,28))
+    mutate(node_id=c(2,5,7,9,10,12,13,15,17,18,22,23,25,24,26,28))
   
   #prepare canvas
   par(mfrow=c(1,1))
@@ -43,6 +44,7 @@ consort_diag<-function(consort_tbl){
                    14,13,
                    14,15,
                    14,17,
+                   17,18,
                    17,20,
                    20,19,
                    20,21,

@@ -18,6 +18,13 @@ select 'Total' cnt_type,
        count(distinct encounterid) enc_cnt
 from AKI_onsets
 union all
+select 'nonAKI' cnt_type,
+       count(distinct encounterid) enc_cnt
+from AKI_onsets
+where AKI1_onset is null and
+      AKI2_onset is null and
+      AKI3_onset is null
+union all
 select 'AKI1' cnt_type,
        count(distinct encounterid) enc_cnt
 from AKI_onsets
