@@ -2,6 +2,10 @@
 # Render Reports #
 ##################
 
+#clean up the slate
+rm(list=ls())
+gc()
+
 #require libraries
 source("./R/util.R")
 require_libraries(c("rmarkdown"))

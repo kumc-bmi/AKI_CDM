@@ -1,8 +1,11 @@
 .Rproj.user
 .Rhistory
 .RData
-*.Rdata
 .Ruserdata
+AKI_CDM_EXT_VALID_p1_QA_sim.Rmd
+*.Rdata
 *.html
 *config.csv
-AKI_CDM_EXT_VALID_p1_QA_sim.Rmd
+output/
+
+
