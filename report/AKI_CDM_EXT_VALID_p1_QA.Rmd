@@ -965,7 +965,8 @@ write.xlsx(final_out,file="./output/AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx")
 
 
 # ggplot sometimes create some unwanted empty .pdf file and want to clean it up
-file.exists("./Rplots.pdf")
-file.remove("./Rplots.pdf")
+if(file.exists("./Rplots.pdf")){
+  file.remove("./Rplots.pdf")
+}
 ```
 
