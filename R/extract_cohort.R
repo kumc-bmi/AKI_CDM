@@ -34,7 +34,8 @@ extract_cohort<-function(conn,
                     cdm_db_schema=cdm_db_schema,
                     cdm_db_server=cdm_db_server,
                     start_date="2010-01-01",
-                    end_date="2018-12-31")
+                    end_date="2018-12-31",
+                    verb=verb)
   
   #collect attrition info
   attrition<-dbGetQuery(conn,

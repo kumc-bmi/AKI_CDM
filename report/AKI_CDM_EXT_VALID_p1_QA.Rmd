@@ -72,7 +72,8 @@ cohort<-extract_cohort(conn,
                        oracle_temp_schema=config_file$oracle_temp_schema,
                        cdm_db_schema=config_file$cdm_db_schema,
                        start_date="2010-01-01",
-                       end_date="2018-12-31")
+                       end_date="2018-12-31",
+                       verb=F)
 ```
 
 The above codes extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output will be automatically saved in the current working directory `r getwd()` as "Table1.Rdata". More details are included in the following consort diagram.  
@@ -564,7 +565,7 @@ ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`))+
        title="Figure 1 - Data Density vs. Records Intensity")
 ```
 
-A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 2 shows the data density and variablity of labs concepts, which can help identify common labs or labs with suspiciously high variations.
+A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 2 shows the data density and variablity of labs concepts, which can help identify common labs (e.g. 2160-0 (SCr), 2823-3 (potassium), 2951-2(sodium), 17861-6(calcium), 3094-0(BUN), 1963-8(CO2), 33037-3 (Anion Gap), 2075-0(chloride), 718-7(hemoglobin),...), and labs with very high recording intensity (e.g. 2340-8(glucose)).
 
 
 ***
@@ -938,7 +939,7 @@ med_top<-med_temp %>%
   arrange(desc(`3b.median_expos`)) %>%
   slice(1:10) %>%
   dplyr::mutate(hjust=c(0,1,-0.2,0,0,0,0,0.2,0.2,0.2),
-                vjust=c(0,0,0,0,0,0,0,0,0,0))
+                vjust=c(0,0,0,0,0,-0.5,-0.3,-0.1,0.1,0.3))
 
 ggplot(med_temp,aes(x=dsa_grp,y=`3b.median_expos`,color=`1.encounters#`)) +
   geom_point() + scale_color_gradient2(low="grey",mid="blue",high="red")+

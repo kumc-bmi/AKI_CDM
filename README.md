@@ -15,11 +15,19 @@ Share and Enjoy according to the terms of the MIT Open Source License.
 
 ## Background
 
-Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affecting 10-15% of all hospitalized patients and >50% of the intensive care unit (ICU) patients. In this application, we propose to build predictive models to identify patients at risk for hospital-acquired AKI and externally validate the models using the PCORnet (Patient Centered Outcomes Research Network)13 common data model (CDM) infrastructure. The project will be carried out with the following aims:
+Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affecting 10-15% of all hospitalized patients and >50% of the intensive care unit (ICU) patients. In this application, we propose to build predictive models to identify patients at risk for hospital-acquired AKI and externally validate the models using the PCORnet (Patient Centered Outcomes Research Network)13 common data model (CDM) infrastructure ([GPC#711]). The project will be carried out with the following aims:
 
 * **Aim 1**: Building predictive models on single-site data. We will develop and internally cross-validate machine learning based predictive models for in-hospital AKI using electronic medical record (EMR) data from the University of Kansas Medical Center’s (KUMC) PCORnet CDM. As co-I of the PCORnet network Greater Plains Collaborative (GPC), PI of this project has direct access to the KUMC CDM for model development.
+      * **Task 1.1: developing R implementation for data extraction and quality check  -- current (due at 09/07/2018)**
+      * Task 1.2: exploratory data analysis (e.g. strategies for data cleaning and representation, feature engineering) 
+      * Task 1.3: benchmarking with replication of current state-of-art prediction model
+      * Task 1.4: developing new models
  
 * **Aim 2**: Validating predictive models on multi-site data. We will implement an automated analytic package with built in data extraction and predictive modeling from Aim 1 for distributed execution within two PCORnet clinical data research networks (CDRNs), namely GPC led by Dr. Waitman and Veterans Health Administration (VHA) site led by Dr. Matheny in pSCANNER. All prototyping will be done on the KUMC CDM.
+      * Task 2.1: deploying R codes for data extraction and quanlity check, and reporting results to KUMC -- (due at 10/31/2018)
+      * Task 2.2: deploying R codes for external validations 
+      
+[GPC#711]: https://informatics.gpcnetwork.org/trac/Project/ticket/711
 
 ***
 
@@ -103,3 +111,7 @@ The following instructions are for extracting cohort and generating final report
 
 ## Benchmarking
 It takes about **1 ~ 1.5 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd). At peak time, it will use about **30 ~ 35GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of output for Part I is about **6MB**.
+
+
+***
+*updated 09/06/2018*
