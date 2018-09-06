@@ -20,7 +20,7 @@ select distinct
       ,p.RXNORM_CUI
       --,regexp_substr(p.RAW_RX_MED_NAME,'[^\[]+',1,1) RX_MED_NAME
       ,p.RX_QUANTITY
-      ,p.RX_QUANTITY_UNIT
+      --,p.RX_QUANTITY_UNIT
       ,p.RX_REFILLS
       ,p.RX_DAYS_SUPPLY
       ,p.RX_FREQUENCY
