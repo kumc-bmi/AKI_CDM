@@ -565,7 +565,7 @@ ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`))+
        title="Figure 1 - Data Density vs. Records Intensity")
 ```
 
-A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 2 shows the data density and variablity of labs concepts, which can help identify common labs (e.g. 2160-0 (SCr), 2823-3 (potassium), 2951-2(sodium), 17861-6(calcium), 3094-0(BUN), 1963-8(CO2), 33037-3 (Anion Gap), 2075-0(chloride), 718-7(hemoglobin),...), and labs with very high recording intensity (e.g. 2340-8(glucose)).
+A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. 2160-0 (SCr), 2823-3 (potassium), 2951-2(sodium), 17861-6(calcium), 3094-0(BUN), 1963-8(CO2), 33037-3 (Anion Gap), 2075-0(chloride), 718-7(hemoglobin),...), and labs with very high recording intensity (e.g. 2340-8(glucose)).
 
 
 ***
@@ -645,10 +645,10 @@ ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1))+geom_poin
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
   geom_text(data=drg_top,aes(label=DRG),hjust=0.2,vjust=0)+
-  labs(color="DRG type", title="Figure 2 - Data Density vs. Recency")
+  labs(color="DRG type", title="Figure 2 - Data Density vs. Record Intensity")
 ```
 
-A Total of `r length(unique(DRG_summ$DRG))` has been assigned to patients at or before admission. All DRGs at admission should be aligned at 0 in Figure 2. Historical DRGs are summerized based on their median time lapses prior to admission. 
+A Total of `r length(unique(DRG_summ$DRG))` has been assigned to patients at or before admission. All DRGs at admission should be aligned at 0 in Figure 2. Historical DRGs are summerized based on their median time lapses prior to admission. Figure 3 demonstrates the data density of UHC diagnoses, which helps identify typical admission and historical DRG for the cohort (e.g. 871,872(Septicemia), 190 (Chronic obstructive pulmonary disease))
 
 
 ***
@@ -732,7 +732,7 @@ ggplot(dx_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+
 ```
 
 
-A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnosis has been assigned to patients before the encounter of interest. Figure 3 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses. 
+A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnosis has been assigned to patients before the encounter of interest. Figure 3 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses(e.g. 259(Residual codes; unclassified), 257(Other aftercare), 133(Other lower respiratory disease)).
 
 
 ***
@@ -813,7 +813,7 @@ ggplot(px_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+
 ```
 
 
-A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before the encounter of interest. Figure 4 gives an overview of average history of patients' procedures prior to tne encounter of interest as well as the highly frequent historical procedures they had recieved. Figure3, Figure 4 and Figure 5 may display similar distributions as a result of corrlations between diagnoses and procedures.
+A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before the encounter of interest. Figure 4 gives an overview of average history of patients' procedures prior to tne encounter of interest as well as the highly frequent historical procedures they had recieved. It can help identify the common procedures or typical occuring times of precedures (e.g. CPT:99213, 99214(office or outpatient visit), CPT:36415 (cardiovascular surgery, CPT:80053(metabolic panel), CPT:85025(complete CBC))). Note that Figure2, Figure3 and Figure4 may display similar distributions as a result of corrlations between diagnoses and procedures. 
 
 
 ***
