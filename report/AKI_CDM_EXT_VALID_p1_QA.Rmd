@@ -930,8 +930,8 @@ med_temp<-med_summ %>%
   filter(!is.na(summ_val)) %>%
   mutate(summ_val=as.numeric(summ_val)) %>%
   spread(summ,summ_val) %>%
-  mutate(`1.encounters#`=ifelse(`1.encounters#` == "<11", 10,
-                                as.numeric(`1.encounters#`))) %>%
+  mutate(`1.encounters#`=suppressWarnings(ifelse(`1.encounters#` == "<11", 10,
+                                                 as.numeric(`1.encounters#`)))) %>%
   arrange(`1.encounters#`)
 
 med_top<-med_temp %>% 
