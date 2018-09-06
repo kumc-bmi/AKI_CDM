@@ -30,11 +30,11 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 [R studio]: https://www.rstudio.com/
 
 1. Get `AKI_CDM` code
-  - **download** the [AKI_CDM] repository as a .zip file, unzip and save folder as `AKI_CDM`    
+  - **download** the [AKI_CDM] repository as a .zip file, unzip and save folder as `path-to-dir/AKI_CDM`    
   *OR*  
   - **clone** [AKI_CDM] repository (using [git command]):   
-      i) navigate to the location `<local repo>` where you want to save the repository locally and type command line: `cd <local repo>`     
-      ii) clone the AKI_CDM repository by typing command line: `git clone https://github.com/kumc-bmi/AKI_CDM`     
+      i) navigate to the location `path-to-dir` where you want to save the repository locally and type command line: `cd <path-to-dir>`   
+      ii) clone the AKI_CDM repository by typing command line: `git clone https://github.com/kumc-bmi/AKI_CDM`  
 
 
 2. Prepare configeration file `config.csv` and save alongside the AKI_CDM project folder    
@@ -56,7 +56,7 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
       i) **setup** working directory    
         - In *r-studio* environment, simply **open** R project `AKI_CDM.Rproj` within the folder
         *OR*    
-        - In *plain r* environment, **set working directory** to where `AKI_CDM` locates by runing `setwd("/path/to/AKI_CDM")`
+        - In *plain r* environment, **set working directory** to where `AKI_CDM` locates by runing `setwd("path-to-dir/AKI_CDM")`
       
       ii) **run** r script `render_report.R`      
       
