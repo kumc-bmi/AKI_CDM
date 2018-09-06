@@ -1,0 +1,972 @@
+---
+title: "Building and Validating Predictive Models for Acute Kidney Injury (AKI) using PCORnet CDM (Part I)"
+author: "xing song"
+date: "August 23, 2018"
+output: html_document
+---
+### Aim 1: Data Feasibility Evaluation over GPC sites.
+#### Objective 1.1: Study cohort extraction and characterization
+
+##### Inclusion criteria:
+
+* (IP,IS,EI) visits with length of stay (LOS) >= 2 days; 
+* age at visit >= 18 years old
+
+***
+
+##### Exclusion criteria:
+
+* had no documented SCr measurements during admission; 
+* had initial SCr greater than or equal to 1.3 mg/dL; 
+* developed stage 2 AKI (eGFR <= 15 mL/min per 1.73m^2) initially; 
+* pre-existing chronic renal failure (DX); 
+* received RRT within 48 hours since admission; 
+* burn patients (DRG)
+
+***
+
+##### AKI Staging
+
+AKI Stages are defined based on [KDIGO](http://www.kdigo.org/clinical_practice_guidelines/pdf/KDIGO%20AKI%20Guideline.pdf):
+
+* AKI 1: increase in serum creatinine by >=**0.3 mg/dL** within **48 hours** OR **1.5-1.9 times** baseline within **7 days**; 
+* AKI 2: **2.0 to 2.9 times** baseline within **7 days**; 
+* AKI 3: increase in serum creatinine to >= **4.0 mg/dL** within **48 hours** OR **3.0 times** baseline within **7 days**
+
+***
+
+##### Implementation: Extracting AKI Study Cohort
+```{r setup, include=F}
+#source utility functions
+source("./R/util.R")
+source("./R/extract_cohort.R")
+source("./R/viz.R")
+
+#load libraries
+require_libraries(c("knitr",
+                    "tidyr",
+                    "dplyr",
+                    "magrittr",
+                    "stringr",
+                    "ROracle",
+                    "DBI",
+                    "ggplot2",
+                    "openxlsx"))
+
+```
+
+
+```{r cohort, message=F}
+#establish the connection between r-studio and CDM server
+config_file_path<-"../config.csv"
+config_file<-read.csv(config_file_path,stringsAsFactors = F)
+conn<-dbConnect(ROracle::Oracle(),
+                config_file$username,
+                config_file$password,
+                config_file$access)
+
+#extract cohort --Table1
+# by default, we assume cdm schema is on the same server as current schema,
+# if not, set same_server=F and cdm_db_server=...(server name)
+cohort<-extract_cohort(conn,
+                       oracle_temp_schema=config_file$oracle_temp_schema,
+                       cdm_db_schema=config_file$cdm_db_schema,
+                       start_date="2010-01-01",
+                       end_date="2018-12-31")
+```
+
+The above codes extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output will be automatically saved in the current working directory `r getwd()` as "Table1.Rdata". More details are included in the following consort diagram.  
+
+```{r tbl1, include=F}
+Table1<-cohort$aki_enc
+consort_tbl<-cohort$attrition
+
+# collect summaries
+enc_tot<-length(unique(Table1$ENCOUNTERID))
+
+tbl1_dsa<-Table1 %>% 
+  dplyr::select(PATID, ENCOUNTERID,
+                NONAKI_SINCE_ADMIT, 
+                AKI1_SINCE_ADMIT,
+                AKI2_SINCE_ADMIT,
+                AKI3_SINCE_ADMIT) %>%
+  gather(stage, days_since_admit,-PATID,-ENCOUNTERID) %>%
+  mutate(stage=gsub("_.*","",stage)) %>% 
+  filter(!is.na(days_since_admit)) 
+
+tbl1_summ<-tbl1_dsa %>%
+  group_by(stage) %>%
+  dplyr::summarize(pat_cnt=length(unique(PATID)),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min_time=min(days_since_admit,na.rm=T),
+                   q1_time=quantile(days_since_admit,probs=0.25,na.rm=T),
+                   median_time=median(days_since_admit,na.rm=T),
+                   mean_time=round(mean(days_since_admit,na.rm=T),1),
+                   q3_time=quantile(days_since_admit,probs=0.75,na.rm=T),
+                   max_time=max(days_since_admit,na.rm=T),
+                   sd_time=round(sd(days_since_admit,na.rm=T),2)) %>%
+  mutate(semi_IQR_time=0.5*(q3_time-q1_time)) %>%
+  #HIPPA, low counts masking
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",as.character(pat_cnt)),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt)))
+
+# tbl1_summ2<-tbl1_dsa %>%
+#   mutate(dsa_bin=case_when(days_since_admit <10 ~ paste0("0",days_since_admit," days"),
+#                            days_since_admit >=10 & days_since_admit < 31 ~ paste(days_since_admit,"days"),
+#                            days_since_admit >=31 ~ '31 days(1mth) <')) %>%
+#   group_by(stage,dsa_bin) %>%
+#   dplyr::summarize(enc_cnt=length(unique(ENCOUNTERID))) %>%
+#   spread(stage,enc_cnt,fill=0) %>%
+#   mutate(AKI1_cum=cumsum(AKI1),
+#          AKI2_cum=cumsum(AKI2),
+#          AKI3_cum=cumsum(AKI3),
+#          NONAKI_cum=cumsum(NONAKI)) %>%
+#   arrange(desc(dsa_bin)) %>%
+#   mutate(NONAKI=cumsum(NONAKI)) %>%
+#   arrange(dsa_bin)
+
+#save results
+# save(Table1,file="./data/Table1.Rdata")
+# save(consort_tbl,file="./data/consort_tbl.Rdata")
+
+#clean up
+rm(cohort); gc()
+```
+
+```{r consort, echo=F}
+#consort diagram
+consort_diag(consort_tbl)
+```
+
+
+```{r temp, include=F}
+# auxilliary summaries and tables
+enc_tot<-length(unique(Table1$ENCOUNTERID))
+# critical dates of AKI encounters
+aki_stage_ind<-Table1 %>%
+  dplyr::select(PATID, ENCOUNTERID, ADMIT_DATE, DISCHARGE_DATE,
+                NONAKI_ANCHOR, AKI1_ONSET,AKI2_ONSET,AKI3_ONSET) %>%
+  gather(chk_pt, critical_date,-PATID,-ENCOUNTERID) %>%
+  filter(!is.na(critical_date)) %>%
+  mutate(chk_pt=gsub("_.*","",chk_pt)) %>%
+  group_by(chk_pt) %>%
+  dplyr::mutate(stg_tot_cnt=n()) %>%
+  ungroup %>%
+  arrange(PATID, ENCOUNTERID, chk_pt, critical_date, stg_tot_cnt)
+```
+
+***
+
+#### Objective 1.2: Variable Collection and Summaries (Table by Table)
+In this section, we will collect variables from PCORNET_CDM tables: *DEMOGRAPHIC*, *ENCOUNTER*, *VITAL*, *LAB_RESULT_CM*, *PRESCRIBING MEDICATION*, *DIAGNOSIS*, *PROCEDURE*, check data quality and generate variable summaries table by table.
+
+##### Demographic 
+Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*, *Ethnicity*.  
+
+```{r demo, include=F}
+## demographic
+conn<-dbConnect(Oracle(),
+                config_file$username,
+                config_file$password,
+                config_file$access)
+
+demo<-dbGetQuery(conn,
+                 parse_sql("./inst/collect_demo.sql",
+                           cdm_db_schema=config_file$cdm_db_schema,
+                           cdm_db_server=" ")$statement) %>%
+  mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
+                           AGE >= 26 & AGE <= 35 ~ "26-35",
+                           AGE >= 36 & AGE <= 45 ~ "36-45",
+                           AGE >= 46 & AGE <= 55 ~ "46-55",
+                           AGE >= 56 & AGE <= 65 ~ "56-65",
+                           AGE >= 66 ~ "66<=")) %>%
+  dplyr::select(PATID,ENCOUNTERID,
+                AGE,AGE_GRP,SEX,RACE,HISPANIC,DDAYS_SINCE_ENC) %>%
+  replace_na(list(AGE="NI",
+                  AGE_GRP="NI",
+                  SEX="NI",
+                  RACE="NI",
+                  HISPANIC="NI")) %>%
+  gather(key,value,-PATID,-ENCOUNTERID) %>%
+  unique
+
+#collect summaries
+demo_summ<-aki_stage_ind %>% 
+  filter(!chk_pt %in% c("DISCHARGE")) %>%
+  dplyr::select(-critical_date) %>%
+  left_join(demo %>% 
+              filter(!(key %in% c("AGE","DDAYS_SINCE_ENC"))), 
+            by="ENCOUNTERID") %>%
+  group_by(chk_pt,stg_tot_cnt,key,value) %>%
+  dplyr::summarize(enc_cnt = n(),
+                   enc_prop = round(n()/stg_tot_cnt[1],2)) %>%
+  ungroup %>% dplyr::select(-stg_tot_cnt) %>%
+  gather(summ,summ_val,-chk_pt,-key,-value) %>%
+  # # decode demo_val
+  # left_join(meta %>% dplyr::select(COLUMN_NAME,VAR_CODE,VAR_NAME),
+  #           by=c("demo_type"="COLUMN_NAME","demo_val"="VAR_CODE")) %>%
+  # dplyr::mutate(demo_val = ifelse(!is.na(VAR_NAME),VAR_NAME,demo_val)) %>%
+  # dplyr::select(-VAR_NAME) %>%
+  # unite("demo_type_cat",c("demo_type","demo_val")) %>%
+  # attach totals at bottom
+  bind_rows(aki_stage_ind %>%
+              filter(!chk_pt %in% c("DISCHARGE")) %>%
+              dplyr::select(chk_pt,stg_tot_cnt) %>% 
+              unique %>% 
+              dplyr::rename(enc_cnt=stg_tot_cnt) %>%
+              mutate(enc_prop=round(enc_cnt/enc_tot,2),
+                     key="TOTAL",
+                     value="(%/overall)") %>%
+              gather(summ,summ_val,-chk_pt,-key,-value) %>%
+              dplyr::select(key,value,chk_pt,summ,summ_val)) %>%
+  unite("stg_summ",c("chk_pt","summ")) %>%
+  unique %>% spread(stg_summ,summ_val) %>%
+  replace(.,is.na(.),0)
+
+#save results
+# save(demo,file="./data/AKI_demo.Rdata")
+# save(demo_summ,file="./data/demo_summ.Rdata")
+
+#clean up
+rm(demo); gc()
+```
+
+
+```{r demo_out, echo=F}
+demo_nice_tbl<-demo_summ %>%
+  gather(summ,summ_val,-key,-value) %>%
+  mutate(summ_val=ifelse(grepl("_prop",summ),paste0(summ_val*100,"%"),as.character(summ_val))) %>%
+  spread(summ,summ_val) %>%
+  unite("ADMIT",paste0("ADMIT_",c("enc_cnt","enc_prop")),sep=", ") %>%
+  unite("AKI1",paste0("AKI1_",c("enc_cnt","enc_prop")),sep=", ") %>%
+  unite("AKI2",paste0("AKI2_",c("enc_cnt","enc_prop")),sep=", ") %>%
+  unite("AKI3",paste0("AKI3_",c("enc_cnt","enc_prop")),sep=", ") %>%
+  unite("NONAKI",paste0("NONAKI_",c("enc_cnt","enc_prop")),sep=", ") %>%
+  bind_rows(data.frame(key=unique(demo_summ$key),value=" ",stringsAsFactors = F)) %>%
+  gather(summ,summ_val,-key,-value) %>%
+  replace_na(list(summ_val=" ")) %>%
+  spread(summ,summ_val) %>%
+  arrange(key,value) %>%
+  mutate(key=ifelse(value==" ",key," "))
+kable(demo_nice_tbl,caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3")
+```
+
+Demographic characterizations for patients at different AKI stages are summarized in Table 1.
+
+***
+
+
+##### Vital 
+Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, Diastolic)*, *Smoking Status*. 
+
+```{r vital, include=F}
+## vital
+conn<-dbConnect(Oracle(),
+                config_file$username,
+                config_file$password,
+                config_file$access)
+
+vital<-dbGetQuery(conn,
+                  parse_sql("./inst/collect_vital.sql",
+                            cdm_db_schema=config_file$cdm_db_schema,
+                            cdm_db_server=" ")$statement) %>%
+  mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
+                             ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
+                             ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
+  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
+            by=c("PATID","ENCOUNTERID")) %>%
+  dplyr::mutate(dsa=round(as.numeric(difftime(MEASURE_DATE_TIME,critical_date,units="days")),2)) %>%
+  dplyr::select(-MEASURE_DATE_TIME,-critical_date,-chk_pt,-stg_tot_cnt) %>%
+  gather(key,value,-PATID,-ENCOUNTERID,-dsa) %>%
+  filter(!is.na(key) & !is.na(value)) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,dsa) %>%
+  mutate(key=recode(key,
+                    ORIGINAL_BMI="BMI",
+                    SYSTOLIC="BP_SYSTOLIC",
+                    DIASTOLIC="BP_DIASTOLIC")) %>%
+  unique
+
+vital1<-vital %>%
+  dplyr::select(ENCOUNTERID, key, value, dsa) %>%
+  filter(key %in% c("HT","WT","BMI","BP_DIASTOLIC","BP_SYSTOLIC")) %>%
+  mutate(value=as.numeric(value)) %>%
+  mutate(param_low=case_when(key=="HT" ~ 0,
+                             key=="WT" ~ 0,
+                             key=="BMI" ~ 0,
+                             key %in% c("BP_DIASTOLIC",
+                                        "BP_SYSTOLIC") ~ 40),
+         param_high=case_when(key=="HT" ~ 94.99,
+                              key=="WT" ~ 350,
+                              key=="BMI" ~ 50,
+                              key=="BP_DIASTOLIC"~120,
+                              key=="BP_SYSTOLIC" ~ 210)) %>%
+  mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
+                           dsa >=0 & dsa < 1 ~ "1",
+                           dsa >=1 & dsa < 2 ~ "2",
+                           dsa >=2 & dsa < 3 ~ "3",
+                           dsa >=3 & dsa < 4 ~ "4",
+                           dsa >=4 & dsa < 5 ~ "5",
+                           dsa >=5 & dsa < 6 ~ "6",
+                           dsa >=6 & dsa < 7 ~ "7",
+                           dsa >=7 ~ "7<"))
+
+
+# collect summaries
+vital_summ<-vital1 %>%
+  group_by(key) %>%
+  dplyr::summarize(record_cnt=n(),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   low_cnt=sum((value<param_low)),
+                   high_cnt=sum((value>param_high)),
+                   min=min(value,na.rm=T),
+                   mean=round(mean(value,na.rm=T)),
+                   sd=round(sd(value,na.rm=T)),
+                   median=round(median(value,na.rm=T)),
+                   max=max(value,na.rm=T)) %>%
+  ungroup %>%
+  mutate(cov=round(sd/mean,1)) %>%
+  #HIPPA, low counts masking
+  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",enc_cnt),
+         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",record_cnt),
+         low_cnt=ifelse(as.numeric(low_cnt)<11 & as.numeric(low_cnt)>0,"<11",as.character(low_cnt)),
+         high_cnt=ifelse(as.numeric(high_cnt)<11 & as.numeric(high_cnt)>0,"<11",as.character(high_cnt))) %>%
+  gather(summ,overall,-key) %>%
+  mutate(summ=recode(summ,
+                     enc_cnt="1.encounters#",
+                     record_cnt="2.records#",
+                     low_cnt="3.low_records#",
+                     high_cnt="4.high_records#",
+                     min="5a.min",
+                     median="5b.median",
+                     mean="5c.mean",
+                     sd="5d.sd",
+                     cov="5e.cov",
+                     max="5f.max")) %>%
+  left_join(
+    vital1 %>%
+      group_by(key,dsa_grp) %>%
+      dplyr::summarize(record_cnt=n(),
+                       enc_cnt=length(unique(ENCOUNTERID)),
+                       low_cnt=sum((value<param_low)),
+                       high_cnt=sum((value>param_high)),
+                       min=min(value,na.rm=T),
+                       mean=round(mean(value,na.rm=T)),
+                       sd=round(sd(value,na.rm=T)),
+                       median=round(median(value,na.rm=T)),
+                       max=max(value,na.rm=T)) %>%
+      ungroup %>%
+      mutate(cov=round(sd/mean,1)) %>%
+      #HIPPA, low counts masking
+      mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",enc_cnt),
+             record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",record_cnt),
+             low_cnt=ifelse(as.numeric(low_cnt)<11 & as.numeric(low_cnt)>0,"<11",as.character(low_cnt)),
+             high_cnt=ifelse(as.numeric(high_cnt)<11 & as.numeric(high_cnt)>0,"<11",as.character(high_cnt))) %>%
+      gather(summ,summ_val,-key,-dsa_grp) %>%
+      spread(dsa_grp,summ_val) %>%
+      mutate(summ=recode(summ,
+                         enc_cnt="1.encounters#",
+                         record_cnt="2.records#",
+                         low_cnt="3.low_records#",
+                         high_cnt="4.high_records#",
+                         min="5a.min",
+                         median="5b.median",
+                         mean="5c.mean",
+                         sd="5d.sd",
+                         cov="5e.cov",
+                         max="5f.max")),
+    by=c("key","summ")
+  ) %>%
+  arrange(key,summ)
+
+
+vital_smoke_summ<-vital %>%
+  dplyr::select(PATID,ENCOUNTERID, key, value) %>%
+  filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
+  unique %>%
+  group_by(PATID,ENCOUNTERID, key) %>%
+  dplyr::mutate(value=paste(value[order(value)],collapse = ",")) %>% 
+  ungroup %>% unique %>%
+  spread(key,value) %>%
+  right_join(Table1 %>% dplyr::select(PATID,ENCOUNTERID),
+             by=c("PATID","ENCOUNTERID")) %>%
+  replace_na(list(SMOKING="NI",
+                  TOBACCO="NI",
+                  TOBACCO_TYPE="NI")) %>%
+  gather(key,value,-PATID,-ENCOUNTERID) %>%
+  unite("key_cat",c("key","value")) %>%
+  group_by(key_cat) %>%
+  dplyr::summarize(pat_cnt=length(unique(PATID)),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   record_cnt=n()) %>%
+  #HIPPA, low counts masking
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11 & as.numeric(pat_cnt)>0,"<11",as.character(pat_cnt)),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
+         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt))) %>%
+  gather(summ,summ_val,-key_cat) %>%
+  mutate(summ=recode(summ,
+                     pat_cnt="1.patients#",
+                     enc_cnt="2.encounters#",
+                     record_cnt="3.records#")) %>%
+  spread(summ,summ_val)
+
+
+#save
+# save(vital,file="./data/AKI_vital.Rdata")
+# save(vital_summ,file="./data/vital_summ.Rdata")
+# save(vital_smoke_summ,file="./data/vital_smoke_summ.Rdata")
+
+#clean up
+rm(vital); gc()
+```
+
+
+```{r vital_out1, echo=F, warning=F, message=F}
+kable(vital_summ,caption="Table 2a - Vital (HT,WT,BMI,SBP,DBP) Summaries")
+```
+
+Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
+
+```{r vital_out2, echo=F, warning=F, message=F}
+kable(vital_smoke_summ,caption="Table 2b - Vital (SMOKING, TABACCO) Summaries")
+```
+
+Table 2b identifies unreliable reporting of smoking status. A significant mismatch between smoking and tabacco summaries needs some further investigation.
+
+
+***
+
+
+##### Labs
+```{r lab, include=F}
+## labs
+conn<-dbConnect(Oracle(),
+                config_file$username,
+                config_file$password,
+                config_file$access)
+
+lab<-dbGetQuery(conn,
+                parse_sql("./inst/collect_lab.sql",
+                          cdm_db_schema=config_file$cdm_db_schema,
+                          cdm_db_server=" ")$statement) %>%
+  dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME) %>%
+  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
+            by=c("PATID","ENCOUNTERID")) %>%
+  dplyr::mutate(dsa=round(as.numeric(difftime(SPECIMEN_DATE_TIME,critical_date,units="days")),2)) %>%
+  dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,unit,dsa) %>%
+  filter(!is.na(key) & !is.na(value)) %>%
+  unique
+
+#collect summaries
+lab %<>%
+  mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
+                           dsa >=0 & dsa < 1 ~ "1",
+                           dsa >=1 & dsa < 2 ~ "2",
+                           dsa >=2 & dsa < 3 ~ "3",
+                           dsa >=3 & dsa < 4 ~ "4",
+                           dsa >=4 & dsa < 5 ~ "5",
+                           dsa >=5 & dsa < 6 ~ "6",
+                           dsa >=6 & dsa < 7 ~ "7",
+                           dsa >=7 ~ "7<"))
+
+lab_summ<-lab %>% 
+  group_by(key) %>%
+  dplyr::summarize(record_cnt=n(),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min=min(value,na.rm=T),
+                   mean=round(mean(value,na.rm=T),2),
+                   sd=round(sd(value,na.rm=T),3),
+                   median=round(median(value,na.rm=T)),
+                   max=max(value,na.rm=T)) %>%
+  ungroup %>%
+  mutate(cov=round(sd/mean,3)) %>%
+  mutate(freq_rk=rank(-enc_cnt,ties.method="first")) %>%
+  #HIPPA, low counts masking
+  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
+         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt))) %>%
+  gather(summ,overall,-key,-freq_rk) %>%
+  mutate(summ=recode(summ,
+                     enc_cnt="1.encounters#",
+                     record_cnt="2.records#",
+                     min="3a.min",
+                     median="3b.median",
+                     mean="3c.mean",
+                     sd="3d.sd",
+                     cov="3e.cov",
+                     max="3f.max")) %>%
+  left_join(
+    lab %>%
+      group_by(key,dsa_grp) %>%
+      dplyr::summarize(record_cnt=n(),
+                       enc_cnt=length(unique(ENCOUNTERID)),
+                       min=min(value,na.rm=T),
+                       mean=round(mean(value,na.rm=T),2),
+                       sd=round(sd(value,na.rm=T),3),
+                       median=round(median(value,na.rm=T)),
+                       max=max(value,na.rm=T)) %>%
+      ungroup %>%
+      mutate(cov=round(sd/mean,3)) %>%
+      #HIPPA, low counts masking
+      mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
+             record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt)),
+             sd=ifelse(is.nan(sd),0,sd)) %>%
+      gather(summ,summ_val,-key,-dsa_grp) %>%
+      spread(dsa_grp,summ_val) %>%
+      mutate(summ=recode(summ,
+                         enc_cnt="1.encounters#",
+                         record_cnt="2.records#",
+                         min="3a.min",
+                         median="3b.median",
+                         mean="3c.mean",
+                         sd="3d.sd",
+                         cov="3e.cov",
+                         max="3f.max")),
+    by=c("key","summ")
+  ) %>%
+  arrange(freq_rk,summ) %>%
+  #additional 
+  mutate(at_admission=ifelse(is.na(`1`),0,1),
+         within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1))
+
+#save
+# save(lab,file="./data/AKI_lab.Rdata")
+# save(lab_summ,file="./data/lab_summ.Rdata")
+
+#clean up
+rm(lab); gc()
+```
+
+
+```{r lab_out, echo=F, warning=F, message=F}
+lab_temp<-lab_summ %>%
+  filter(summ %in% c("1.encounters#","2.records#")) %>%
+  mutate(overall=suppressWarnings(ifelse(overall=="<11",10,as.numeric(overall)))) %>%
+  dplyr::select(key,summ,overall) %>% unique %>%
+  spread(summ,overall,fill=0) %>%
+  mutate(record_intensity=round(`2.records#`/`1.encounters#`,2)) %>%
+  arrange(desc(`1.encounters#`))
+
+lab_top<-lab_temp %>% slice(1:10) %>% 
+  mutate(hjust=rep(c(1.5,-0.5),each=5),
+         vjust=rep(c(0,1,2,3,4),2)) %>%
+  bind_rows(lab_temp %>% arrange(desc(record_intensity)) %>%
+              slice(1:2) %>%
+              mutate(hjust=c(1,1),
+                     vjust=c(0,0)))
+
+ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`))+
+  geom_point()+
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+                                         name = 'Percentage'))+
+  geom_text(data=lab_top,aes(label=key, hjust=hjust, vjust=vjust))+
+  labs(x="Average Records per Encounter",
+       y="Encounter Counts",
+       title="Figure 1 - Data Density vs. Records Intensity")
+```
+
+A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 2 shows the data density and variablity of labs concepts, which can help identify common labs or labs with suspiciously high variations.
+
+
+***
+
+
+##### UHC Diagnoses (Historical and on admission)
+```{r uhc, include=F}
+## admission DRG
+conn<-dbConnect(Oracle(),
+                config_file$username,
+                config_file$password,
+                config_file$access)
+
+uhc_DRG<-dbGetQuery(conn,
+                parse_sql("./inst/collect_DRG.sql",
+                          cdm_db_schema=config_file$cdm_db_schema,
+                          cdm_db_server=" ")$statement) %>%
+  dplyr::select(PATID,ENCOUNTERID,DRG_TYPE,DRG,DRG_DATE) %>%
+  filter(!is.na(DRG)) %>%
+  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
+            by=c("PATID","ENCOUNTERID")) %>%
+  dplyr::mutate(dsa=round(as.numeric(difftime(DRG_DATE,critical_date,units="days")))) %>%
+  dplyr::rename(key1=DRG_TYPE,key2=DRG) %>% 
+  dplyr::select(PATID,ENCOUNTERID,key1,key2,dsa) %>%
+  unique
+
+#collect summaries
+DRG_summ<-uhc_DRG %>%
+  group_by(key1,key2) %>%
+  dplyr::summarize(record_cnt=n(),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   pat_cnt=length(unique(PATID)),
+                   min_history=min(dsa,na.rm=T),
+                   mean_history=round(mean(dsa,na.rm=T)),
+                   sd_history=round(sd(dsa,na.rm=T)),
+                   median_history=round(median(dsa,na.rm=T)),
+                   max_history=max(dsa,na.rm=T)) %>%
+  ungroup %>%
+  #HIPPA, low counts masking
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",as.character(pat_cnt)),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt)),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",as.character(record_cnt))) %>%
+  gather(summ,summ_val,-key1,-key2) %>%
+  dplyr::mutate(summ=recode(summ,
+                            pat_cnt="1.patients#",
+                            enc_cnt="2.encounters#",
+                            record_cnt="3.records#",
+                            max_history="4a.min_history",
+                            median_history="4b.median_history",
+                            mean_history="4c.mean_history",
+                            sd_history="4d.sd_history",
+                            min_history="4f.max_history")) %>%
+  unite("DRG",c("key2","key2"),sep="_") %>%
+  spread(summ,summ_val) %>%
+  arrange(DRG)
+
+#save
+# save(uhc_DRG,file="./data/AKI_DRG.Rdata")
+# save(DRG_summ,file="./data/DRG_summ.Rdata")
+
+#clean up
+rm(uhc_DRG); gc()
+```
+
+
+```{r uhc_out, echo=F, warning=F, message=F}
+drg_temp<-DRG_summ %>% 
+  dplyr::select(key1,DRG,`2.encounters#`,`4c.mean_history`) %>%
+  mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
+                                                 as.numeric(`2.encounters#`))),
+         `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
+  arrange(desc(`2.encounters#`))
+
+drg_top<-drg_temp %>% group_by(key1) %>% slice(1:5) %>% ungroup
+
+ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1))+geom_point()+ 
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+                                         name = 'Percentage'))+
+  geom_text(data=drg_top,aes(label=DRG),hjust=0.2,vjust=0)+
+  labs(color="DRG type", title="Figure 2 - Data Density vs. Recency")
+```
+
+A Total of `r length(unique(DRG_summ$DRG))` has been assigned to patients at or before admission. All DRGs at admission should be aligned at 0 in Figure 2. Historical DRGs are summerized based on their median time lapses prior to admission. 
+
+
+***
+
+##### Diagnosis
+```{r dx, include=F}
+## diagnosis
+load("./data/ccs_icd_cw.Rdata")
+
+conn<-dbConnect(Oracle(),
+                config_file$username,
+                config_file$password,
+                config_file$access)
+
+dx<-dbGetQuery(conn,
+               parse_sql("./inst/collect_dx.sql",
+                         cdm_db_schema=config_file$cdm_db_schema,
+                         cdm_db_server=" ")$statement) %>%
+  #attach CCS diagnosis grouping
+  dplyr::mutate(DX_ICD=paste0("ICD",DX_TYPE,":",DX)) %>%
+  left_join(ccs_icd %>% select(-ccs_name),by=c("DX_ICD"="icd_w_type")) %>%
+  unique %>% filter(!is.na(ccs_code)) %>%
+  dplyr::rename(key=ccs_code, dsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
+  unique
+
+#collect summaries
+dx_summ<-dx %>%
+  group_by(key) %>%
+  dplyr::summarize(record_cnt=n(),
+                   pat_cnt=length(unique(PATID)),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min_history=min(dsa,na.rm=T),
+                   mean_history=round(mean(dsa,na.rm=T)),
+                   sd_history=round(sd(dsa,na.rm=T)),
+                   median_history=round(median(dsa,na.rm=T)),
+                   max_history=max(dsa,na.rm=T)) %>%
+  ungroup %>%
+  #HIPPA, low counts masking
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",pat_cnt),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt)) %>%
+  gather(summ,summ_val,-key) %>%
+  dplyr::mutate(summ=recode(summ,
+                            pat_cnt="1.patients#",
+                            enc_cnt="2.encounters#",
+                            record_cnt="3.records#",
+                            max_history="4a.min_history",
+                            median_history="4b.median_history",
+                            mean_history="4c.mean_history",
+                            sd_history="4d.sd_history",
+                            min_history="4f.max_history")) %>%
+  spread(summ,summ_val) %>%
+  arrange(key)
+
+#save
+# save(dx,file="./data/AKI_dx.Rdata")  
+# save(dx_summ,file="./data/dx_summ.Rdata")
+
+#clean up
+rm(dx); gc()
+```
+
+
+```{r dx_out, echo=F, warning=F, message=F}
+dx_temp<-dx_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>% 
+  mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
+                                                 as.numeric(`2.encounters#`))),
+         `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
+  dplyr::arrange(desc(`2.encounters#`))
+
+dx_top<-dx_temp %>% slice(1:10) %>% ungroup %>%
+  mutate(hjust=c(0,0,0,1,-0.1,0,-0.5,1,0,0),
+         vjust=c(0,0,-0.5,0,0.1,0.2,0,0,0,0))
+
+ggplot(dx_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+                                         name = 'Percentage'))+
+  geom_text(data=dx_top,aes(label=key,hjust=hjust,vjust=vjust))+
+  labs(title="Figure 3 - Data Density vs. Recency (CCS)")
+```
+
+
+A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnosis has been assigned to patients before the encounter of interest. Figure 3 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses. 
+
+
+***
+
+
+##### Procedure
+```{r px, include=F}
+## procedure
+conn<-dbConnect(Oracle(),
+                config_file$username,
+                config_file$password,
+                config_file$access)
+
+px<-dbGetQuery(conn,
+               parse_sql("./inst/collect_px.sql",
+                         cdm_db_schema=config_file$cdm_db_schema,
+                         cdm_db_server=" ")$statement) %>%
+  dplyr::mutate(PX=paste0(PX_TYPE,":",PX)) %>%
+  dplyr::select(PATID,ENCOUNTERID,PX,DAYS_SINCE_ADMIT) %>%
+  dplyr::rename(key=PX, dsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
+  unique
+
+px_summ<-px %>%
+  group_by(key) %>%
+  dplyr::summarize(record_cnt=n(),
+                   pat_cnt=length(unique(PATID)),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min_history=min(dsa,na.rm=T),
+                   mean_history=round(mean(dsa,na.rm=T)),
+                   sd_history=round(sd(dsa,na.rm=T)),
+                   median_history=round(median(dsa,na.rm=T)),
+                   max_history=max(dsa,na.rm=T)) %>%
+  ungroup %>%
+  #HIPPA, low counts masking
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",pat_cnt),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt),
+         sd_history=ifelse(is.na(sd_history),0,sd_history)) %>%
+  gather(summ,summ_val,-key) %>%
+  dplyr::mutate(summ=recode(summ,
+                            pat_cnt="1.patients#",
+                            enc_cnt="2.encounters#",
+                            record_cnt="3.records#",
+                            max_history="4a.min_history",
+                            median_history="4b.median_history",
+                            mean_history="4c.mean_history",
+                            sd_history="4d.sd_history",
+                            min_history="4f.max_history")) %>%
+  spread(summ,summ_val) %>%
+  arrange(key)
+
+#save
+# save(px,file="./data/AKI_px.Rdata")  
+# save(px_summ,file="./data/px_summ.Rdata")
+
+#clean up
+rm(px); gc()
+```
+
+
+```{r px_out, echo=F, warning=F, message=F}
+px_temp<-px_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>% 
+  mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
+                                                 as.numeric(`2.encounters#`))),
+         `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
+  arrange(desc(`2.encounters#`))
+
+px_top<-px_temp %>% slice(1:6) %>% ungroup %>%
+  mutate(hjust=c(-0.2,1.2,-0.2,1.2,-0.2,1.2),
+         vjust=c(0,0,1,1,0,0))
+
+ggplot(px_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+ 
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+                                         name = 'Percentage'))+
+  geom_text(data=px_top,aes(label=key,hjust=hjust,vjust=vjust))+
+  labs(title="Figure 4 - Data Density vs. Recency (PX)")
+```
+
+
+A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before the encounter of interest. Figure 4 gives an overview of average history of patients' procedures prior to tne encounter of interest as well as the highly frequent historical procedures they had recieved. Figure3, Figure 4 and Figure 5 may display similar distributions as a result of corrlations between diagnoses and procedures.
+
+
+***
+
+
+##### Medications
+```{r med, include=F}
+## medication
+conn<-dbConnect(Oracle(),
+                config_file$username,
+                config_file$password,
+                config_file$access)
+
+med<-dbGetQuery(conn,
+                parse_sql("./inst/collect_med.sql",
+                          cdm_db_schema=config_file$cdm_db_schema,
+                          cdm_db_server=" ")$statement) %>%
+  dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
+                                    pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
+  replace_na(list(RX_QUANTITY_DAILY=1)) %>%
+  group_by(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS) %>%
+  dplyr::summarize(RX_START_DATE=min(RX_START_DATE),
+                   RX_END_DATE=max(RX_END_DATE),
+                   RX_QUANTITY_DAILY=max(RX_QUANTITY_DAILY,na.rm=T),
+                   RX_EXPOS=max(RX_EXPOS,na.rm=T)) %>%
+  ungroup %>%
+  dplyr::mutate(RX_EXPOS=pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),
+                              RX_EXPOS,na.rm=T)) %>%
+  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
+            by=c("PATID","ENCOUNTERID")) %>%
+  dplyr::mutate(sdsa=round(as.numeric(difftime(RX_START_DATE,critical_date,units="days")))) %>%
+  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
+  unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
+
+
+batch<-20
+expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch)))
+med2<-med %>% filter(RX_EXPOS<=1) %>% 
+  dplyr::mutate(dsa=as.character(sdsa),edsa=sdsa,value=RX_QUANTITY_DAILY) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
+
+for(i in seq_len(length(expos_quant)-1)){
+  start_i<-Sys.time()
+  
+  med_sub<-med %>% filter(RX_EXPOS > expos_quant[i] & RX_EXPOS <= expos_quant[i+1])
+  med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
+    group_by(PATID,ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
+    dplyr::mutate(expos_daily=1:n()-1) %>% 
+    dplyr::summarize(edsa=max(sdsa+expos_daily),
+                     dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
+    ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
+    dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
+  med2 %<>% bind_rows(med_expand)
+
+  lapse_i<-Sys.time()-start_i
+  cat("batch",i,"of exposures between",expos_quant[i],"and",expos_quant[i+1],
+      "days are collected in",lapse_i,units(lapse_i),".\n")
+  
+  gc()
+}
+
+#collect summaries
+med_summ<-med %>% 
+  mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
+                           sdsa >=0 & sdsa < 1 ~ "1",
+                           sdsa >=1 & sdsa < 2 ~ "2",
+                           sdsa >=2 & sdsa < 3 ~ "3",
+                           sdsa >=3 & sdsa < 4 ~ "4",
+                           sdsa >=4 & sdsa < 5 ~ "5",
+                           sdsa >=5 & sdsa < 6 ~ "6",
+                           sdsa >=6 & sdsa < 7 ~ "7",
+                           sdsa >=7 ~ "7<")) %>%
+  group_by(key,dsa_grp) %>%
+  dplyr::summarize(record_cnt=n(),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min_expos=min(RX_EXPOS,na.rm=T),
+                   mean_expos=round(mean(RX_EXPOS,na.rm=T)),
+                   sd_expos=round(sd(RX_EXPOS,na.rm=T)),
+                   median_expos=round(median(RX_EXPOS,na.rm=T)),
+                   max_expos=max(RX_EXPOS,na.rm=T)) %>%
+  ungroup %>%
+  #HIPPA, low counts masking
+  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt)),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",as.character(record_cnt)),
+         sd_expos=ifelse(is.na(sd_expos),0,sd_expos)) %>%
+  dplyr::mutate(cov_expos=round(sd_expos/mean_expos,1)) %>%
+  gather(summ,summ_val,-key,-dsa_grp) %>%
+  spread(dsa_grp,summ_val) %>%
+  dplyr::mutate(summ=recode(summ,
+                            enc_cnt="1.encounters#",
+                            record_cnt="2.records#",
+                            min_expos="3a.min_expos",
+                            median_expos="3b.median_expos",
+                            mean_expos="3c.mean_expos",
+                            sd_expos="3d.sd_expos",
+                            cov_expos="3e.cov_expos",
+                            max_expos="3f.max_expos")) %>%
+  arrange(key,summ) 
+
+#save
+# save(med2,file="./data/AKI_med.Rdata")
+# save(med_summ,file="./data/med_summ.Rdata")
+
+#clean up
+rm(med,med2); gc()
+```
+
+
+
+```{r med_out, echo=F, warning=F, message=F}
+med_temp<-med_summ %>% 
+  filter(summ %in% c("1.encounters#","3b.median_expos")) %>% 
+  gather(dsa_grp,summ_val,-summ,-key) %>%
+  filter(!(summ=="1.encounters#" & summ_val=="<11")) %>%
+  filter(!is.na(summ_val)) %>%
+  mutate(summ_val=as.numeric(summ_val)) %>%
+  spread(summ,summ_val) %>%
+  mutate(`1.encounters#`=suppressWarnings(ifelse(`1.encounters#` == "<11", 10,
+                                                 as.numeric(`1.encounters#`)))) %>%
+  arrange(`1.encounters#`)
+
+med_top<-med_temp %>% 
+  arrange(desc(`3b.median_expos`)) %>%
+  slice(1:10) %>%
+  dplyr::mutate(hjust=c(0,1,-0.2,0,0,0,0,0.2,0.2,0.2),
+                vjust=c(0,0,0,0,0,0,0,0,0,0))
+
+ggplot(med_temp,aes(x=dsa_grp,y=`3b.median_expos`,color=`1.encounters#`)) +
+  geom_point() + scale_color_gradient2(low="grey",mid="blue",high="red")+
+  geom_text(data=med_top,aes(label=key,hjust=hjust,vjust=vjust))+
+  labs(x="Start Date",y="Median Exposure",color="Number of Encounters",
+       title="Figure 5 - Medication Exposure Summaries")
+```
+
+Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps detect drugs of suspecious long exposures.
+
+
+```{r final, include=F}
+final_out<-list(Table1=consort_tbl,
+                Table2=tbl1_summ,
+                Table3=demo_nice_tbl,
+                Table4=vital_summ,
+                Table5=vital_smoke_summ,
+                Table6=lab_summ,
+                Table7=DRG_summ,
+                Table8=dx_summ,
+                Table9=px_summ,
+                Table10=med_summ)
+write.xlsx(final_out,file="./output/AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx")
+
+
+# ggplot sometimes create some unwanted empty .pdf file and want to clean it up
+if(file.exists("./Rplots.pdf")){
+  file.remove("./Rplots.pdf")
+}
+```
+

@@ -3,7 +3,7 @@
 /*
 /*in: AKI_onsets
 /*
-/*params: &&PCORNET_CDM
+/*params: &&PCORNET_CDM, @server
 /*
 /*out: AKI_LAB
 /*
@@ -25,7 +25,8 @@ select distinct
       ,l.RESULT_NUM
       ,l.RESULT_UNIT
 from AKI_onsets pat
-join &&PCORNET_CDM.LAB_RESULT_CM l
+join &&PCORNET_CDM.LAB_RESULT_CM@server l
 on pat.ENCOUNTERID = l.ENCOUNTERID
-order by pat.PATID, pat.ENCOUNTERID, SPECIMEN_DATE_TIME;
+order by pat.PATID, pat.ENCOUNTERID, SPECIMEN_DATE_TIME
+
 

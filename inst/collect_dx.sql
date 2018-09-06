@@ -3,7 +3,7 @@
 /*
 /*in: AKI_onsets
 /*
-/*params: &&PCORNET_CDM
+/*params: &&PCORNET_CDM, @server
 /*
 /*out: AKI_DX
 /*
@@ -11,18 +11,19 @@
 /********************************************************************************/
 select pat.PATID
       ,pat.ENCOUNTERID
-      ,dx.ENC_TYPE
-      ,dx.ADMIT_DATE
-      ,round(pat.ADMIT_DATE - dx.ADMIT_DATE) DX_DAYS_PRIOR
+      --,dx.ENC_TYPE
       ,dx.DX
       ,dx.DX_TYPE
       ,dx.DX_SOURCE
       ,dx.DX_ORIGIN
       ,dx.PDX
+      ,dx.ADMIT_DATE DX_DATE
+      ,round(dx.ADMIT_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-join &&PCORNET_CDM.DIAGNOSIS dx
+join &&PCORNET_CDM.DIAGNOSIS@server dx
 on pat.PATID = dx.PATID
-where dx.ADMIT_DATE < pat.ADMIT_DATE
+where dx.ADMIT_DATE between pat.ADMIT_DATE-365 and
+                            pat.ADMIT_DATE-1
 order by pat.PATID, pat.ENCOUNTERID, dx.ADMIT_DATE desc
 
 
