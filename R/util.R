@@ -145,8 +145,9 @@ execute_batch_sql<-function(conn,statements,verb,...){
 }
 
 ## render report
-render_report<-function(path_to_input,DBMS_type){
-  rmarkdown::render(input=path_to_input,
+render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
+                        DBMS_type){
+  rmarkdown::render(input=which_report,
                     params=list(DBMS_type=DBMS_type),
                     output_dir="./output/",
                     knit_root_dir="../")
