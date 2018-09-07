@@ -144,6 +144,15 @@ execute_batch_sql<-function(conn,statements,verb,...){
   }
 }
 
+## render report
+render_report<-function(path_to_input,DBMS_type){
+  rmarkdown::render(input=path_to_input,
+                    params=list(DBMS_type=DBMS_type),
+                    output_dir="./output/",
+                    knit_root_dir="../")
+}
+
+
 ## compress dataframe into a condensed format
 compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save=F){
   if(tbl=="demo"){
