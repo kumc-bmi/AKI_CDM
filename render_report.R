@@ -16,7 +16,6 @@ require_libraries(c("knitr",
 #render the rmarkdown report with the following expected outputs:
 # 1. AKI_CDM_EXT_VALID_p1_QA.html
 # 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx
-
 render_report(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
               DBMS_type="Oracle")
 

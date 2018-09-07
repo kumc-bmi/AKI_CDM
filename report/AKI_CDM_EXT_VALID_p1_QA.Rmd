@@ -4,8 +4,7 @@ author: "xing song"
 date: "August 23, 2018"
 output: html_document
 params:
-  DBMS_type:
-    value: Oracle
+  DBMS_type: Oracle
 ---
 ### Aim 1: Data Feasibility Evaluation over GPC sites.
 #### Objective 1.1: Study cohort extraction and characterization
@@ -405,7 +404,7 @@ vital_smoke_summ<-vital %>%
   #HIPPA, low counts masking
   mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11 & as.numeric(pat_cnt)>0,"<11",as.character(pat_cnt)),
          enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
-         enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",paste0(round(enc_prop,2)*100,"%"))) %>%
+         enc_prop=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",paste0(round(enc_prop,2)*100,"%"))) %>%
   gather(summ,summ_val,-key_cat,-key) %>%
   mutate(summ=recode(summ,
                      pat_cnt="1.patients#",
@@ -438,7 +437,8 @@ kable(vital_summ %>% dplyr::select(-key),
 Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
 
 ```{r vital_out2, echo=F, warning=F, message=F}
-vital_smoke_summ %<>% filter(`2.encounters#`!="<11")
+vital_smoke_summ %<>% filter(`2.encounters#`!="<11") %>%
+  arrange(key,desc(`2.encounters#`))
 
 row_grp_pos<-vital_smoke_summ %>% 
   mutate(rn=1:n()) %>%
@@ -570,7 +570,7 @@ lab_temp<-lab_summ %>%
                       key,""))
 
 ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`,label=label))+
-  geom_point()+ geom_text_repel()+
+  geom_point()+ geom_text_repel(segment.alpha=0.5,segment.color="grey")+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
   labs(x="Average Records per Encounter",
@@ -918,7 +918,7 @@ rm(med,med2); gc()
 ```
 
 
-```{r med_out, echo=F, warning=F, message=F, fig.height = 15, fig.width = 20}
+```{r med_out, echo=F, warning=F, message=F, fig.height = 8, fig.width = 15}
 med_temp<-med_summ %>% 
   filter(summ %in% c("1.encounters#","3b.median_expos")) %>% 
   gather(dsa_grp,summ_val,-summ,-key) %>%

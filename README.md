@@ -46,7 +46,7 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 * [tidyr] (>=0.8.1): for efficient data manipulation    
 * [magrittr] (>=1.5): to enable pipeline operation    
 * [stringr] (>=1.3.1): for handling strings     
-* [knitr] (>=1.20): help generate reports
+* [knitr] (>=1.11): help generate reports
 * [kableExtra]: for generating nice tables
 * [ggplot2] (>=2.2.1): for generating nice plots    
 * [ggrepel]: to avoid overlapping labels in plots   
@@ -109,9 +109,9 @@ The following instructions are for extracting cohort and generating final report
         *OR*    
         - In *plain r* environment, **set working directory** to where `AKI_CDM` locates by runing `setwd("path-to-dir/AKI_CDM")`
             
-      ii) **edit** r script `render_report.R` by specifying the following two parameters:
-        - `which_report`: which report you want to render (default is `./report/AKI_CDM_EXT_VALID_p1_QA.Rmd`, but there will be more options in the future)
-        - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`, `PostgreSQL`)   
+      ii) **edit** r script `render_report.R` by specifying the following two parameters:   
+        - `which_report`: which report you want to render (default is `./report/AKI_CDM_EXT_VALID_p1_QA.Rmd`, but there will be more options in the future)   
+        - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`, `PostgreSQL`)     
       
       iii) **run** r script `render_report.R` after assigning correct values to the parameters in ii)        
       
