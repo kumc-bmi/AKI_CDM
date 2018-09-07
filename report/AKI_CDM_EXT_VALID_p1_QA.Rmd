@@ -133,8 +133,8 @@ tbl1_summ<-tbl1_dsa %>%
 #   arrange(dsa_bin)
 
 #save results
-# save(Table1,file="./data/Table1.Rdata")
-# save(consort_tbl,file="./data/consort_tbl.Rdata")
+# saveRDS(Table1,file="./data/Table1.rda")
+# saveRDS(consort_tbl,file="./data/consort_tbl.rda")
 
 #clean up
 rm(cohort); gc()
@@ -228,8 +228,8 @@ demo_summ<-aki_stage_ind %>%
   replace(.,is.na(.),0)
 
 #save results
-# save(demo,file="./data/AKI_demo.Rdata")
-# save(demo_summ,file="./data/demo_summ.Rdata")
+# saveRDS(demo,file="./data/AKI_demo.rda")
+# saveRDS(demo_summ,file="./data/demo_summ.rda")
 
 #clean up
 rm(demo); gc()
@@ -413,9 +413,9 @@ vital_smoke_summ<-vital %>%
 
 
 #save
-# save(vital,file="./data/AKI_vital.Rdata")
-# save(vital_summ,file="./data/vital_summ.Rdata")
-# save(vital_smoke_summ,file="./data/vital_smoke_summ.Rdata")
+# saveRDS(vital,file="./data/AKI_vital.rda")
+# saveRDS(vital_summ,file="./data/vital_summ.rda")
+# saveRDS(vital_smoke_summ,file="./data/vital_smoke_summ.rda")
 
 #clean up
 rm(vital); gc()
@@ -537,8 +537,8 @@ lab_summ<-lab %>%
          within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1))
 
 #save
-# save(lab,file="./data/AKI_lab.Rdata")
-# save(lab_summ,file="./data/lab_summ.Rdata")
+# saveRDS(lab,file="./data/AKI_lab.rda")
+# saveRDS(lab_summ,file="./data/lab_summ.rda")
 
 #clean up
 rm(lab); gc()
@@ -627,8 +627,8 @@ DRG_summ<-uhc_DRG %>%
   arrange(DRG)
 
 #save
-# save(uhc_DRG,file="./data/AKI_DRG.Rdata")
-# save(DRG_summ,file="./data/DRG_summ.Rdata")
+# saveRDS(uhc_DRG,file="./data/AKI_DRG.rda")
+# saveRDS(DRG_summ,file="./data/DRG_summ.rda")
 
 #clean up
 rm(uhc_DRG); gc()
@@ -706,8 +706,8 @@ dx_summ<-dx %>%
   arrange(key)
 
 #save
-# save(dx,file="./data/AKI_dx.Rdata")  
-# save(dx_summ,file="./data/dx_summ.Rdata")
+# saveRDS(dx,file="./data/AKI_dx.rda")  
+# saveRDS(dx_summ,file="./data/dx_summ.rda")
 
 #clean up
 rm(dx); gc()
@@ -784,8 +784,8 @@ px_summ<-px %>%
   arrange(key)
 
 #save
-# save(px,file="./data/AKI_px.Rdata")  
-# save(px_summ,file="./data/px_summ.Rdata")
+# saveRDS(px,file="./data/AKI_px.rda")  
+# saveRDS(px_summ,file="./data/px_summ.rda")
 
 #clean up
 rm(px); gc()
@@ -909,8 +909,8 @@ med_summ<-med %>%
   arrange(key,summ) 
 
 #save
-# save(med2,file="./data/AKI_med.Rdata")
-save(med_summ,file="./data/med_summ.Rdata")
+# saveRDS(med2,file="./data/AKI_med.rda")
+# saveRDS(med_summ,file="./data/med_summ.rda")
 
 #clean up
 rm(med,med2); gc()
