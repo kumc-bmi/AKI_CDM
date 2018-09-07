@@ -17,6 +17,7 @@ require_libraries(c("rmarkdown"))
 # 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx
 
 rmarkdown::render(input="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
+                  params="ask",
                   output_dir="./output/",
                   knit_root_dir="../")
 

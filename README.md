@@ -71,7 +71,7 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 
 
 ## Site Usage
-The following instructions are for extracting cohort and generating final report from a Oracle data source. Minor modification may be required if database is of different types (e.g. SQLite, MySQL, PostgreSQL, MonetDB, etc.)  
+The following instructions are for extracting cohort and generating final report from a Oracle data source. Minor modification may be required if database is of different types (e.g. PostgreSQL, MSSQL etc.)  
 
 1. Get `AKI_CDM` code
   - **download** the [AKI_CDM] repository as a .zip file, unzip and save folder as `path-to-dir/AKI_CDM`    

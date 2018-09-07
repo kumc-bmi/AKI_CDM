@@ -3,6 +3,12 @@ title: "Building and Validating Predictive Models for Acute Kidney Injury (AKI) 
 author: "xing song"
 date: "August 23, 2018"
 output: html_document
+params:
+  DBMS_type:
+    label: "DBMS Type (Type of SQL dialect):"
+    value: Oracle
+    input: select
+    choices: [Oracle, tSQL, PostgreSQL]
 ---
 ### Aim 1: Data Feasibility Evaluation over GPC sites.
 #### Objective 1.1: Study cohort extraction and characterization
@@ -44,7 +50,6 @@ source("./R/viz.R")
 
 #load libraries
 require_libraries(c("DBI",
-                    "ROracle",
                     "tidyr",
                     "dplyr",
                     "magrittr",
@@ -57,15 +62,40 @@ require_libraries(c("DBI",
 ```
 
 
-```{r cohort, message=F}
-#establish the connection between r-studio and CDM server
+```{r cohort, include=F}
+#establish the connection between r-studio and CDM server (Oracle)
 config_file_path<-"../config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-dbConnect(ROracle::Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+if(DBMS_type=="Oracle"){
+  require_libraries("ROracle")
+  conn<-dbConnect(ROracle::Oracle(),
+                  config_file$username,
+                  config_file$password,
+                  config_file$access)
+}else if(DBMS_type=="tSQL"){
+  require_libraries("odbc")
+  conn<-dbConnect(odbc::odbc(),
+                  driver="SQL server",
+                  uid=config_file$username,
+                  pwd=config_file$password,
+                  server=config_file$access,
+                  database=config_file$access)
+}else if(DBMS_type=="PostgreSQL"){
+  require_libraries("RPostgres")
+  conn<-dbConnect(RPostgres::Postgres(),
+                  host=config_file$access,
+                  port=config_file$access,
+                  dbname=config_file$access,
+                  user=config_file$username,
+                  password=config_file$password)
+}else{
+  stop("the DBMS type is not currectly supported!")
+}
+attr(conn,"DBMS_type")<-DBMS_type
+```
 
+
+```{r cohort,message=F}
 #extract cohort --Table1
 # by default, we assume cdm schema is on the same server as current schema,
 # if not, set same_server=F and cdm_db_server=...(server name)

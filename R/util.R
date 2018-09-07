@@ -65,6 +65,8 @@ parse_sql<-function(file_path,...){
     for(i in seq_along(params)){
       sql_string<-gsub(params[i],param_val[i],sql_string)
     }
+    gsub("\\[\\]\\.","",sql_string) #for t-sql
+    gsub("\\[@","[",sql_string) #for t-sql
   }
 
   out<-list(tbl_out=tbl_out,
