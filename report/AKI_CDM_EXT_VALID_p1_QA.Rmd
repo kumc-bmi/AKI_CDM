@@ -377,8 +377,9 @@ vital_summ<-vital1 %>%
                          max="5f.max")),
     by=c("key","summ")
   ) %>%
-  arrange(key,summ)
-
+  arrange(key,summ) %>%
+  gather(summ_val,grp,-key,-summ) %>%
+  spread(summ,summ_val)
 
 vital_smoke_summ<-vital %>%
   dplyr::select(PATID,ENCOUNTERID, key, value) %>%
@@ -422,13 +423,22 @@ rm(vital); gc()
 
 
 ```{r vital_out1, echo=F, warning=F, message=F}
-kable(vital_summ,caption="Table 2a - Vital (HT,WT,BMI,SBP,DBP) Summaries")
+kable(vital_summ %>% dplyr::select(-key),
+      caption="Table 2a - Vital (HT,WT,BMI,SBP,DBP) Summaries") %>%
+  kable_styling("striped", full_width = F) %>%
+  group_rows("BMI", 1,10) %>%
+  group_rows("BP_DIASTOLIC", 11, 20) %>%
+  group_rows("BP_SYSTOLIC", 21, 30) %>%
+  group_rows("HT", 31, 40) %>%  
+  group_rows("WT", 41, 50)  
+  
 ```
 
 Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
 
 ```{r vital_out2, echo=F, warning=F, message=F}
-kable(vital_smoke_summ,caption="Table 2b - Vital (SMOKING, TABACCO) Summaries")
+kable(vital_smoke_summ %>% filter(`2.encounters#`!="<11"),
+      caption="Table 2b - Vital (SMOKING, TABACCO) Summaries")
 ```
 
 Table 2b identifies unreliable reporting of smoking status. A significant mismatch between smoking and tabacco summaries needs some further investigation.
@@ -551,9 +561,9 @@ lab_top<-lab_temp %>% slice(1:10) %>%
   mutate(hjust=rep(c(1.5,-0.5),each=5),
          vjust=rep(c(0,1,2,3,4),2)) %>%
   bind_rows(lab_temp %>% arrange(desc(record_intensity)) %>%
-              slice(1:2) %>%
-              mutate(hjust=c(1,1),
-                     vjust=c(0,0)))
+              slice(1:5) %>%
+              mutate(hjust=c(1,1,1,1,1),
+                     vjust=c(0,0,0,0,0)))
 
 ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`))+
   geom_point()+
