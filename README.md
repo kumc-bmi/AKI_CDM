@@ -38,17 +38,18 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 **DBMS connection**: Valid channel should also be established between R and DBMS so that communication between R and CDM database can be supported.    
 **Dependencies**: A list of core R packages as well as their dependencies are required. However, their installations have been included in the codes. 
 * [DBI] (>=0.2-5): for communication between R and relational database    
-* [ROracle] (>=1.3-1): an Oracle JDBC driver
-* [odbc]: a SQL sever driver
-* [RPostgres]: a Postgres driver
+* [ROracle] (>=1.3-1): an Oracle JDBC driver    
+* [odbc]: a SQL sever driver    
+* [RPostgres]: a Postgres driver    
 * [rmarkdown] (>=1.10): for rendering report from .Rmd file (*Note: installation may trip over dependencies [digest] and [htmltools] (>=0.3.5), when manually installation is required*).     
 * [dplyr] (>=0.7.5): for efficient data manipulation    
 * [tidyr] (>=0.8.1): for efficient data manipulation    
 * [magrittr] (>=1.5): to enable pipeline operation    
 * [stringr] (>=1.3.1): for handling strings     
-* [knitr] (>=1.20): help generate reports
+* [knitr] (>=1.11): help generate reports
 * [kableExtra]: for generating nice tables
 * [ggplot2] (>=2.2.1): for generating nice plots    
+* [ggrepel]: to avoid overlapping labels in plots   
 * [openxlsx] (>=4.1.0): to save tables into multiple sheets within a single .xlsx file    
 
 
@@ -66,6 +67,7 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 [knitr]: https://cran.r-project.org/web/packages/knitr/knitr.pdf
 [kableExtra]: http://haozhu233.github.io/kableExtra/awesome_table_in_html.html
 [ggplot2]: https://cran.r-project.org/web/packages/ggplot2/ggplot2.pdf
+[ggrepel]: https://github.com/slowkow/ggrepel
 [openxlsx]: https://cran.r-project.org/web/packages/openxlsx/openxlsx.pdf
 [digest]: https://cran.r-project.org/web/packages/digest/digest.pdf
 [htmltools]: https://cran.r-project.org/web/packages/htmltools/htmltools.pdf
@@ -75,7 +77,7 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 
 
 ## Site Usage
-The following instructions are for extracting cohort and generating final report from a Oracle data source. Minor modification may be required if database is of different types (e.g. PostgreSQL, MSSQL etc.)  
+The following instructions are for extracting cohort and generating final report from a `DBMS` data source (specified by `DBMS_type`) (available options are: Oracle, tSQL, PostgreSQL(not yet))  
 
 1. Get `AKI_CDM` code
   - **download** the [AKI_CDM] repository as a .zip file, unzip and save folder as `path-to-dir/AKI_CDM`    
@@ -106,10 +108,14 @@ The following instructions are for extracting cohort and generating final report
         - In *r-studio* environment, simply **open** R project `AKI_CDM.Rproj` within the folder
         *OR*    
         - In *plain r* environment, **set working directory** to where `AKI_CDM` locates by runing `setwd("path-to-dir/AKI_CDM")`
+            
+      ii) **edit** r script `render_report.R` by specifying the following two parameters:   
+        - `which_report`: which report you want to render (default is `./report/AKI_CDM_EXT_VALID_p1_QA.Rmd`, but there will be more options in the future)   
+        - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`, `PostgreSQL`)     
       
-      ii) **run** r script `render_report.R`      
+      iii) **run** r script `render_report.R` after assigning correct values to the parameters in ii)        
       
-      iii) **collect and report** all output files from `\output` folder   
+      iv) **collect and report** all output files from `\output` folder   
         - 1. AKI_CDM_EXT_VALID_p1_QA.html - html report with description, figures and partial tables    
         - 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx - excel with full summary tables    
 
