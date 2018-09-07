@@ -66,38 +66,7 @@ require_libraries(c("DBI",
 #establish the connection between r-studio and CDM server (Oracle)
 config_file_path<-"../config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
-if(DBMS_type=="Oracle"){
-  require_libraries("ROracle")
-  conn<-dbConnect(ROracle::Oracle(),
-                  config_file$username,
-                  config_file$password,
-                  config_file$access)
-}else if(DBMS_type=="tSQL"){
-  require_libraries("odbc")
-  server<-gsub("/","",str_extract(config_file$access,"//.*(/)"))
-  database<-str_extract("//host:port/sid","([^/]+$)")
-  conn<-dbConnect(odbc::odbc(),
-                  driver="SQL server",
-                  uid=config_file$username,
-                  pwd=config_file$password,
-                  server=server,
-                  database=database)
-}else if(DBMS_type=="PostgreSQL"){
-  require_libraries("RPostgres")
-  server<-gsub("/","",str_extract(config_file$access,"//.*(/)"))
-  host<-gsub(":.*","",server)
-  port<-gsub(".*:","",server)
-  dbname<-str_extract("//host:port/sid","([^/]+$)")
-  conn<-dbConnect(RPostgres::Postgres(),
-                  host=host,
-                  port=port,
-                  dbname=dbname,
-                  user=config_file$username,
-                  password=config_file$password)
-}else{
-  stop("the DBMS type is not currectly supported!")
-}
-attr(conn,"DBMS_type")<-DBMS_type
+conn<-connect_to_db(DBMS_type,config_file)
 ```
 
 
@@ -203,13 +172,10 @@ Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*,
 
 ```{r demo, include=F}
 ## demographic
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(DBMS_type,config_file)
 
 demo<-dbGetQuery(conn,
-                 parse_sql("./inst/collect_demo.sql",
+                 parse_sql(paste0("./inst/",DBMS_type,"/collect_demo.sql"),
                            cdm_db_schema=config_file$cdm_db_schema,
                            cdm_db_server=" ")$statement) %>%
   mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
@@ -299,13 +265,10 @@ Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, D
 
 ```{r vital, include=F}
 ## vital
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(DBMS_type,config_file)
 
 vital<-dbGetQuery(conn,
-                  parse_sql("./inst/collect_vital.sql",
+                  parse_sql(paste0("./inst/",DBMS_type,"/collect_vital.sql"),
                             cdm_db_schema=config_file$cdm_db_schema,
                             cdm_db_server=" ")$statement) %>%
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
@@ -487,13 +450,10 @@ Table 2b identifies unreliable reporting of smoking status. A significant mismat
 ##### Labs
 ```{r lab, include=F}
 ## labs
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(DBMS_type,config_file)
 
 lab<-dbGetQuery(conn,
-                parse_sql("./inst/collect_lab.sql",
+                parse_sql(paste0("./inst/",DMBS_type,"/collect_lab.sql"),
                           cdm_db_schema=config_file$cdm_db_schema,
                           cdm_db_server=" ")$statement) %>%
   dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME) %>%
@@ -621,13 +581,10 @@ A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which 
 ##### UHC Diagnoses (Historical and on admission)
 ```{r uhc, include=F}
 ## admission DRG
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(DBMS_type,config_file)
 
 uhc_DRG<-dbGetQuery(conn,
-                parse_sql("./inst/collect_DRG.sql",
+                parse_sql(paste0("./inst/",DBMS_type,"/collect_DRG.sql"),
                           cdm_db_schema=config_file$cdm_db_schema,
                           cdm_db_server=" ")$statement) %>%
   dplyr::select(PATID,ENCOUNTERID,DRG_TYPE,DRG,DRG_DATE) %>%
@@ -705,13 +662,10 @@ A Total of `r length(unique(DRG_summ$DRG))` has been assigned to patients at or 
 ## diagnosis
 load("./data/ccs_icd_cw.Rdata")
 
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(DBMS_type,config_file)
 
 dx<-dbGetQuery(conn,
-               parse_sql("./inst/collect_dx.sql",
+               parse_sql(paste0("./inst/",DBMS_type,"/collect_dx.sql"),
                          cdm_db_schema=config_file$cdm_db_schema,
                          cdm_db_server=" ")$statement) %>%
   #attach CCS diagnosis grouping
@@ -788,13 +742,10 @@ A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnosis has be
 ##### Procedure
 ```{r px, include=F}
 ## procedure
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(DBMS_type,config_file)
 
 px<-dbGetQuery(conn,
-               parse_sql("./inst/collect_px.sql",
+               parse_sql(paste0("./inst/",DBMS_type,"/collect_px.sql"),
                          cdm_db_schema=config_file$cdm_db_schema,
                          cdm_db_server=" ")$statement) %>%
   dplyr::mutate(PX=paste0(PX_TYPE,":",PX)) %>%
@@ -869,13 +820,10 @@ A Total of `r length(unique(px_summ$key))` distinct total procedures codes have 
 ##### Medications
 ```{r med, include=F}
 ## medication
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(DBMS_type,config_file)
 
 med<-dbGetQuery(conn,
-                parse_sql("./inst/collect_med.sql",
+                parse_sql(paste0("./inst/",DBMS_type,"/collect_med.sql"),
                           cdm_db_schema=config_file$cdm_db_schema,
                           cdm_db_server=" ")$statement) %>%
   dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),

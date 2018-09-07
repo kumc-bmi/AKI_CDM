@@ -13,6 +13,42 @@ require_libraries<-function(package_list){
   }
 }
 
+connect_to_db<-function(DBMS_type,config_file){
+  if(DBMS_type=="Oracle"){
+    require_libraries("ROracle")
+    conn<-dbConnect(ROracle::Oracle(),
+                    config_file$username,
+                    config_file$password,
+                    config_file$access)
+  }else if(DBMS_type=="tSQL"){
+    require_libraries("odbc")
+    server<-gsub("/","",str_extract(config_file$access,"//.*(/)"))
+    database<-str_extract("//host:port/sid","([^/]+$)")
+    conn<-dbConnect(odbc::odbc(),
+                    driver="SQL server",
+                    uid=config_file$username,
+                    pwd=config_file$password,
+                    server=server,
+                    database=database)
+  }else if(DBMS_type=="PostgreSQL"){
+    require_libraries("RPostgres")
+    server<-gsub("/","",str_extract(config_file$access,"//.*(/)"))
+    host<-gsub(":.*","",server)
+    port<-gsub(".*:","",server)
+    dbname<-str_extract("//host:port/sid","([^/]+$)")
+    conn<-dbConnect(RPostgres::Postgres(),
+                    host=host,
+                    port=port,
+                    dbname=dbname,
+                    user=config_file$username,
+                    password=config_file$password)
+  }else{
+    stop("the DBMS type is not currectly supported!")
+  }
+  attr(conn,"DBMS_type")<-DBMS_type
+  return(conn)
+}
+
 
 ## parse Oracle sql lines
 parse_sql<-function(file_path,...){
