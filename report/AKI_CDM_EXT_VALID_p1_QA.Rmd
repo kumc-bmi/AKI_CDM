@@ -931,31 +931,36 @@ med_temp<-med_summ %>%
   filter(!is.na(summ_val)) %>%
   mutate(summ_val=as.numeric(summ_val)) %>%
   spread(summ,summ_val) %>%
-  mutate(`1.encounters#`=suppressWarnings(ifelse(`1.encounters#` == "<11", 10,
-                                                 as.numeric(`1.encounters#`)))) %>%
+  filter(!is.na(`1.encounters#`)) %>%
+  mutate(`1.encounters#`=ifelse(`1.encounters#` == "<11", 10,
+                                as.numeric(`1.encounters#`))) %>%
   arrange(`1.encounters#`)
 
 med_top<-med_temp %>% 
+  group_by(dsa_grp) %>%
   arrange(desc(`3b.median_expos`)) %>%
-  slice(1:5) %>%
+  slice(1:2) %>% ungroup %>%
   bind_rows(med_temp %>%
-              arrange(desc(`1.encounters#`) %>%
-                        slice(1:5))) %>%
-  dplyr::mutate(hjust=c(0,0.2,-0.2,0,0,0,0,0.2,0.2,0.2),
-                vjust=c(0,0,0,0,0,-0.5,-0.3,-0.1,0.1,0.3))
-  
+              group_by(dsa_grp) %>%
+              arrange(desc(`1.encounters#`)) %>%
+              slice(1:2) %>%
+              ungroup) %>%
+  arrange(dsa_grp,desc(`1.encounters#`)) %>%
+  dplyr::mutate(hjust=rep(c(0.5,0.5,0.4,0.4),9),
+                vjust=rep(c(-2,-1,0,1),9))
 
-ggplot(med_temp,aes(x=dsa_grp,y=`3b.median_expos`,color=`1.encounters#`)) +
+ggplot(med_temp,aes(x=dsa_grp,y=`1.encounters#`,color=`3b.median_expos`)) +
   geom_point() + 
-  scale_color_gradient2(low = "#0000FF", mid = "#FFFFFF", high ="#FF0000", 
-                       midpoint = median(med_temp$`1.encounters#`),
-                       space = "rgb", guide = "colourbar")+
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+                                         name = 'Percentage'))+
+  scale_color_gradient2(low = "green",mid="blue",high ="red", 
+                        midpoint = 20)+
   geom_text(data=med_top,aes(label=key,hjust=hjust,vjust=vjust))+
-  labs(x="Start Date",y="Median Exposure (days)",color="Number of Encounters",
+  labs(x="Start Date",y="Number of Encounters",color="Median Exposure (days)",
        title="Figure 5 - Medication Exposure Summaries")
 ```
 
-Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay, as well as drugs of suspecious long exposures (e.g. 308395(vitamin C), 245723(vitamin A derivative)).
+Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay (e.g. 1807627(sodium chloride), 1740467(ondansetron)), as well as drugs of relatively long exposures (e.g. 308395(ACE inhibitor), 799835(alvimopan)).
 
 
 ```{r final, include=F}
