@@ -74,18 +74,24 @@ if(DBMS_type=="Oracle"){
                   config_file$access)
 }else if(DBMS_type=="tSQL"){
   require_libraries("odbc")
+  server<-gsub("/","",str_extract(config_file$access,"//.*(/)"))
+  database<-str_extract("//host:port/sid","([^/]+$)")
   conn<-dbConnect(odbc::odbc(),
                   driver="SQL server",
                   uid=config_file$username,
                   pwd=config_file$password,
-                  server=config_file$access,
-                  database=config_file$access)
+                  server=server,
+                  database=database)
 }else if(DBMS_type=="PostgreSQL"){
   require_libraries("RPostgres")
+  server<-gsub("/","",str_extract(config_file$access,"//.*(/)"))
+  host<-gsub(":.*","",server)
+  port<-gsub(".*:","",server)
+  dbname<-str_extract("//host:port/sid","([^/]+$)")
   conn<-dbConnect(RPostgres::Postgres(),
-                  host=config_file$access,
-                  port=config_file$access,
-                  dbname=config_file$access,
+                  host=host,
+                  port=port,
+                  dbname=dbname,
                   user=config_file$username,
                   password=config_file$password)
 }else{
