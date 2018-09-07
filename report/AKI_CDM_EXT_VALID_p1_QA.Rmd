@@ -43,13 +43,14 @@ source("./R/extract_cohort.R")
 source("./R/viz.R")
 
 #load libraries
-require_libraries(c("knitr",
+require_libraries(c("DBI",
+                    "ROracle",
                     "tidyr",
                     "dplyr",
                     "magrittr",
                     "stringr",
-                    "ROracle",
-                    "DBI",
+                    "knitr",
+                    "kableExtra",
                     "ggplot2",
                     "openxlsx"))
 
@@ -930,7 +931,6 @@ save(med_summ,file="./data/med_summ.Rdata")
 #clean up
 rm(med,med2); gc()
 ```
-
 
 
 ```{r med_out, echo=F, warning=F, message=F}
