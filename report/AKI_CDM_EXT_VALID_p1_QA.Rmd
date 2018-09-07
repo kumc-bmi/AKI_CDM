@@ -552,7 +552,7 @@ lab_summ<-lab %>%
 
 #save
 # saveRDS(lab,file="./data/AKI_lab.rda")
-# saveRDS(lab_summ,file="./data/lab_summ.rda")
+saveRDS(lab_summ,file="./data/lab_summ.rda")
 
 #clean up
 rm(lab); gc()
@@ -566,7 +566,7 @@ lab_temp<-lab_summ %>%
   dplyr::select(key,summ,overall) %>% unique %>%
   spread(summ,overall,fill=0) %>%
   mutate(record_intensity=round(`2.records#`/`1.encounters#`,2)) %>%
-  mutate(label=ifelse(dense_rank(-`1.encounters#`)<=10 || dense_rank(-record_intensity)<=10,
+  mutate(label=ifelse(dense_rank(-`1.encounters#`)<=10 | dense_rank(-record_intensity)<=10,
                       key,""))
 
 ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`,label=label))+
@@ -648,7 +648,7 @@ drg_temp<-DRG_summ %>%
                                                  as.numeric(`2.encounters#`))),
          `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
   mutate(label=ifelse(dense_rank(-`2.encounters#`)<=10,
-                      key,""))
+                      DRG,""))
 
 ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1,label=label))+
   geom_point()+geom_text_repel()+
@@ -918,7 +918,7 @@ rm(med,med2); gc()
 ```
 
 
-```{r med_out, echo=F, warning=F, message=F, fig.height = 20, fig.width = 30}
+```{r med_out, echo=F, warning=F, message=F, fig.height = 15, fig.width = 20}
 med_temp<-med_summ %>% 
   filter(summ %in% c("1.encounters#","3b.median_expos")) %>% 
   gather(dsa_grp,summ_val,-summ,-key) %>%
@@ -930,7 +930,7 @@ med_temp<-med_summ %>%
   mutate(`1.encounters#`=ifelse(`1.encounters#` == "<11", 10,
                                 as.numeric(`1.encounters#`))) %>%
   arrange(`1.encounters#`) %>%
-  mutate(label=ifelse(dense_rank(-`3b.median_expos`)<=3 || dense_rank(-`1.encounters#`)<=3,
+  mutate(label=ifelse(dense_rank(-`3b.median_expos`)<=3 | dense_rank(-`1.encounters#`)<=3,
                       key,""))
 
 ggplot(med_temp,aes(x=dsa_grp,y=`1.encounters#`,color=`3b.median_expos`,label=label)) +
