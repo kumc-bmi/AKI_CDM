@@ -39,6 +39,8 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 **Dependencies**: A list of core R packages as well as their dependencies are required. However, their installations have been included in the codes. 
 * [DBI] (>=0.2-5): for communication between R and relational database    
 * [ROracle] (>=1.3-1): an Oracle JDBC driver
+* [odbc]: a SQL sever driver
+* [RPostgres]: a Postgres driver
 * [rmarkdown] (>=1.10): for rendering report from .Rmd file (*Note: installation may trip over dependencies [digest] and [htmltools] (>=0.3.5), when manually installation is required*).     
 * [dplyr] (>=0.7.5): for efficient data manipulation    
 * [tidyr] (>=0.8.1): for efficient data manipulation    
@@ -54,6 +56,8 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 [R studio]: https://www.rstudio.com/
 [DBI]: https://cran.r-project.org/web/packages/DBI/DBI.pdf
 [ROracle]: https://cran.r-project.org/web/packages/ROracle/ROracle.pdf
+[odbc]: https://cran.r-project.org/web/packages/odbc/odbc.pdf
+[RPostgres]: https://cran.r-project.org/web/packages/RPostgres/RPostgres.pdf
 [rmarkdown]: https://cran.r-project.org/web/packages/rmarkdown/rmarkdown.pdf
 [dplyr]: https://cran.r-project.org/web/packages/dplyr/dplyr.pdf
 [tidyr]: https://cran.r-project.org/web/packages/tidyr/tidyr.pdf
