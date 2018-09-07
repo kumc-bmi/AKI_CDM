@@ -8,7 +8,8 @@ gc()
 
 #require libraries
 source("./R/util.R")
-require_libraries(c("rmarkdown"))
+require_libraries(c("knitr",
+                    "rmarkdown"))
 
 
 #===============generate report for Part I=========================#
@@ -16,10 +17,11 @@ require_libraries(c("rmarkdown"))
 # 1. AKI_CDM_EXT_VALID_p1_QA.html
 # 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx
 
-rmarkdown::render(input="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
-                  output_dir="./output/",
-                  knit_root_dir="../")
+render_report(input="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
+              DBMS_type="Oracle")
 
 
 #TODO:
 #===============generate report for Part II=========================#
+# render_report(input="./report/AKI_CDM_EXT_VALID_p2_ModDev.Rmd",
+#               DBMS_type="Oracle")

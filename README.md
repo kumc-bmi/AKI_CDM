@@ -15,11 +15,19 @@ Share and Enjoy according to the terms of the MIT Open Source License.
 
 ## Background
 
-Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affecting 10-15% of all hospitalized patients and >50% of the intensive care unit (ICU) patients. In this application, we propose to build predictive models to identify patients at risk for hospital-acquired AKI and externally validate the models using the PCORnet (Patient Centered Outcomes Research Network)13 common data model (CDM) infrastructure. The project will be carried out with the following aims:
+Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affecting 10-15% of all hospitalized patients and >50% of the intensive care unit (ICU) patients. In this application, we propose to build predictive models to identify patients at risk for hospital-acquired AKI and externally validate the models using the PCORnet (Patient Centered Outcomes Research Network)13 common data model (CDM) infrastructure ([GPC#711]). The project will be carried out with the following aims:
 
-* **Aim 1**: Building predictive models on single-site data. We will develop and internally cross-validate machine learning based predictive models for in-hospital AKI using electronic medical record (EMR) data from the University of Kansas Medical Center’s (KUMC) PCORnet CDM. As co-I of the PCORnet network Greater Plains Collaborative (GPC), PI of this project has direct access to the KUMC CDM for model development.
+* **Aim 1**: Building predictive models on single-site data. We will develop and internally cross-validate machine learning based predictive models for in-hospital AKI using electronic medical record (EMR) data from the University of Kansas Medical Center’s (KUMC) PCORnet CDM. As co-I of the PCORnet network Greater Plains Collaborative (GPC), PI of this project has direct access to the KUMC CDM for model development.    
+      * **Task 1.1: developing R implementation for data extraction and quality check  -- current (due at 09/07/2018)**   
+      * Task 1.2: exploratory data analysis (e.g. strategies for data cleaning and representation, feature engineering)     
+      * Task 1.3: benchmarking with replication of current state-of-art prediction model    
+      * Task 1.4: developing new models   
  
-* **Aim 2**: Validating predictive models on multi-site data. We will implement an automated analytic package with built in data extraction and predictive modeling from Aim 1 for distributed execution within two PCORnet clinical data research networks (CDRNs), namely GPC led by Dr. Waitman and Veterans Health Administration (VHA) site led by Dr. Matheny in pSCANNER. All prototyping will be done on the KUMC CDM.
+* **Aim 2**: Validating predictive models on multi-site data. We will implement an automated analytic package with built in data extraction and predictive modeling from Aim 1 for distributed execution within two PCORnet clinical data research networks (CDRNs), namely GPC led by Dr. Waitman and Veterans Health Administration (VHA) site led by Dr. Matheny in pSCANNER. All prototyping will be done on the KUMC CDM.    
+      * Task 2.1: deploying R codes for data extraction and quanlity check, and reporting results to KUMC -- (due at 10/31/2018)    
+      * Task 2.2: deploying R codes for external validations      
+      
+[GPC#711]: https://informatics.gpcnetwork.org/trac/Project/ticket/711
 
 ***
 
@@ -30,35 +38,44 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 **DBMS connection**: Valid channel should also be established between R and DBMS so that communication between R and CDM database can be supported.    
 **Dependencies**: A list of core R packages as well as their dependencies are required. However, their installations have been included in the codes. 
 * [DBI] (>=0.2-5): for communication between R and relational database    
-* [ROracle] (>=1.3-1): an Oracle JDBC driver    
+* [ROracle] (>=1.3-1): an Oracle JDBC driver
+* [odbc]: a SQL sever driver
+* [RPostgres]: a Postgres driver
 * [rmarkdown] (>=1.10): for rendering report from .Rmd file (*Note: installation may trip over dependencies [digest] and [htmltools] (>=0.3.5), when manually installation is required*).     
 * [dplyr] (>=0.7.5): for efficient data manipulation    
 * [tidyr] (>=0.8.1): for efficient data manipulation    
 * [magrittr] (>=1.5): to enable pipeline operation    
 * [stringr] (>=1.3.1): for handling strings     
-* [knitr] (>=1.20): for generating nice tables    
+* [knitr] (>=1.20): help generate reports
+* [kableExtra]: for generating nice tables
 * [ggplot2] (>=2.2.1): for generating nice plots    
 * [openxlsx] (>=4.1.0): to save tables into multiple sheets within a single .xlsx file    
+
 
 [R Program]: https://www.r-project.org/
 [R studio]: https://www.rstudio.com/
 [DBI]: https://cran.r-project.org/web/packages/DBI/DBI.pdf
 [ROracle]: https://cran.r-project.org/web/packages/ROracle/ROracle.pdf
+[odbc]: https://cran.r-project.org/web/packages/odbc/odbc.pdf
+[RPostgres]: https://cran.r-project.org/web/packages/RPostgres/RPostgres.pdf
 [rmarkdown]: https://cran.r-project.org/web/packages/rmarkdown/rmarkdown.pdf
 [dplyr]: https://cran.r-project.org/web/packages/dplyr/dplyr.pdf
 [tidyr]: https://cran.r-project.org/web/packages/tidyr/tidyr.pdf
 [magrittr]: https://cran.r-project.org/web/packages/magrittr/magrittr.pdf
 [stringr]: https://cran.r-project.org/web/packages/stringr/stringr.pdf
 [knitr]: https://cran.r-project.org/web/packages/knitr/knitr.pdf
+[kableExtra]: http://haozhu233.github.io/kableExtra/awesome_table_in_html.html
 [ggplot2]: https://cran.r-project.org/web/packages/ggplot2/ggplot2.pdf
 [openxlsx]: https://cran.r-project.org/web/packages/openxlsx/openxlsx.pdf
+[digest]: https://cran.r-project.org/web/packages/digest/digest.pdf
+[htmltools]: https://cran.r-project.org/web/packages/htmltools/htmltools.pdf
 
 
 ***
 
 
 ## Site Usage
-The following instructions are for extracting cohort and generating final report from a Oracle data source. Minor modification may be required if database is of different types (e.g. SQLite, MySQL, PostgreSQL, MonetDB, etc.)  
+The following instructions are for extracting cohort and generating final report from a Oracle data source. Minor modification may be required if database is of different types (e.g. PostgreSQL, MSSQL etc.)  
 
 1. Get `AKI_CDM` code
   - **download** the [AKI_CDM] repository as a .zip file, unzip and save folder as `path-to-dir/AKI_CDM`    
@@ -103,3 +120,7 @@ The following instructions are for extracting cohort and generating final report
 
 ## Benchmarking
 It takes about **1 ~ 1.5 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd). At peak time, it will use about **30 ~ 35GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of output for Part I is about **6MB**.
+
+
+***
+*updated 09/06/2018*

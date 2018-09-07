@@ -13,6 +13,42 @@ require_libraries<-function(package_list){
   }
 }
 
+connect_to_db<-function(DBMS_type,config_file){
+  if(DBMS_type=="Oracle"){
+    require_libraries("ROracle")
+    conn<-dbConnect(ROracle::Oracle(),
+                    config_file$username,
+                    config_file$password,
+                    config_file$access)
+  }else if(DBMS_type=="tSQL"){
+    require_libraries("odbc")
+    server<-gsub("/","",str_extract(config_file$access,"//.*(/)"))
+    database<-str_extract("//host:port/sid","([^/]+$)")
+    conn<-dbConnect(odbc::odbc(),
+                    driver="SQL server",
+                    uid=config_file$username,
+                    pwd=config_file$password,
+                    server=server,
+                    database=database)
+  }else if(DBMS_type=="PostgreSQL"){
+    require_libraries("RPostgres")
+    server<-gsub("/","",str_extract(config_file$access,"//.*(/)"))
+    host<-gsub(":.*","",server)
+    port<-gsub(".*:","",server)
+    dbname<-str_extract("//host:port/sid","([^/]+$)")
+    conn<-dbConnect(RPostgres::Postgres(),
+                    host=host,
+                    port=port,
+                    dbname=dbname,
+                    user=config_file$username,
+                    password=config_file$password)
+  }else{
+    stop("the DBMS type is not currectly supported!")
+  }
+  attr(conn,"DBMS_type")<-DBMS_type
+  return(conn)
+}
+
 
 ## parse Oracle sql lines
 parse_sql<-function(file_path,...){
@@ -65,6 +101,8 @@ parse_sql<-function(file_path,...){
     for(i in seq_along(params)){
       sql_string<-gsub(params[i],param_val[i],sql_string)
     }
+    gsub("\\[\\ ]\\.","",sql_string) #for t-sql
+    gsub("\\[@","[",sql_string) #for t-sql
   }
 
   out<-list(tbl_out=tbl_out,
@@ -105,6 +143,15 @@ execute_batch_sql<-function(conn,statements,verb,...){
     }
   }
 }
+
+## render report
+render_report<-function(path_to_input,DBMS_type){
+  rmarkdown::render(input=path_to_input,
+                    params=list(DBMS_type=DBMS_type),
+                    output_dir="./output/",
+                    knit_root_dir="../")
+}
+
 
 ## compress dataframe into a condensed format
 compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save=F){

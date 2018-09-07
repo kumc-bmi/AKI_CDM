@@ -3,6 +3,9 @@ title: "Building and Validating Predictive Models for Acute Kidney Injury (AKI) 
 author: "xing song"
 date: "August 23, 2018"
 output: html_document
+params:
+  DBMS_type:
+    value: Oracle
 ---
 ### Aim 1: Data Feasibility Evaluation over GPC sites.
 #### Objective 1.1: Study cohort extraction and characterization
@@ -43,28 +46,28 @@ source("./R/extract_cohort.R")
 source("./R/viz.R")
 
 #load libraries
-require_libraries(c("knitr",
+require_libraries(c("DBI",
                     "tidyr",
                     "dplyr",
                     "magrittr",
                     "stringr",
-                    "ROracle",
-                    "DBI",
+                    "knitr",
+                    "kableExtra",
                     "ggplot2",
                     "openxlsx"))
 
 ```
 
 
-```{r cohort, message=F}
-#establish the connection between r-studio and CDM server
+```{r connect, include=F}
+#establish the connection between r-studio and CDM server (Oracle)
 config_file_path<-"../config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-dbConnect(ROracle::Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(params$DBMS_type,config_file)
+```
 
+
+```{r cohort,message=F}
 #extract cohort --Table1
 # by default, we assume cdm schema is on the same server as current schema,
 # if not, set same_server=F and cdm_db_server=...(server name)
@@ -72,7 +75,8 @@ cohort<-extract_cohort(conn,
                        oracle_temp_schema=config_file$oracle_temp_schema,
                        cdm_db_schema=config_file$cdm_db_schema,
                        start_date="2010-01-01",
-                       end_date="2018-12-31")
+                       end_date="2018-12-31",
+                       verb=F)
 ```
 
 The above codes extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output will be automatically saved in the current working directory `r getwd()` as "Table1.Rdata". More details are included in the following consort diagram.  
@@ -126,8 +130,8 @@ tbl1_summ<-tbl1_dsa %>%
 #   arrange(dsa_bin)
 
 #save results
-# save(Table1,file="./data/Table1.Rdata")
-# save(consort_tbl,file="./data/consort_tbl.Rdata")
+# saveRDS(Table1,file="./data/Table1.rda")
+# saveRDS(consort_tbl,file="./data/consort_tbl.rda")
 
 #clean up
 rm(cohort); gc()
@@ -165,13 +169,10 @@ Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*,
 
 ```{r demo, include=F}
 ## demographic
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(params$DBMS_type,config_file)
 
 demo<-dbGetQuery(conn,
-                 parse_sql("./inst/collect_demo.sql",
+                 parse_sql(paste0("./inst/",params$DBMS_type,"/collect_demo.sql"),
                            cdm_db_schema=config_file$cdm_db_schema,
                            cdm_db_server=" ")$statement) %>%
   mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
@@ -224,8 +225,8 @@ demo_summ<-aki_stage_ind %>%
   replace(.,is.na(.),0)
 
 #save results
-# save(demo,file="./data/AKI_demo.Rdata")
-# save(demo_summ,file="./data/demo_summ.Rdata")
+# saveRDS(demo,file="./data/AKI_demo.rda")
+# saveRDS(demo_summ,file="./data/demo_summ.rda")
 
 #clean up
 rm(demo); gc()
@@ -261,13 +262,10 @@ Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, D
 
 ```{r vital, include=F}
 ## vital
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(params$DBMS_type,config_file)
 
 vital<-dbGetQuery(conn,
-                  parse_sql("./inst/collect_vital.sql",
+                  parse_sql(paste0("./inst/",params$DBMS_type,"/collect_vital.sql"),
                             cdm_db_schema=config_file$cdm_db_schema,
                             cdm_db_server=" ")$statement) %>%
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
@@ -376,7 +374,9 @@ vital_summ<-vital1 %>%
                          max="5f.max")),
     by=c("key","summ")
   ) %>%
-  arrange(key,summ)
+  arrange(key,summ) %>%
+  gather(days_from_admit,summ_val,-key,-summ) %>% 
+  spread(summ,summ_val)
 
 
 vital_smoke_summ<-vital %>%
@@ -411,9 +411,9 @@ vital_smoke_summ<-vital %>%
 
 
 #save
-# save(vital,file="./data/AKI_vital.Rdata")
-# save(vital_summ,file="./data/vital_summ.Rdata")
-# save(vital_smoke_summ,file="./data/vital_smoke_summ.Rdata")
+# saveRDS(vital,file="./data/AKI_vital.rda")
+# saveRDS(vital_summ,file="./data/vital_summ.rda")
+# saveRDS(vital_smoke_summ,file="./data/vital_smoke_summ.rda")
 
 #clean up
 rm(vital); gc()
@@ -421,13 +421,22 @@ rm(vital); gc()
 
 
 ```{r vital_out1, echo=F, warning=F, message=F}
-kable(vital_summ,caption="Table 2a - Vital (HT,WT,BMI,SBP,DBP) Summaries")
+kable(vital_summ %>% dplyr::select(-key),
+      caption="Table 2a - Vital (HT,WT,BMI,SBP,DBP) Summaries") %>%
+  kable_styling("striped", full_width = F) %>%
+  group_rows("BMI", 1,10) %>%
+  group_rows("BP_DIASTOLIC", 11, 20) %>%
+  group_rows("BP_SYSTOLIC", 21, 30) %>%
+  group_rows("HT", 31, 40) %>%  
+  group_rows("WT", 41, 50)  
+  
 ```
 
 Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
 
 ```{r vital_out2, echo=F, warning=F, message=F}
-kable(vital_smoke_summ,caption="Table 2b - Vital (SMOKING, TABACCO) Summaries")
+kable(vital_smoke_summ %>% filter(`2.encounters#`!="<11"),
+      caption="Table 2b - Vital (SMOKING, TABACCO) Summaries")
 ```
 
 Table 2b identifies unreliable reporting of smoking status. A significant mismatch between smoking and tabacco summaries needs some further investigation.
@@ -439,13 +448,10 @@ Table 2b identifies unreliable reporting of smoking status. A significant mismat
 ##### Labs
 ```{r lab, include=F}
 ## labs
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(params$DBMS_type,config_file)
 
 lab<-dbGetQuery(conn,
-                parse_sql("./inst/collect_lab.sql",
+                parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
                           cdm_db_schema=config_file$cdm_db_schema,
                           cdm_db_server=" ")$statement) %>%
   dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME) %>%
@@ -529,8 +535,8 @@ lab_summ<-lab %>%
          within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1))
 
 #save
-# save(lab,file="./data/AKI_lab.Rdata")
-# save(lab_summ,file="./data/lab_summ.Rdata")
+# saveRDS(lab,file="./data/AKI_lab.rda")
+# saveRDS(lab_summ,file="./data/lab_summ.rda")
 
 #clean up
 rm(lab); gc()
@@ -550,9 +556,9 @@ lab_top<-lab_temp %>% slice(1:10) %>%
   mutate(hjust=rep(c(1.5,-0.5),each=5),
          vjust=rep(c(0,1,2,3,4),2)) %>%
   bind_rows(lab_temp %>% arrange(desc(record_intensity)) %>%
-              slice(1:2) %>%
-              mutate(hjust=c(1,1),
-                     vjust=c(0,0)))
+              slice(1:5) %>%
+              mutate(hjust=c(1,1,1,1,1),
+                     vjust=c(0,0,0,0,0)))
 
 ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`))+
   geom_point()+
@@ -564,7 +570,7 @@ ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`))+
        title="Figure 1 - Data Density vs. Records Intensity")
 ```
 
-A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 2 shows the data density and variablity of labs concepts, which can help identify common labs or labs with suspiciously high variations.
+A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. 2160-0 (SCr), 2823-3 (potassium), 2951-2(sodium), 17861-6(calcium), 3094-0(BUN), 1963-8(CO2), 33037-3 (Anion Gap), 2075-0(chloride), 718-7(hemoglobin),...), and labs with very high recording intensity (e.g. 2340-8(glucose)).
 
 
 ***
@@ -573,13 +579,10 @@ A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which 
 ##### UHC Diagnoses (Historical and on admission)
 ```{r uhc, include=F}
 ## admission DRG
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(params$DBMS_type,config_file)
 
 uhc_DRG<-dbGetQuery(conn,
-                parse_sql("./inst/collect_DRG.sql",
+                parse_sql(paste0("./inst/",params$DBMS_type,"/collect_DRG.sql"),
                           cdm_db_schema=config_file$cdm_db_schema,
                           cdm_db_server=" ")$statement) %>%
   dplyr::select(PATID,ENCOUNTERID,DRG_TYPE,DRG,DRG_DATE) %>%
@@ -622,8 +625,8 @@ DRG_summ<-uhc_DRG %>%
   arrange(DRG)
 
 #save
-# save(uhc_DRG,file="./data/AKI_DRG.Rdata")
-# save(DRG_summ,file="./data/DRG_summ.Rdata")
+# saveRDS(uhc_DRG,file="./data/AKI_DRG.rda")
+# saveRDS(DRG_summ,file="./data/DRG_summ.rda")
 
 #clean up
 rm(uhc_DRG); gc()
@@ -644,10 +647,10 @@ ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1))+geom_poin
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
   geom_text(data=drg_top,aes(label=DRG),hjust=0.2,vjust=0)+
-  labs(color="DRG type", title="Figure 2 - Data Density vs. Recency")
+  labs(color="DRG type", title="Figure 2 - Data Density vs. Record Intensity")
 ```
 
-A Total of `r length(unique(DRG_summ$DRG))` has been assigned to patients at or before admission. All DRGs at admission should be aligned at 0 in Figure 2. Historical DRGs are summerized based on their median time lapses prior to admission. 
+A Total of `r length(unique(DRG_summ$DRG))` has been assigned to patients at or before admission. All DRGs at admission should be aligned at 0 in Figure 2. Historical DRGs are summerized based on their median time lapses prior to admission. Figure 3 demonstrates the data density of UHC diagnoses, which helps identify typical admission and historical DRG for the cohort (e.g. 871,872(Septicemia), 190 (Chronic obstructive pulmonary disease))
 
 
 ***
@@ -657,13 +660,10 @@ A Total of `r length(unique(DRG_summ$DRG))` has been assigned to patients at or 
 ## diagnosis
 load("./data/ccs_icd_cw.Rdata")
 
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(params$DBMS_type,config_file)
 
 dx<-dbGetQuery(conn,
-               parse_sql("./inst/collect_dx.sql",
+               parse_sql(paste0("./inst/",params$DBMS_type,"/collect_dx.sql"),
                          cdm_db_schema=config_file$cdm_db_schema,
                          cdm_db_server=" ")$statement) %>%
   #attach CCS diagnosis grouping
@@ -704,8 +704,8 @@ dx_summ<-dx %>%
   arrange(key)
 
 #save
-# save(dx,file="./data/AKI_dx.Rdata")  
-# save(dx_summ,file="./data/dx_summ.Rdata")
+# saveRDS(dx,file="./data/AKI_dx.rda")  
+# saveRDS(dx_summ,file="./data/dx_summ.rda")
 
 #clean up
 rm(dx); gc()
@@ -731,7 +731,7 @@ ggplot(dx_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+
 ```
 
 
-A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnosis has been assigned to patients before the encounter of interest. Figure 3 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses. 
+A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnosis has been assigned to patients before the encounter of interest. Figure 3 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses(e.g. 259(Residual codes; unclassified), 257(Other aftercare), 133(Other lower respiratory disease)).
 
 
 ***
@@ -740,13 +740,10 @@ A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnosis has be
 ##### Procedure
 ```{r px, include=F}
 ## procedure
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(params$DBMS_type,config_file)
 
 px<-dbGetQuery(conn,
-               parse_sql("./inst/collect_px.sql",
+               parse_sql(paste0("./inst/",params$DBMS_type,"/collect_px.sql"),
                          cdm_db_schema=config_file$cdm_db_schema,
                          cdm_db_server=" ")$statement) %>%
   dplyr::mutate(PX=paste0(PX_TYPE,":",PX)) %>%
@@ -785,8 +782,8 @@ px_summ<-px %>%
   arrange(key)
 
 #save
-# save(px,file="./data/AKI_px.Rdata")  
-# save(px_summ,file="./data/px_summ.Rdata")
+# saveRDS(px,file="./data/AKI_px.rda")  
+# saveRDS(px_summ,file="./data/px_summ.rda")
 
 #clean up
 rm(px); gc()
@@ -812,7 +809,7 @@ ggplot(px_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+
 ```
 
 
-A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before the encounter of interest. Figure 4 gives an overview of average history of patients' procedures prior to tne encounter of interest as well as the highly frequent historical procedures they had recieved. Figure3, Figure 4 and Figure 5 may display similar distributions as a result of corrlations between diagnoses and procedures.
+A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before the encounter of interest. Figure 4 gives an overview of average history of patients' procedures prior to tne encounter of interest as well as the highly frequent historical procedures they had recieved. It can help identify the common procedures or typical occuring times of precedures (e.g. CPT:99213, 99214(office or outpatient visit), CPT:36415 (cardiovascular surgery, CPT:80053(metabolic panel), CPT:85025(complete CBC))). Note that Figure2, Figure3 and Figure4 may display similar distributions as a result of corrlations between diagnoses and procedures. 
 
 
 ***
@@ -821,13 +818,10 @@ A Total of `r length(unique(px_summ$key))` distinct total procedures codes have 
 ##### Medications
 ```{r med, include=F}
 ## medication
-conn<-dbConnect(Oracle(),
-                config_file$username,
-                config_file$password,
-                config_file$access)
+conn<-connect_to_db(params$DBMS_type,config_file)
 
 med<-dbGetQuery(conn,
-                parse_sql("./inst/collect_med.sql",
+                parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
                           cdm_db_schema=config_file$cdm_db_schema,
                           cdm_db_server=" ")$statement) %>%
   dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
@@ -913,13 +907,12 @@ med_summ<-med %>%
   arrange(key,summ) 
 
 #save
-# save(med2,file="./data/AKI_med.Rdata")
-# save(med_summ,file="./data/med_summ.Rdata")
+# saveRDS(med2,file="./data/AKI_med.rda")
+# saveRDS(med_summ,file="./data/med_summ.rda")
 
 #clean up
 rm(med,med2); gc()
 ```
-
 
 
 ```{r med_out, echo=F, warning=F, message=F}
@@ -930,24 +923,36 @@ med_temp<-med_summ %>%
   filter(!is.na(summ_val)) %>%
   mutate(summ_val=as.numeric(summ_val)) %>%
   spread(summ,summ_val) %>%
-  mutate(`1.encounters#`=suppressWarnings(ifelse(`1.encounters#` == "<11", 10,
-                                                 as.numeric(`1.encounters#`)))) %>%
+  filter(!is.na(`1.encounters#`)) %>%
+  mutate(`1.encounters#`=ifelse(`1.encounters#` == "<11", 10,
+                                as.numeric(`1.encounters#`))) %>%
   arrange(`1.encounters#`)
 
 med_top<-med_temp %>% 
+  group_by(dsa_grp) %>%
   arrange(desc(`3b.median_expos`)) %>%
-  slice(1:10) %>%
-  dplyr::mutate(hjust=c(0,1,-0.2,0,0,0,0,0.2,0.2,0.2),
-                vjust=c(0,0,0,0,0,0,0,0,0,0))
+  slice(1:2) %>% ungroup %>%
+  bind_rows(med_temp %>%
+              group_by(dsa_grp) %>%
+              arrange(desc(`1.encounters#`)) %>%
+              slice(1:2) %>%
+              ungroup) %>%
+  arrange(dsa_grp,desc(`1.encounters#`)) %>%
+  dplyr::mutate(hjust=rep(c(0.5,0.5,0.4,0.4),9),
+                vjust=rep(c(-2,-1,0,1),9))
 
-ggplot(med_temp,aes(x=dsa_grp,y=`3b.median_expos`,color=`1.encounters#`)) +
-  geom_point() + scale_color_gradient2(low="grey",mid="blue",high="red")+
+ggplot(med_temp,aes(x=dsa_grp,y=`1.encounters#`,color=`3b.median_expos`)) +
+  geom_point() + 
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+                                         name = 'Percentage'))+
+  scale_color_gradient2(low = "green",mid="blue",high ="red", 
+                        midpoint = 20)+
   geom_text(data=med_top,aes(label=key,hjust=hjust,vjust=vjust))+
-  labs(x="Start Date",y="Median Exposure",color="Number of Encounters",
+  labs(x="Start Date",y="Number of Encounters",color="Median Exposure (days)",
        title="Figure 5 - Medication Exposure Summaries")
 ```
 
-Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps detect drugs of suspecious long exposures.
+Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay (e.g. 1807627(sodium chloride), 1740467(ondansetron)), as well as drugs of relatively long exposures (e.g. 308395(ACE inhibitor), 799835(alvimopan)).
 
 
 ```{r final, include=F}
