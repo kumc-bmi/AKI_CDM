@@ -44,7 +44,8 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 * [tidyr] (>=0.8.1): for efficient data manipulation    
 * [magrittr] (>=1.5): to enable pipeline operation    
 * [stringr] (>=1.3.1): for handling strings     
-* [knitr] (>=1.20): for generating nice tables    
+* [knitr] (>=1.20): help generate reports
+* [kableExtra]: for generating nice tables
 * [ggplot2] (>=2.2.1): for generating nice plots    
 * [openxlsx] (>=4.1.0): to save tables into multiple sheets within a single .xlsx file    
 
@@ -59,6 +60,7 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 [magrittr]: https://cran.r-project.org/web/packages/magrittr/magrittr.pdf
 [stringr]: https://cran.r-project.org/web/packages/stringr/stringr.pdf
 [knitr]: https://cran.r-project.org/web/packages/knitr/knitr.pdf
+[kableExtra]: http://haozhu233.github.io/kableExtra/awesome_table_in_html.html
 [ggplot2]: https://cran.r-project.org/web/packages/ggplot2/ggplot2.pdf
 [openxlsx]: https://cran.r-project.org/web/packages/openxlsx/openxlsx.pdf
 [digest]: https://cran.r-project.org/web/packages/digest/digest.pdf

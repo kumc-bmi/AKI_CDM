@@ -12,7 +12,7 @@ output: html_document
 
 * Experiment #3: How accurately can we predict if a patient will develop AKI within the next day? (Figure 1c)
 
-![](./figures/Fig1_Modeling_Plan.png)
+![](../figures/Fig1_Modeling_Plan.png)
 
 ***
 
