@@ -54,6 +54,7 @@ require_libraries(c("DBI",
                     "knitr",
                     "kableExtra",
                     "ggplot2",
+                    "ggrepel",
                     "openxlsx"))
 
 ```
@@ -432,6 +433,12 @@ kable(vital_summ %>% dplyr::select(-key),
   group_rows("BP_SYSTOLIC", 21, 30) %>%
   group_rows("HT", 31, 40) %>%  
   group_rows("WT", 41, 50)  
+```
+
+Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
+
+```{r vital_out2, echo=F, warning=F, message=F}
+vital_smoke_summ %<>% filter(`2.encounters#`!="<11")
 
 row_grp_pos<-vital_smoke_summ %>% 
   mutate(rn=1:n()) %>%
@@ -440,19 +447,12 @@ row_grp_pos<-vital_smoke_summ %>%
                    end=rn[n()]) %>%
   ungroup
 
-kable(vital_summ %>% dplyr::select(-key),
-      caption="Table 2a - Vital (HT,WT,BMI,SBP,DBP) Summaries") %>%
+kable(vital_smoke_summ %>% dplyr::select(-key),
+      caption="Table 2b - Vital (SMOKING, TABACCO) Summaries") %>%
   kable_styling("striped", full_width = F) %>%
   group_rows(row_grp_pos$key[1], row_grp_pos$begin[1],row_grp_pos$end[1]) %>%
   group_rows(row_grp_pos$key[2], row_grp_pos$begin[2],row_grp_pos$end[2]) %>%
   group_rows(row_grp_pos$key[3], row_grp_pos$begin[3],row_grp_pos$end[3])
-```
-
-Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
-
-```{r vital_out2, echo=F, warning=F, message=F}
-kable(vital_smoke_summ %>% filter(`2.encounters#`!="<11"),
-      caption="Table 2b - Vital (SMOKING, TABACCO) Summaries")
 ```
 
 Table 2b identifies unreliable reporting of smoking status. A significant mismatch between smoking and tabacco summaries needs some further investigation.
@@ -566,21 +566,13 @@ lab_temp<-lab_summ %>%
   dplyr::select(key,summ,overall) %>% unique %>%
   spread(summ,overall,fill=0) %>%
   mutate(record_intensity=round(`2.records#`/`1.encounters#`,2)) %>%
-  arrange(desc(`1.encounters#`))
+  mutate(label=ifelse(dense_rank(-`1.encounters#`)<=10 || dense_rank(-record_intensity)<=10,
+                      key,""))
 
-lab_top<-lab_temp %>% slice(1:10) %>% 
-  mutate(hjust=rep(c(1.5,-0.5),each=5),
-         vjust=rep(c(0,1,2,3,4),2)) %>%
-  bind_rows(lab_temp %>% arrange(desc(record_intensity)) %>%
-              slice(1:5) %>%
-              mutate(hjust=c(1,1,1,1,1),
-                     vjust=c(0,0,0,0,0)))
-
-ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`))+
-  geom_point()+
+ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`,label=label))+
+  geom_point()+ geom_text_repel()+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
-  geom_text(data=lab_top,aes(label=key, hjust=hjust, vjust=vjust))+
   labs(x="Average Records per Encounter",
        y="Encounter Counts",
        title="Figure 1 - Data Density vs. Records Intensity")
@@ -655,14 +647,13 @@ drg_temp<-DRG_summ %>%
   mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
                                                  as.numeric(`2.encounters#`))),
          `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
-  arrange(desc(`2.encounters#`))
+  mutate(label=ifelse(dense_rank(-`2.encounters#`)<=10,
+                      key,""))
 
-drg_top<-drg_temp %>% group_by(key1) %>% slice(1:5) %>% ungroup
-
-ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1))+geom_point()+ 
+ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1,label=label))+
+  geom_point()+geom_text_repel()+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
-  geom_text(data=drg_top,aes(label=DRG),hjust=0.2,vjust=0)+
   labs(color="DRG type", title="Figure 2 - Data Density vs. Record Intensity")
 ```
 
@@ -733,16 +724,13 @@ dx_temp<-dx_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>%
   mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
                                                  as.numeric(`2.encounters#`))),
          `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
-  dplyr::arrange(desc(`2.encounters#`))
+  mutate(label=ifelse(dense_rank(-`2.encounters#`)<=10,
+                      key,""))
 
-dx_top<-dx_temp %>% slice(1:10) %>% ungroup %>%
-  mutate(hjust=c(0,0,0,1,-0.1,0,-0.5,1,0,0),
-         vjust=c(0,0,-0.5,0,0.1,0.2,0,0,0,0))
-
-ggplot(dx_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+
+ggplot(dx_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,label=label))+
+  geom_point()+geom_text_repel()+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
-  geom_text(data=dx_top,aes(label=key,hjust=hjust,vjust=vjust))+
   labs(title="Figure 3 - Data Density vs. Recency (CCS)")
 ```
 
@@ -811,16 +799,15 @@ px_temp<-px_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>%
   mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
                                                  as.numeric(`2.encounters#`))),
          `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
-  arrange(desc(`2.encounters#`))
+  arrange(desc(`2.encounters#`)) %>%
+  mutate(label=ifelse(dense_rank(-`2.encounters#`)<=10,
+                      key,""))
 
-px_top<-px_temp %>% slice(1:6) %>% ungroup %>%
-  mutate(hjust=c(-0.2,1.2,-0.2,1.2,-0.2,1.2),
-         vjust=c(0,0,1,1,0,0))
 
-ggplot(px_temp,aes(x=`4c.mean_history`,y=`2.encounters#`))+geom_point()+ 
+ggplot(px_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,label=label))+
+  geom_point()+geom_text_repel()+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
-  geom_text(data=px_top,aes(label=key,hjust=hjust,vjust=vjust))+
   labs(title="Figure 4 - Data Density vs. Recency (PX)")
 ```
 
@@ -942,28 +929,16 @@ med_temp<-med_summ %>%
   filter(!is.na(`1.encounters#`)) %>%
   mutate(`1.encounters#`=ifelse(`1.encounters#` == "<11", 10,
                                 as.numeric(`1.encounters#`))) %>%
-  arrange(`1.encounters#`)
+  arrange(`1.encounters#`) %>%
+  mutate(label=ifelse(dense_rank(-`3b.median_expos`)<=3 || dense_rank(-`1.encounters#`)<=3,
+                      key,""))
 
-med_top<-med_temp %>% 
-  group_by(dsa_grp) %>%
-  arrange(desc(`3b.median_expos`)) %>%
-  slice(1:2) %>% ungroup %>%
-  bind_rows(med_temp %>%
-              group_by(dsa_grp) %>%
-              arrange(desc(`1.encounters#`)) %>%
-              slice(1:2) %>%
-              ungroup) %>%
-  arrange(dsa_grp,desc(`1.encounters#`)) %>%
-  dplyr::mutate(hjust=rep(c(0.5,0.5,0.4,0.4),9),
-                vjust=rep(c(-1.5,-0.8,0,1),9))
-
-ggplot(med_temp,aes(x=dsa_grp,y=`1.encounters#`,color=`3b.median_expos`)) +
-  geom_point() + 
+ggplot(med_temp,aes(x=dsa_grp,y=`1.encounters#`,color=`3b.median_expos`,label=label)) +
+  geom_point() + geom_text_repel()+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
   scale_color_gradient2(low = "green",mid="blue",high ="red", 
                         midpoint = 20)+
-  geom_text(data=med_top,aes(label=key,hjust=hjust,vjust=vjust))+
   labs(x="Start Date",y="Number of Encounters",color="Median Exposure (days)",
        title="Figure 5 - Medication Exposure Summaries")
 ```
