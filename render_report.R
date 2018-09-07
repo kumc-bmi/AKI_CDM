@@ -17,11 +17,11 @@ require_libraries(c("knitr",
 # 1. AKI_CDM_EXT_VALID_p1_QA.html
 # 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx
 
-render_report(input="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
+render_report(path_to_input="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
               DBMS_type="Oracle")
 
 
 #TODO:
 #===============generate report for Part II=========================#
-# render_report(input="./report/AKI_CDM_EXT_VALID_p2_ModDev.Rmd",
+# render_report(path_to_input="./report/AKI_CDM_EXT_VALID_p2_ModDev.Rmd",
 #               DBMS_type="Oracle")
