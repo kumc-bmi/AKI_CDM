@@ -130,7 +130,7 @@ tbl1_summ<-tbl1_dsa %>%
 #   arrange(dsa_bin)
 
 #save results
-# saveRDS(Table1,file="./data/Table1.rda")
+saveRDS(Table1,file="./data/Table1.rda")
 # saveRDS(consort_tbl,file="./data/consort_tbl.rda")
 
 #clean up
@@ -393,20 +393,23 @@ vital_smoke_summ<-vital %>%
                   TOBACCO="NI",
                   TOBACCO_TYPE="NI")) %>%
   gather(key,value,-PATID,-ENCOUNTERID) %>%
-  unite("key_cat",c("key","value")) %>%
-  group_by(key_cat) %>%
+  mutate(key2=key) %>%
+  unite("key_cat",c("key2","value")) %>%
+  group_by(key,key_cat) %>%
   dplyr::summarize(pat_cnt=length(unique(PATID)),
                    enc_cnt=length(unique(ENCOUNTERID)),
-                   record_cnt=n()) %>%
+                   enc_prop=length(unique(ENCOUNTERID))/enc_tot) %>%
+  arrange(desc(pat_cnt)) %>%
+  ungroup %>%
   #HIPPA, low counts masking
   mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11 & as.numeric(pat_cnt)>0,"<11",as.character(pat_cnt)),
          enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
-         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt))) %>%
-  gather(summ,summ_val,-key_cat) %>%
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",paste0(round(enc_prop,2)*100,"%"))) %>%
+  gather(summ,summ_val,-key_cat,-key) %>%
   mutate(summ=recode(summ,
                      pat_cnt="1.patients#",
                      enc_cnt="2.encounters#",
-                     record_cnt="3.records#")) %>%
+                     enc_prop="3.encounters%")) %>%
   spread(summ,summ_val)
 
 
@@ -429,7 +432,20 @@ kable(vital_summ %>% dplyr::select(-key),
   group_rows("BP_SYSTOLIC", 21, 30) %>%
   group_rows("HT", 31, 40) %>%  
   group_rows("WT", 41, 50)  
-  
+
+row_grp_pos<-vital_smoke_summ %>% 
+  mutate(rn=1:n()) %>%
+  group_by(key) %>%
+  dplyr::summarize(begin=rn[1],
+                   end=rn[n()]) %>%
+  ungroup
+
+kable(vital_summ %>% dplyr::select(-key),
+      caption="Table 2a - Vital (HT,WT,BMI,SBP,DBP) Summaries") %>%
+  kable_styling("striped", full_width = F) %>%
+  group_rows(row_grp_pos$key[1], row_grp_pos$begin[1],row_grp_pos$end[1]) %>%
+  group_rows(row_grp_pos$key[2], row_grp_pos$begin[2],row_grp_pos$end[2]) %>%
+  group_rows(row_grp_pos$key[3], row_grp_pos$begin[3],row_grp_pos$end[3])
 ```
 
 Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
@@ -915,7 +931,7 @@ rm(med,med2); gc()
 ```
 
 
-```{r med_out, echo=F, warning=F, message=F}
+```{r med_out, echo=F, warning=F, message=F, fig.height = 20, fig.width = 30}
 med_temp<-med_summ %>% 
   filter(summ %in% c("1.encounters#","3b.median_expos")) %>% 
   gather(dsa_grp,summ_val,-summ,-key) %>%
@@ -939,7 +955,7 @@ med_top<-med_temp %>%
               ungroup) %>%
   arrange(dsa_grp,desc(`1.encounters#`)) %>%
   dplyr::mutate(hjust=rep(c(0.5,0.5,0.4,0.4),9),
-                vjust=rep(c(-2,-1,0,1),9))
+                vjust=rep(c(-1.5,-0.8,0,1),9))
 
 ggplot(med_temp,aes(x=dsa_grp,y=`1.encounters#`,color=`3b.median_expos`)) +
   geom_point() + 
@@ -973,5 +989,8 @@ write.xlsx(final_out,file="./output/AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx")
 if(file.exists("./Rplots.pdf")){
   file.remove("./Rplots.pdf")
 }
+
+rm(list=ls())
+gc()
 ```
 
