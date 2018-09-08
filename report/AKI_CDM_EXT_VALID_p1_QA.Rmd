@@ -927,9 +927,9 @@ med_temp<-med_summ %>%
   filter(!is.na(`1.encounters#`)) %>%
   mutate(`1.encounters#`=ifelse(`1.encounters#` == "<11", 10,
                                 as.numeric(`1.encounters#`))) %>%
-  arrange(`1.encounters#`) %>%
+  arrange(`3b.median_expos`) %>%
   group_by(dsa_grp) %>%
-  dplyr::mutate(label=ifelse(dense_rank(-`3b.median_expos`)<=3 | dense_rank(-`1.encounters#`)<=3,
+  dplyr::mutate(label=ifelse(dense_rank(-`3b.median_expos`)<=2 | dense_rank(-`1.encounters#`)<=3,
                              key,"")) %>%
   ungroup
 
