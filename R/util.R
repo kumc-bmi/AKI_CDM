@@ -163,76 +163,132 @@ render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
 compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save=F){
   if(tbl=="demo"){
     tbl_zip<-dat %>% 
-      filter(key %in% c("AGE","HISPANIC","RACE","SEX")) %>%
-      group_by(PATID,ENCOUNTERID) %>%
-      dplyr::summarize(fstr=paste(value,collapse="_")) %>%
-      ungroup
+      filter(key %in% c("AGE","HISPANIC","RACE","SEX")) 
+    
+    idx_map<-tbl_zip %>% dplyr::select(key) %>%
+      mutate(idx=paste0("demo",dense_rank(key))) %>% 
+      unique %>% arrange(idx)
+    
+    tbl_zip %<>%
+      spread(key,value,fill=0) %>% #impute 0 for alignment
+      unite("fstr",c("AGE","HISPANIC","RACE","SEX"),sep="_")
   }else if(tbl=="vital"){
     tbl_zip<-dat %>%
       filter(key %in% c("HT","WT","BMI",
                         "BP_SYSTOLIC","BP_DIASTOLIC",
                         "SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
-      unite("val_date",c("value","dsa")) %>%
+      mutate(key=recode(key,
+                        HT="1HT",
+                        WT="2WT",
+                        BMI="3BMI",
+                        SMOKING="4SMOKING",
+                        TOBACCO="5TOBACCO",
+                        TOBACCO_TYPE="6TOBACCO_TYPE",
+                        BP_SYSTOLIC="7BP_SYSTOLIC",
+                        BP_DIASTOLIC="8BP_DIASTOLIC")) %>%
+      arrange(key,dsa) 
+    
+    idx_map<-tbl_zip %>% dplyr::select(key) %>%
+      mutate(idx=paste0("vital",dense_rank(key))) %>% 
+      unique %>% arrange(idx)
+    
+    tbl_zip %<>%
+      unite("val_date",c("value","dsa"),sep=",") %>%
       group_by(PATID,ENCOUNTERID,key) %>%
-      dplyr::summarize(fstr=paste0("[",paste(val_date,collapse="];["),"]")) %>%
+      dplyr::summarize(fstr=paste(val_date,collapse=";")) %>%
       ungroup %>%
       spread(key,fstr,fill=0) %>% #impute 0 for alignment
-      gather(key,fstr,-PATID,-ENCOUNTERID) %>%
-      group_by(PATID,ENCOUNTERID) %>%
-      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
-      ungroup
+      unite("fstr",c("1HT","2WT","3BMI",
+                     "4SMOKING","5TOBACCO","6TOBACCO_TYPE",
+                     "7BP_SYSTOLIC","8BP_DIASTOLIC"),sep="_")
   }else if(tbl=="lab"){
     tbl_zip<-dat %>%
-      mutate(lab_idx=paste0("lab",dense_rank(key))) %>%
+      mutate(idx=paste0("lab",dense_rank(key))) 
+    
+    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
+      unique %>% arrange(idx)
+    
+    tbl_zip %<>%
       unite("val_unit_date",c("value","unit","dsa"),sep=",") %>%
-      group_by(PATID,ENCOUNTERID,lab_idx) %>%
-      dplyr::summarize(fstr=paste0("[",paste(val_unit_date,collapse="];["),"]")) %>%
+      group_by(PATID,ENCOUNTERID,idx) %>%
+      dplyr::summarize(fstr=paste(val_unit_date,collapse=";")) %>%
       ungroup %>%
+      unite("fstr2",c("idx","fstr"),sep=":") %>%
       group_by(PATID,ENCOUNTERID) %>%
-      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
+      dplyr::summarize(fstr=paste(fstr2,collapse="_")) %>%
       ungroup
   }else if(tbl=="DRG"){
     tbl_zip<-dat %>%
-      mutate(uhc_idx=paste0("dx",dense_rank(key2))) %>%
-      group_by(PATID,ENCOUNTERID,key1,uhc_idx) %>%
+      mutate(idx=paste0("dx",dense_rank(key2))) 
+    
+    idx_map<-tbl_zip %>% dplyr::select(key2,idx) %>%
+      unique %>% arrange(idx) %>%
+      dplyr::rename(key=key2)
+    
+    tbl_zip %<>%
+      group_by(PATID,ENCOUNTERID,key1,idx) %>%
       dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
       ungroup %>%
-      unite("fstr",c("uhc_idx","dsa"),sep=";") %>%
+      unite("fstr",c("idx","dsa"),sep=":") %>%
       group_by(PATID,ENCOUNTERID,key1) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup %>%
-      group_by(PATID,ENCOUNTERID) %>%
-      dplyr::summarize(fstr=paste(fstr,collapse="|")) %>%
-      ungroup %>% unique
+      spread(key1,fstr,fill=0) %>%
+      unite("fstr",c("ADMIT_DRG","COMMORB_DRG"),sep="|") %>%
+      unique
   }else if(tbl=="dx"){
     tbl_zip<-dat %>%
       group_by(PATID,ENCOUNTERID,key) %>%
       dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
       ungroup %>%
-      unite("fstr",c("key","dsa"),sep=";") %>%
+      mutate(key=paste0("ccs",key))
+    
+    idx_map<-tbl_zip %>% dplyr::select(key) %>%
+      mutate(idx=dense_rank(key)) %>% unique %>% arrange(idx)
+    
+    tbl_zip %<>%
+      unite("fstr",c("key","dsa"),sep=":") %>%
       group_by(PATID,ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup %>% unique
   }else if(tbl=="px"){
-    tbl_zip<-px %>%
-      mutate(px_idx=paste0("px",dense_rank(key))) %>%
-      group_by(PATID,ENCOUNTERID,px_idx) %>%
+    tbl_zip<-dat %>%
+      mutate(idx=paste0("px",dense_rank(key))) 
+    
+    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
+      unique %>% arrange(idx)
+    
+    tbl_zip %<>%
+      group_by(PATID,ENCOUNTERID,idx) %>%
       dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
       ungroup %>%
-      unite("fstr",c("px_idx","dsa"),sep=";") %>%
+      unite("fstr",c("idx","dsa"),sep=":") %>%
       group_by(PATID,ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup %>% unique
   }else if(tbl=="med"){
     tbl_zip<-dat %>%
-      mutate(med_idx=paste0("med",dense_rank(key))) %>%
-      unite("med_val_date",c("med_idx","value","dsa"),sep=";") %>%
+      mutate(idx=paste0("med",dense_rank(key))) 
+    
+    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
+      unique %>% arrange(idx)
+    
+    tbl_zip %<>%
+      unite("val_date",c("value","dsa"),sep=",") %>%
+      group_by(PATID,ENCOUNTERID,idx) %>%
+      dplyr::summarize(fstr=paste(val_date,collapse=";")) %>%
+      ungroup %>%
+      unite("fstr2",c("idx","fstr"),sep=":") %>%
       group_by(PATID,ENCOUNTERID) %>%
-      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
+      dplyr::summarize(fstr=paste(fstr2,collapse="_")) %>%
       ungroup
   }else{
     warning("data elements not considered!")
   }
-  if(save)
+  if(save){
     save(tbl_zip,file=paste0("./data/",tbl,"_zip.Rdata"))
+  }
+  
+  zip_out<-list(tbl_zip=tbl_zip,idx_map=idx_map)
+  return(zip_out)
 }
