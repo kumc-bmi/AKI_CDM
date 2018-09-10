@@ -6,5 +6,6 @@ zip.R
 *config.csv
 *.xlsx
 *.rda
+*.txt
 
 
