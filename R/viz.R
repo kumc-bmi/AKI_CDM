@@ -6,7 +6,7 @@ consort_diag<-function(consort_tbl){
     fill(cnt_ref,.direction="down") %>%
     mutate(ENC_PROP=round(ENC_CNT/cnt_ref,4)) %>%
     mutate(label_val=paste0("(",ENC_CNT,",",ENC_PROP*100,"%)")) %>%
-    mutate(label_txt=c("Inpatient visit with LOS > 2\nand of age >= 18",
+    mutate(label_txt=c("Inpatient visit with LOS >= 2\nand of age >= 18",
                        "Has at least 1 SCr record",
                        "Excluded: Initial eGFR below 15",
                        "Excluded: RRT with 48 hours since \nadmission",
