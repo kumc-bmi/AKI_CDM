@@ -24,7 +24,7 @@ Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affe
       * Task 1.4: developing new models   
  
 * **Aim 2**: Validating predictive models on multi-site data. We will implement an automated analytic package with built in data extraction and predictive modeling from Aim 1 for distributed execution within two PCORnet clinical data research networks (CDRNs), namely GPC led by Dr. Waitman and Veterans Health Administration (VHA) site led by Dr. Matheny in pSCANNER. All prototyping will be done on the KUMC CDM.    
-      * Task 2.1: deploying R codes for data extraction and quanlity check, and reporting results to KUMC -- (due at 10/31/2018)    
+      * **Task 2.1: deploying R codes for data extraction and quanlity check, and reporting results to KUMC -- (due at 10/31/2018)**        
       * Task 2.2: deploying R codes for external validations      
       
 [GPC#711]: https://informatics.gpcnetwork.org/trac/Project/ticket/711
@@ -129,4 +129,4 @@ It takes about **1 ~ 1.5 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd
 
 
 ***
-*updated 09/06/2018*
+*updated 09/10/2018*
