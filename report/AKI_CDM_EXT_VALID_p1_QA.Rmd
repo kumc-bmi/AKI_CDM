@@ -943,7 +943,7 @@ ggplot(med_temp,aes(x=dsa_grp,y=`1.encounters#`,color=`3b.median_expos`,label=la
        title="Figure 5 - Medication Exposure Summaries")
 ```
 
-Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay (e.g. 1807627(sodium chloride), 1740467(ondansetron)), as well as drugs of relatively long exposures (e.g. 308395(ACE inhibitor), 799835(alvimopan)).
+A Total of `r length(unique(med_summ$key))` distinct RXNORM medication concepts are discovered for the cohort. Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay (e.g. 1807627(sodium chloride), 1740467(ondansetron)), as well as drugs of relatively long exposures (e.g. 308395(ACE inhibitor), 799835(alvimopan)).
 
 
 ```{r final, include=F}
