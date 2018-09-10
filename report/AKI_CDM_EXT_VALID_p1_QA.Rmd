@@ -576,7 +576,7 @@ ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`,label=label))+
        title="Figure 1 - Data Density vs. Records Intensity")
 ```
 
-A total of `r nrow(lab_summ)` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. 2160-0 (SCr), 2823-3 (potassium), 2951-2(sodium), 17861-6(calcium), 3094-0(BUN), 1963-8(CO2), 33037-3 (Anion Gap), 2075-0(chloride), 718-7(hemoglobin),...), and labs with very high recording intensity (e.g. 2340-8(glucose)).
+A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible, among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. 2160-0 (SCr), 2823-3 (potassium), 2951-2(sodium), 17861-6(calcium), 3094-0(BUN), 1963-8(CO2), 33037-3 (Anion Gap), 2075-0(chloride), 718-7(hemoglobin),...), and labs with very high recording intensity (e.g. 2340-8(glucose)).
 
 
 ***
