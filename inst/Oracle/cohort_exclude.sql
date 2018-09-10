@@ -17,12 +17,6 @@ from AKI_Scr_eGFR
 group by ENCOUNTERID
 having max(rn) <= 1
 )
--- Initial Scr >= 1.3
-    ,AKI_EXCLD_H1SCR_EN as (
-select distinct ENCOUNTERID
-from AKI_Scr_eGFR
-where rn = 1 and SERUM_CREAT >=1.3
-)
 -- At CKD stage 4 or higher
     ,AKI_EXCLD_L1GFR_EN as (
 select distinct ENCOUNTERID
@@ -95,8 +89,6 @@ where DRG in ('927','928','929','933','934-1','935') -- burn
 )
 -- collect all excluded encounters
 select ENCOUNTERID, 'Less_than_2_SCr' EXCLUD_TYPE from AKI_EXCLD_1SCR_EN
-union all
-select ENCOUNTERID, 'Initial_SCr_above_1.3' EXCLUD_TYPE from AKI_EXCLD_H1SCR_EN
 union all
 select ENCOUNTERID, 'Initial_GFR_below_15' EXCLUD_TYPE from AKI_EXCLD_L1GFR_EN
 union all 

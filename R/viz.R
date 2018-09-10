@@ -8,7 +8,6 @@ consort_diag<-function(consort_tbl){
     mutate(label_val=paste0("(",ENC_CNT,",",ENC_PROP*100,"%)")) %>%
     mutate(label_txt=c("Inpatient visit with LOS > 2\nand of age >= 18",
                        "Has at least 1 SCr record",
-                       "Excluded: Initial SCr above 1.3",
                        "Excluded: Initial eGFR below 15",
                        "Excluded: RRT with 48 hours since \nadmission",
                        "Excluded: Has less than 2 \nSCr records",
@@ -23,7 +22,7 @@ consort_diag<-function(consort_tbl){
                        "AKI2 to AKI3",
                        "AKI1 to AKI2 to AKI3")) %>%
     mutate(label=paste(label_txt,"\n",label_val)) %>%
-    mutate(node_id=c(2,5,7,9,10,12,13,15,17,18,22,23,25,24,26,28))
+    mutate(node_id=c(2,5,7,9,10,12,13,17,18,22,23,25,24,26,28))
   
   #prepare canvas
   par(mfrow=c(1,1))
@@ -42,7 +41,6 @@ consort_diag<-function(consort_tbl){
                    11,12,
                    11,14,
                    14,13,
-                   14,15,
                    14,17,
                    17,18,
                    17,20,
