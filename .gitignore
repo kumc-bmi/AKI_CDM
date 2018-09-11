@@ -3,6 +3,7 @@
 .RData
 .Ruserdata
 zip.R
+meta.R
 *config.csv
 *.xlsx
 *.rda

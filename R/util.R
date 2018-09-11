@@ -222,8 +222,7 @@ compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save
       mutate(idx=paste0("dx",dense_rank(key2))) 
     
     idx_map<-tbl_zip %>% dplyr::select(key2,idx) %>%
-      unique %>% arrange(idx) %>%
-      dplyr::rename(key=key2)
+      unique %>% arrange(idx) %>% dplyr::rename(key=key2)
     
     tbl_zip %<>%
       group_by(PATID,ENCOUNTERID,key1,idx) %>%
@@ -241,13 +240,13 @@ compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save
       group_by(PATID,ENCOUNTERID,key) %>%
       dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
       ungroup %>%
-      mutate(key=paste0("ccs",key))
+      mutate(idx=paste0("ccs",key))
     
-    idx_map<-tbl_zip %>% dplyr::select(key) %>%
-      mutate(idx=dense_rank(key)) %>% unique %>% arrange(idx)
+    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
+      unique %>% arrange(key)
     
     tbl_zip %<>%
-      unite("fstr",c("key","dsa"),sep=":") %>%
+      unite("fstr",c("idx","dsa"),sep=":") %>%
       group_by(PATID,ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup %>% unique
