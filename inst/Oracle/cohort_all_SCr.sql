@@ -1,5 +1,5 @@
 /*******************************************************************************/
-/*@file collect_SCr.sql
+/*@file cohort_all_SCr.sql
 /*
 /*ref: https://github.com/kumc-bmi/h2p-mapping/blob/master/Oracle/lab_loinc_mapping.csv
 /*

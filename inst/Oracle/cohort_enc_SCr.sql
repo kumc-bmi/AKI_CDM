@@ -1,5 +1,5 @@
 /*******************************************************************************/
-/*@file collect_SCr.sql
+/*@file cohort_enc_SCr.sql
 /*
 /*in: All_Scr_eGFR, AKI_Initial
 /*       

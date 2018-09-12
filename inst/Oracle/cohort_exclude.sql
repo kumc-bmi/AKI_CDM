@@ -1,5 +1,5 @@
 /*******************************************************************************/
-/*@file exclude.sql
+/*@file cohort_exclude.sql
 /*
 /*in: AKI_Scr_eGFR, AKI_Initial
 /*

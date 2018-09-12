@@ -1,5 +1,5 @@
 /*******************************************************************************/
-/*@file create_initial_cohort.sql
+/*@file cohort_initial.sql
 /*
 /*in: PCORNET_CDM tables 
 /*
