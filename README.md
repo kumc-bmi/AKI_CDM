@@ -94,7 +94,7 @@ The following instructions are for extracting cohort and generating final report
     
     |username     |password    |access         |cdm_db_name/sid                 |cdm_db_schema      |temp_db_schema |   
     |:------------|:-----------|:--------------|:-------------------------------|:------------------|:--------------|    
-    |your_username|your_passwd |//host:port    |database name(tSQL)/SID(Oracle) |current CDM schema |default schema |     
+    |your_username|your_passwd |//host:port    |database name(tSQL)/SID(Oracle) |current CDM schema |default schema |   
     
       iii) **save as** `config.csv` under the parent directory of AKI_CDM (so it would be at the same level as the AKI_CDM folder)      
       
@@ -134,4 +134,4 @@ It takes about **1 ~ 1.5 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd
 
 
 ***
-*updated 09/10/2018*
+*updated 09/1q/2018*
