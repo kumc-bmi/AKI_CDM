@@ -3,7 +3,7 @@
 /*
 /*in: PCORNET_CDM tables 
 /*
-/*params: &&PCORNET_CDM, @server, &&start_date, &&end_date
+/*params: @dblink, &&dbname, &&PCORNET_CDM, &&start_date, &&end_date
 /*       
 /*out: AKI_Initial
 /*
@@ -26,8 +26,8 @@ select e.ENCOUNTERID
       ,e.DRG
       ,e.DRG_TYPE
       ,e.ADMITTING_SOURCE
-from [@server].[&&PCORNET_CDM].ENCOUNTER e
-join [@server].[&&PCORNET_CDM].DEMOGRAPHIC d
+from [@dblink].[&&dbname].[&&PCORNET_CDM].ENCOUNTER e
+join [@dblink].[&&dbname].[&&PCORNET_CDM].DEMOGRAPHIC d
 on e.PATID = d.PATID
 where e.DISCHARGE_DATE - e.ADMIT_DATE >= 2 and
       e.ENC_TYPE in ('EI','IP','IS') and

@@ -3,7 +3,7 @@
 /*
 /*in: AKI_Scr_eGFR, AKI_Initial
 /*
-/*params: &&PCORNET_CDM, @server
+/*params: @dblink, &&dbname, &&PCORNET_CDM
 /*
 /*out: exclude_all
 /*
@@ -16,12 +16,6 @@ from #AKI_Scr_eGFR
 group by ENCOUNTERID
 having max(rn) <= 1
 )
--- Initial Scr >= 1.3
-    ,AKI_EXCLD_H1SCR_EN as (
-select distinct ENCOUNTERID
-from #AKI_Scr_eGFR
-where rn = 1 and SERUM_CREAT >=1.3
-)
 -- At CKD stage 4 or higher
     ,AKI_EXCLD_L1GFR_EN as (
 select distinct ENCOUNTERID
@@ -32,7 +26,7 @@ where rn = 1 and eGFR <= 15
     ,AKI_EXCLD_PRF_EN as (
 select aki.ENCOUNTERID
 from #AKI_Initial aki
-where exists (select 1 from [@server].[&&PCORNET_CDM].DIAGNOSIS dx
+where exists (select 1 from [@dblink].[&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
               where dx.PATID = aki.PATID and
                     -- ICD9 for renal failure
                     ((dx.DX_TYPE = '09' and
@@ -58,7 +52,7 @@ where rn = 1
     ,AKI_EXCLD_RT48_EN as (
 select distinct scr48.ENCOUNTERID
 from scr48
-where exists (select 1 from [@server].[&&PCORNET_CDM].DIAGNOSIS dx
+where exists (select 1 from [@dblink].[&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
               where dx.PATID = scr48.PATID and
                     -- ICD9 for RRT
                     ((dx.DX_TYPE = '09' and
@@ -76,7 +70,7 @@ where exists (select 1 from [@server].[&&PCORNET_CDM].DIAGNOSIS dx
 union
 select distinct scr48.ENCOUNTERID
 from scr48
-where exists (select 1 from [@server].[&&PCORNET_CDM].PROCEDURES px
+where exists (select 1 from [@dblink].[&&dbname].[&&PCORNET_CDM].PROCEDURES px
               where px.PATID = scr48.PATID and
                     -- CPT codes
                     (   regexp_like(px.px,'00868')

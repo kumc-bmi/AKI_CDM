@@ -3,7 +3,7 @@
 /*
 /*in: AKI_onsets
 /*
-/*params: &&PCORNET_CDM, @server
+/*params: @dblink, &&dbname, &&PCORNET_CDM
 /*
 /*out: AKI_DRG
 /*
@@ -21,7 +21,7 @@ select distinct
       ,e.DISCHARGE_DISPOSITION
       ,e.DISCHARGE_STATUS
 from AKI_onsets pat
-left join [@server].[&&PCORNET_CDM].ENCOUNTER e
+left join [@dblink].[&&dbname].[&&PCORNET_CDM].ENCOUNTER e
 on pat.ENCOUNTERID = e.ENCOUNTERID
 union all
 select distinct
@@ -35,7 +35,7 @@ select distinct
       ,e.DISCHARGE_DISPOSITION
       ,e.DISCHARGE_STATUS
 from AKI_onsets pat
-left join [@server].[&&PCORNET_CDM].ENCOUNTER e
+left join [@dblink].[&&dbname].[&&PCORNET_CDM].ENCOUNTER e
 on pat.PATID = e.PATID
 where datediff(dd,e.ADMIT_DATE,pat.ADMIT_DATE) between 1 and 365
 )

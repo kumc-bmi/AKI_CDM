@@ -1,1 +1,1 @@
-username,password,access,cdm_db_schema,cdm_db_server,oracle_temp_schema
+username,password,access,sid/cdm_db_name,cdm_db_schema,temp_db_schema

@@ -3,7 +3,7 @@
 /*
 /*in: AKI_onsets
 /*
-/*params: &&PCORNET_CDM, @server
+/*params: [@dblink], &&dbname, &&PCORNET_CDM
 /*
 /*out: AKI_MED
 /*
@@ -28,7 +28,7 @@ select distinct
       ,case when p.RX_DAYS_SUPPLY is not null and p.RX_DAYS_SUPPLY is not null then round(p.RX_QUANTITY/p.RX_DAYS_SUPPLY) 
             else null end as RX_QUANTITY_DAILY
 from AKI_onsets pat
-join [@server].[&&PCORNET_CDM].PRESCRIBING p
+join [@dblink].[&&dbname].[&&PCORNET_CDM].PRESCRIBING p
 on pat.ENCOUNTERID = p.ENCOUNTERID
 where p.RXNORM_CUI is not null and p.RX_START_DATE is not null and
       p.RX_ORDER_DATE is not null and p.RX_ORDER_TIME is not null and

@@ -4,9 +4,13 @@
 .Ruserdata
 zip.R
 meta.R
+extract_cohort_spark.R
+derby.log
+logs/
 *config.csv
 *.xlsx
 *.rda
 *.txt
+
 
 

@@ -4,11 +4,11 @@ require_libraries<-function(package_list){
   #install missing packages
   new_packages<-package_list[!(package_list %in% installed.packages()[,"Package"])]
   if(length(new_packages)>0){
-    install.packages(new_packages,repos = "http://cran.us.r-project.org")
+    install.packages(new_packages,lib=.libPaths()[1],repos = "http://cran.us.r-project.org")
   }
   
   for (lib in package_list) {
-    library(lib, character.only=TRUE)
+    library(lib, character.only=TRUE,lib.loc=.libPaths()[1])
     cat("\n", lib, " loaded.", sep="")
   }
 }
@@ -19,27 +19,27 @@ connect_to_db<-function(DBMS_type,config_file){
     conn<-dbConnect(ROracle::Oracle(),
                     config_file$username,
                     config_file$password,
-                    config_file$access)
+                    file.path(config_file$access,config_file$sid))
+    
   }else if(DBMS_type=="tSQL"){
-    require_libraries("odbc")
-    server<-gsub("/","",str_extract(config_file$access,"//.*(/)"))
-    database<-str_extract("//host:port/sid","([^/]+$)")
-    conn<-dbConnect(odbc::odbc(),
-                    driver="SQL server",
-                    uid=config_file$username,
-                    pwd=config_file$password,
-                    server=server,
-                    database=database)
+    require_libraries("RJDBC")
+    # need to download sqljdbc.jar and put it AKI_CDM folder
+    drv <- JDBC("com.microsoft.sqlserver.jdbc.SQLServerDriver","./sqljdbc.jar", "`")
+    url = paste0("jdbc:sqlserver:", config_file$access,
+                 ";DatabaseName=",config_file$cdm_db_name,
+                 ";username=",config_file$username,
+                 ";password=",config_file$password)
+    conn <- dbConnect(drv, url)
+    
   }else if(DBMS_type=="PostgreSQL"){
     require_libraries("RPostgres")
     server<-gsub("/","",str_extract(config_file$access,"//.*(/)"))
     host<-gsub(":.*","",server)
     port<-gsub(".*:","",server)
-    dbname<-str_extract("//host:port/sid","([^/]+$)")
     conn<-dbConnect(RPostgres::Postgres(),
                     host=host,
                     port=port,
-                    dbname=dbname,
+                    dbname=config_file$cdm_db_name,
                     user=config_file$username,
                     password=config_file$password)
   }else{
@@ -53,11 +53,7 @@ connect_to_db<-function(DBMS_type,config_file){
 ## parse Oracle sql lines
 parse_sql<-function(file_path,...){
   param_val<-list(...)
-  param_val<-c(param_val[1], #cdm schema
-               paste0(ifelse(param_val[2]!=" ","@",""),param_val[2]), #cdm server
-               paste0("'",param_val[3],"'"), #start date (observation window)
-               paste0("'",param_val[4],"'")) #end date (observation window)
-
+  
   #read file
   con<-file(file_path,"r")
   
@@ -76,12 +72,22 @@ parse_sql<-function(file_path,...){
     if (length(line)==0) break
     #collect overhead info
     if(grepl("^(/\\*out)",line)){
+      #output table name
       tbl_out<-trimws(gsub("(/\\*out\\:\\s)","",line),"both")
     }else if(grepl("^(/\\*action)",line)){
+      #"write" or "query"(fetch) the output table
       action<-trimws(gsub("(/\\*action\\:\\s)","",line),"both")
     }else if(grepl("^(/\\*params)",line)){
-      params<-gsub(",","",strsplit(trimws(gsub("(/\\*params\\:\\s)","",line),"both")," ")[[1]])
       params_ind<-TRUE
+      #breakdown global parameters
+      params<-gsub(",","",strsplit(trimws(gsub("(/\\*params\\:\\s)","",line),"both")," ")[[1]])
+      params_symbol<-params
+      #normalize the parameter names
+      params[params=="@dblink"]<-"cdm_db_link"
+      params[params=="&&dbname"]<-"cdm_db_name"
+      params[params=="&&PCORNET_CDM"]<-"cdm_db_schema"
+      params[params=="&&start_date"]<-"start_date"      
+      params[params=="&&end_date"]<-"end_date"   
     }
     #remove the first line
     line<-gsub("\\t", " ", line)
@@ -98,13 +104,27 @@ parse_sql<-function(file_path,...){
   
   #update parameters as needed
   if(params_ind){
-    for(i in seq_along(params)){
-      sql_string<-gsub(params[i],param_val[i],sql_string)
+    #align param_val with params
+    params_miss<-params[!(params %in% names(param_val))]
+    for(j in seq_along(params_miss)){
+      param_val[params_miss[j]]<-list(NULL)
     }
-    gsub("\\[\\ ]\\.","",sql_string) #for t-sql
-    gsub("\\[@","[",sql_string) #for t-sql
-  }
+    param_val<-param_val[which(names(param_val) %in% params)]
+    param_val<-param_val[order(names(param_val))]
+    params_symbol<-params_symbol[order(params)]
 
+    #substitube params_symbol by param_val
+    for(i in seq_along(params)){
+      sql_string<-gsub(params_symbol[i],
+                       ifelse(is.null(param_val[[i]])," ",
+                              ifelse(params[i]=="cdm_db_link",paste0("@",param_val[[i]]),param_val[[i]])),
+                       sql_string)
+    }
+  }
+  #clean up excessive "[ ]." or "[@" in tSQL when substitute value is NULL
+  sql_string<-gsub("\\[\\ ]\\.","",sql_string)
+  sql_string<-gsub("\\[@","[",sql_string)
+  
   out<-list(tbl_out=tbl_out,
             action=action,
             statement=sql_string)
@@ -117,13 +137,13 @@ parse_sql<-function(file_path,...){
 execute_single_sql<-function(conn,statement,write,table_name){
   if(write){
     if(dbExistsTable(conn,table_name)){
-      dbSendQuery(conn,paste("drop table",table_name,"purge"))
+      DBI::dbSendQuery(conn,paste("drop table",table_name))
     }
-    dbSendQuery(conn,statement)
+    DBI::dbSendQuery(conn,statement)
   }
   
   if(!write){
-    dbSendQuery(conn,statement)
+    DBI::dbSendQuery(conn,statement)
   }
 }
 

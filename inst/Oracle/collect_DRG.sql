@@ -3,7 +3,7 @@
 /*
 /*in: AKI_onsets
 /*
-/*params: &&PCORNET_CDM, @server
+/*params: @dblink, &&PCORNET_CDM
 /*
 /*out: AKI_DRG
 /*
@@ -21,7 +21,7 @@ select distinct
       ,e.DISCHARGE_DISPOSITION
       ,e.DISCHARGE_STATUS
 from AKI_onsets pat
-left join &&PCORNET_CDM.ENCOUNTER@server e
+left join &&PCORNET_CDM.ENCOUNTER@dblink e
 on pat.ENCOUNTERID = e.ENCOUNTERID
 union all
 select distinct
@@ -35,7 +35,7 @@ select distinct
       ,e.DISCHARGE_DISPOSITION
       ,e.DISCHARGE_STATUS
 from AKI_onsets pat
-left join &&PCORNET_CDM.ENCOUNTER@server e
+left join &&PCORNET_CDM.ENCOUNTER@dblink e
 on pat.PATID = e.PATID
 where e.ADMIT_DATE between pat.ADMIT_DATE-365 and 
                            pat.ADMIT_DATE-1
