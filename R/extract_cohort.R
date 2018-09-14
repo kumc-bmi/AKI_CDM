@@ -2,7 +2,9 @@
 
 extract_cohort<-function(conn,
                          remote_CDM=params$remote_CDM,
-                         db_params=db_params,
+                         cdm_db_link,
+                         cdm_db_name,
+                         cdm_db_schema,
                          start_date="2010-01-01",
                          end_date="2018-12-31",
                          verb=T){
@@ -12,8 +14,8 @@ extract_cohort<-function(conn,
     stop("DBMS_type=",DBMS_type,"is not currently supported \n(should be one of 'Oracle','tSQL','PostgreSQL', case-sensitive)")
   }
 
-  #check if cdm_db_server has been specified when same_server=F
-  if(!same_server & is.null(cdm_db_link)){
+  #check if cdm_db_server has been specified when remote_CDM=T
+  if(remote_CDM & is.null(cdm_db_link)){
     warning("must specify the cdm_db_link for CDM when remote_CDM=T!")
   }
   
@@ -31,9 +33,9 @@ extract_cohort<-function(conn,
   )
   
   execute_batch_sql(conn,statements,verb,
-                    cdm_db_link=db_params$cdm_db_link,
-                    cdm_db_name=db_params$cdm_db_name,
-                    cdm_db_schema=db_params$cdm_db_schema,
+                    cdm_db_link=cdm_db_link,
+                    cdm_db_name=cdm_db_name,
+                    cdm_db_schema=cdm_db_schema,
                     start_date=start_date,
                     end_date=end_date)
   

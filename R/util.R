@@ -117,7 +117,11 @@ parse_sql<-function(file_path,...){
     for(i in seq_along(params)){
       sql_string<-gsub(params_symbol[i],
                        ifelse(is.null(param_val[[i]])," ",
-                              ifelse(params[i]=="cdm_db_link",paste0("@",param_val[[i]]),param_val[[i]])),
+                              ifelse(params[i]=="cdm_db_link",
+                                     paste0("@",param_val[[i]]),
+                                     ifelse(params[i] %in% c("start_date","end_date"),
+                                            paste0("'",param_val[[i]],"'"),
+                                            param_val[[i]]))),
                        sql_string)
     }
   }
