@@ -112,11 +112,11 @@ The following instructions are for extracting cohort and generating final report
             
       ii) **edit** r script `render_report.R` by specifying the following two parameters:   
         - `which_report`: which report you want to render (default is `./report/AKI_CDM_EXT_VALID_p1_QA.Rmd`, but there will be more options in the future)   
-        - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`, `PostgreSQL`)   
-        - `remote_CDM`: if CDM is on a different server from the default schema, 
-              - 1. make sure there is a valid remote database connection for sending back CDM data
-              - 2. set `remote_CDM = T` 
-              - 3. add a column `cdm_db_link` to `config.csv` and specify the link
+        - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`, `PostgreSQL`)        
+        - `remote_CDM`: if CDM is on a different server from the default schema,          
+                  - 1. make sure there is a valid remote database connection for sending back CDM data           
+                  - 2. set `remote_CDM = T`                   
+                  - 3. add a column `cdm_db_link` to `config.csv` and specify the link            
       
       iii) **run** r script `render_report.R` after assigning correct values to the parameters in ii)        
       

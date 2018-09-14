@@ -2,25 +2,43 @@
 require_libraries("diagram")
 consort_diag<-function(consort_tbl){
   tbl<-consort_tbl %>% 
+    right_join(data.frame(CNT_TYPE=c("Initial",
+                                     "Has_at_least_1_SCr",
+                                     "Initial_GFR_below_15",
+                                     "Renal_transplant_within_48hr",
+                                     "Less_than_2_SCr",
+                                     "Burn_patients",
+                                     "Pre_renal_failure",
+                                     "Total",
+                                     "nonAKI",
+                                     "AKI1",
+                                     "nonAKI_to_AKI2",
+                                     "AKI1_to_AKI2",
+                                     "nonAKI_to_AKI3",
+                                     "nonAKI_to_AKI2_to_AKI3",
+                                     "AKI1_to_AKI2_to_AKI3"),
+                          label_txt=c("Inpatient visit with LOS >= 2\nand of age >= 18",
+                                      "Has at least 1 SCr record",
+                                      "Excluded: Initial eGFR below 15",
+                                      "Excluded: RRT with 48 hours since \nadmission",
+                                      "Excluded: Has less than 2 \nSCr records",
+                                      "Excluded: Burn Patients",
+                                      "Excluded: Pre-existance of \nrenal failure",
+                                      "Total eligible encounters",
+                                      "Non-AKI",
+                                      "AKI1",
+                                      "AKI2",
+                                      "AKI1 to AKI2",
+                                      "AKI3",
+                                      "AKI2 to AKI3",
+                                      "AKI1 to AKI2 to AKI3"),
+                          stringsAsFactors=F),
+               by=CNT_TYPE) %>%
+    replace_na(list(ENC_CNT=0)) %>%
     mutate(cnt_ref=ifelse(CNT_TYPE %in% c("Initial","Total"),ENC_CNT,NA)) %>%
     fill(cnt_ref,.direction="down") %>%
     mutate(ENC_PROP=round(ENC_CNT/cnt_ref,4)) %>%
     mutate(label_val=paste0("(",ENC_CNT,",",ENC_PROP*100,"%)")) %>%
-    mutate(label_txt=c("Inpatient visit with LOS >= 2\nand of age >= 18",
-                       "Has at least 1 SCr record",
-                       "Excluded: Initial eGFR below 15",
-                       "Excluded: RRT with 48 hours since \nadmission",
-                       "Excluded: Has less than 2 \nSCr records",
-                       "Excluded: Burn Patients",
-                       "Excluded: Pre-existance of \nrenal failure",
-                       "Total eligible encounters",
-                       "Non-AKI",
-                       "AKI1",
-                       "AKI2",
-                       "AKI1 to AKI2",
-                       "AKI3",
-                       "AKI2 to AKI3",
-                       "AKI1 to AKI2 to AKI3")) %>%
     mutate(label=paste(label_txt,"\n",label_val)) %>%
     mutate(node_id=c(2,5,7,9,10,12,13,17,18,22,23,25,24,26,28))
   
