@@ -92,9 +92,9 @@ The following instructions are for extracting cohort and generating final report
       i) **download** the `config_<DBMS_type>_example.csv` file according to `DBMS_type`
       ii) **fill in** the content accordingly (or you can manually create the file using the following format)
     
-    |username     |password    |access         |cdm_db_name/sid                 |cdm_db_schema      |cdm_db_server          |temp_db_schema         |   
-    |:------------|:-----------|:--------------|:-------------------------------|:------------------|:----------------------|:----------------------|    
-    |your_username|your_passwd |//host:port    |database name(tSQL)/SID(Oracle) |:current CDM schema|sid where CDM is saved |default schema         |   
+    |username     |password    |access         |cdm_db_name/sid                 |cdm_db_schema      |temp_db_schema |   
+    |:------------|:-----------|:--------------|:-------------------------------|:------------------|:--------------|    
+    |your_username|your_passwd |//host:port    |database name(tSQL)/SID(Oracle) |current CDM schema |default schema |     
     
       iii) **save as** `config.csv` under the parent directory of AKI_CDM (so it would be at the same level as the AKI_CDM folder)      
       
@@ -112,11 +112,11 @@ The following instructions are for extracting cohort and generating final report
             
       ii) **edit** r script `render_report.R` by specifying the following two parameters:   
         - `which_report`: which report you want to render (default is `./report/AKI_CDM_EXT_VALID_p1_QA.Rmd`, but there will be more options in the future)   
-        - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`, `PostgreSQL`)   
-        - `remote_CDM`: if CDM is on a different server from the default schema, 
-              - 1. make sure there is a valid remote database connection for sending back CDM data
-              - 2. set `remote_CDM = T` 
-              - 3. add a column `cdm_db_link` to `config.csv` and specify the link
+        - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`, `PostgreSQL`)        
+        - `remote_CDM`: if CDM is on a different server from the default schema,          
+              - 1. make sure there is a valid remote database connection for sending back CDM data       
+              - 2. set `remote_CDM = T`           
+              - 3. add a column `cdm_db_link` to `config.csv` and specify the link        
       
       iii) **run** r script `render_report.R` after assigning correct values to the parameters in ii)        
       
