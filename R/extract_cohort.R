@@ -1,41 +1,23 @@
 #### extract AKI cohort ####
 
 extract_cohort<-function(conn,
-                         oracle_temp_schema,
-                         cdm_db_schema,
-                         same_server=T,
-                         cdm_db_server=" ",
+                         remote_CDM=params$remote_CDM,
+                         db_params=db_params,
                          start_date="2010-01-01",
                          end_date="2018-12-31",
                          verb=T){
-  
+  #global parameter
   DBMS_type<-attr(conn,"DBMS_type")
-  
-  #make sure we are on the writable server: oracle_temp_schema
-  if(DBMS_type=="Oracle"){
-    dbSendQuery(conn,
-                paste("alter session set current_schema =",
-                      oracle_temp_schema))
-  }else if(DBMS_type=="tSQL"){
-    dbSendQuery(conn,
-                paste("alter user",
-                      oracle_temp_schema))
-  }else if(DBMS_type=="PostgreSQL"){
-    dbSendQuery(conn,
-                paste("SET search_path TO",
-                      oracle_temp_schema))
-  }else{
-    stop("the DBMS type is not currectly supported!")
+  if(!(DBMS_type %in% c("Oracle","tSQL","PostgreSQL"))){
+    stop("DBMS_type=",DBMS_type,"is not currently supported \n(should be one of 'Oracle','tSQL','PostgreSQL', case-sensitive)")
   }
 
-  cat("R is currently connected to schema",oracle_temp_schema,".\n")
-  
-  #check if cdm_db_server has been specified
-  if(!same_server & cdm_db_server==" "){
-    warning("must specify the db server name for CDM when same_server=F!")
+  #check if cdm_db_server has been specified when same_server=F
+  if(!same_server & is.null(cdm_db_link)){
+    warning("must specify the cdm_db_link for CDM when remote_CDM=T!")
   }
   
-  #execute the following sql snippets on Oracle
+  #execute the following sql snippets according to the specified order
   statements<-paste0(
     paste0("./inst/",DBMS_type),
     c("/cohort_initial.sql",
@@ -49,10 +31,11 @@ extract_cohort<-function(conn,
   )
   
   execute_batch_sql(conn,statements,verb,
-                    cdm_db_schema=cdm_db_schema,
-                    cdm_db_server=cdm_db_server,
-                    start_date="2010-01-01",
-                    end_date="2018-12-31")
+                    cdm_db_link=db_params$cdm_db_link,
+                    cdm_db_name=db_params$cdm_db_name,
+                    cdm_db_schema=db_params$cdm_db_schema,
+                    start_date=start_date,
+                    end_date=end_date)
   
   #collect attrition info
   attrition<-dbGetQuery(conn,
@@ -60,20 +43,28 @@ extract_cohort<-function(conn,
                                          "/consort_diagram.sql"))$statement)
   
   #query back final cohort
+  tbl1_nm<-"AKI_onsets"
+  if(DBMS_type=="tSQL"){
+    tbl1_nm<-paste0("#",tbl1_nm) #special syntax for tSQL
+  }
   aki_enc<-dbGetQuery(conn,
-                      "select * from AKI_onsets")
+                      paste("select * from",tbl1_nm))
   
   #clean out intermediate tables
   for(i in 1:(length(statements)-1)){
     parse_out<-parse_sql(statements[i])
     if(parse_out$action=="write"){
-      drop_temp<-paste("drop table",parse_out$tbl_out,"purge")
+      if(DBMS_type=="Oracle"){
+        drop_temp<-paste("drop table",parse_out$tbl_out,"purge") # purge is only required in Oracle for completely destroying temporary tables
+      }else{
+        drop_temp<-paste("drop table",parse_out$tbl_out)
+      }
       dbSendQuery(conn,drop_temp)
     }else{
       warning("no temporary table was created by this statment!")
     }
     if(verb){
-      cat("temp table",toupper(parse_out$tbl_out),"purged.\n")
+      cat("temp table",toupper(parse_out$tbl_out),"dropped. \n")
     }
   }
   

@@ -3,7 +3,7 @@
 /*
 /*in: AKI_onsets
 /*
-/*params: &&PCORNET_CDM, @server
+/*params: @dbname, &&PCORNET_CDM
 /*
 /*out: AKI_DX
 /*
@@ -20,7 +20,7 @@ select pat.PATID
       ,dx.ADMIT_DATE DX_DATE
       ,round(dx.ADMIT_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-join &&PCORNET_CDM.DIAGNOSIS@server dx
+join &&PCORNET_CDM.DIAGNOSIS@dbname dx
 on pat.PATID = dx.PATID
 where dx.ADMIT_DATE between pat.ADMIT_DATE-365 and
                             pat.ADMIT_DATE-1

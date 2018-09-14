@@ -1,9 +1,9 @@
 /********************************************************************************/
-/*@file get_final_cohort.sql
+/*@file collect_demo.sql
 /*
 /*in: AKI_onsets
 /*
-/*params: &&PCORNET_CDM, @server
+/*params: @dblink, &&dbname, &&PCORNET_CDM
 /*
 /*out: AKI_DEMO
 /*
@@ -22,9 +22,9 @@ select distinct
       ,dth.DEATH_DATE_IMPUTE
       ,dth.DEATH_SOURCE
 from AKI_onsets pat
-left join [@server].[&&PCORNET_CDM].DEMOGRAPHIC demo
+left join [@dblink].[&&dbname].[&&PCORNET_CDM].DEMOGRAPHIC demo
 on pat.PATID = demo.PATID
-left join [@server].[&&PCORNET_CDM].DEATH dth
+left join [@dblink].[&&dbname].[&&PCORNET_CDM].DEATH dth
 on pat.PATID = dth.PATID
 order by pat.PATID, pat.ENCOUNTERID
 

@@ -3,7 +3,7 @@
 /*
 /*in: AKI_onsets
 /*
-/*params: &&PCORNET_CDM, @server
+/*params: @dblink, &&PCORNET_CDM
 /*
 /*out: AKI_VITAL
 /*
@@ -23,7 +23,7 @@ select pat.PATID
       ,case when v.TOBACCO = 'NI' then null else v.TOBACCO end as TOBACCO
       ,case when v.TOBACCO_TYPE = 'NI' then null else v.TOBACCO_TYPE end as TOBACCO_TYPE
 from AKI_onsets pat
-left join &&PCORNET_CDM.VITAL@server v
+left join &&PCORNET_CDM.VITAL@dblink v
 on pat.PATID = v.PATID
 where v.MEASURE_DATE between pat.ADMIT_DATE-7 and pat.DISCHARGE_DATE and
       coalesce(v.HT, v.WT, v.SYSTOLIC, v.DIASTOLIC, v.ORIGINAL_BMI) is not null

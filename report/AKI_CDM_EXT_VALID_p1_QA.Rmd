@@ -5,6 +5,7 @@ date: "August 23, 2018"
 output: html_document
 params:
   DBMS_type: Oracle
+  remote_CDM: FALSE
 ---
 ### Aim 1: Data Feasibility Evaluation over GPC sites.
 #### Objective 1.1: Study cohort extraction and characterization
@@ -61,7 +62,7 @@ require_libraries(c("DBI",
 
 ```{r connect, include=F}
 #establish the connection between r-studio and CDM server (Oracle)
-config_file_path<-"../config.csv"
+config_file_path<-"./config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
 conn<-connect_to_db(params$DBMS_type,config_file)
 ```
@@ -70,9 +71,10 @@ conn<-connect_to_db(params$DBMS_type,config_file)
 ```{r cohort,message=F}
 #extract cohort --Table1
 # by default, we assume cdm schema is on the same server as current schema,
-# if not, set same_server=F and cdm_db_server=...(server name)
 cohort<-extract_cohort(conn,
-                       oracle_temp_schema=config_file$oracle_temp_schema,
+                       remote_CDM=params$remote_CDM,
+                       cdm_db_link=config_file$cdm_db_link,
+                       cdm_db_name=config_file$cdm_db_name,
                        cdm_db_schema=config_file$cdm_db_schema,
                        start_date="2010-01-01",
                        end_date="2018-12-31",
@@ -173,8 +175,9 @@ conn<-connect_to_db(params$DBMS_type,config_file)
 
 demo<-dbGetQuery(conn,
                  parse_sql(paste0("./inst/",params$DBMS_type,"/collect_demo.sql"),
-                           cdm_db_schema=config_file$cdm_db_schema,
-                           cdm_db_server=" ")$statement) %>%
+                           cdm_db_link=config_file$cdm_db_link,
+                           cdm_db_name=config_file$cdm_db_name,
+                           cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
                            AGE >= 26 & AGE <= 35 ~ "26-35",
                            AGE >= 36 & AGE <= 45 ~ "36-45",
@@ -266,8 +269,9 @@ conn<-connect_to_db(params$DBMS_type,config_file)
 
 vital<-dbGetQuery(conn,
                   parse_sql(paste0("./inst/",params$DBMS_type,"/collect_vital.sql"),
-                            cdm_db_schema=config_file$cdm_db_schema,
-                            cdm_db_server=" ")$statement) %>%
+                            cdm_db_link=config_file$cdm_db_link,
+                            cdm_db_name=config_file$cdm_db_name,
+                            cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
                              ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
                              ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
@@ -468,8 +472,9 @@ conn<-connect_to_db(params$DBMS_type,config_file)
 
 lab<-dbGetQuery(conn,
                 parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
-                          cdm_db_schema=config_file$cdm_db_schema,
-                          cdm_db_server=" ")$statement) %>%
+                          cdm_db_link=config_file$cdm_db_link,
+                          cdm_db_name=config_file$cdm_db_name,
+                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME) %>%
   left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
             by=c("PATID","ENCOUNTERID")) %>%
@@ -589,8 +594,9 @@ conn<-connect_to_db(params$DBMS_type,config_file)
 
 uhc_DRG<-dbGetQuery(conn,
                 parse_sql(paste0("./inst/",params$DBMS_type,"/collect_DRG.sql"),
-                          cdm_db_schema=config_file$cdm_db_schema,
-                          cdm_db_server=" ")$statement) %>%
+                          cdm_db_link=config_file$cdm_db_link,
+                          cdm_db_name=config_file$cdm_db_name,
+                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   dplyr::select(PATID,ENCOUNTERID,DRG_TYPE,DRG,DRG_DATE) %>%
   filter(!is.na(DRG)) %>%
   left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
@@ -669,8 +675,9 @@ conn<-connect_to_db(params$DBMS_type,config_file)
 
 dx<-dbGetQuery(conn,
                parse_sql(paste0("./inst/",params$DBMS_type,"/collect_dx.sql"),
-                         cdm_db_schema=config_file$cdm_db_schema,
-                         cdm_db_server=" ")$statement) %>%
+                         cdm_db_link=config_file$cdm_db_link,
+                         cdm_db_name=config_file$cdm_db_name,
+                         cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   #attach CCS diagnosis grouping
   dplyr::mutate(DX_ICD=paste0("ICD",DX_TYPE,":",DX)) %>%
   left_join(ccs_icd %>% select(-ccs_name),by=c("DX_ICD"="icd_w_type")) %>%
@@ -746,8 +753,9 @@ conn<-connect_to_db(params$DBMS_type,config_file)
 
 px<-dbGetQuery(conn,
                parse_sql(paste0("./inst/",params$DBMS_type,"/collect_px.sql"),
-                         cdm_db_schema=config_file$cdm_db_schema,
-                         cdm_db_server=" ")$statement) %>%
+                         cdm_db_link=config_file$cdm_db_link,
+                         cdm_db_name=config_file$cdm_db_name,
+                         cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   dplyr::mutate(PX=paste0(PX_TYPE,":",PX)) %>%
   dplyr::select(PATID,ENCOUNTERID,PX,DAYS_SINCE_ADMIT) %>%
   dplyr::rename(key=PX, dsa=DAYS_SINCE_ADMIT) %>%
@@ -823,8 +831,9 @@ conn<-connect_to_db(params$DBMS_type,config_file)
 
 med<-dbGetQuery(conn,
                 parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
-                          cdm_db_schema=config_file$cdm_db_schema,
-                          cdm_db_server=" ")$statement) %>%
+                          cdm_db_link=config_file$cdm_db_link,
+                          cdm_db_name=config_file$cdm_db_name,
+                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
                                     pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
   replace_na(list(RX_QUANTITY_DAILY=1)) %>%

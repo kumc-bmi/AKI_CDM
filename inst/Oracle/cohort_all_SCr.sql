@@ -5,7 +5,7 @@
 /*
 /*in: AKI_Initial
 /*
-/*params: &&PCORNET_CDM, @server
+/*params: @dblink, &&PCORNET_CDM
 /*       
 /*out: All_Scr_eGFR
 /*
@@ -21,7 +21,7 @@ select l.PATID
       ,l.SPECIMEN_TIME
       ,l.RESULT_DATE
       ,l.RESULT_TIME
-from &&PCORNET_CDM.LAB_RESULT_CM@server l
+from &&PCORNET_CDM.LAB_RESULT_CM@dblink l
 where l.LAB_LOINC in ('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8') and 
       UPPER(l.RESULT_UNIT) = 'MG/DL' and
       l.SPECIMEN_SOURCE <> 'URINE' and  /*only serum creatinine*/

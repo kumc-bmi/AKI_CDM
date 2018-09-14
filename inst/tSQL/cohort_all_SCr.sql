@@ -5,7 +5,7 @@
 /*
 /*in: AKI_Initial
 /*
-/*params: &&PCORNET_CDM, @server
+/*params: @dblink, &&dbname, &&PCORNET_CDM
 /*       
 /*out: All_Scr_eGFR
 /*
@@ -20,7 +20,7 @@ select l.PATID
       ,l.SPECIMEN_TIME
       ,l.RESULT_DATE
       ,l.RESULT_TIME
-from [@server].[&&PCORNET_CDM].LAB_RESULT_CM l
+from [@dblink].[&&dbname].[&&PCORNET_CDM].LAB_RESULT_CM l
 where l.LAB_LOINC in ('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8') and 
       UPPER(l.RESULT_UNIT) = 'MG/DL' and
       l.SPECIMEN_SOURCE <> 'URINE' and  /*only serum creatinine*/
@@ -44,7 +44,7 @@ select distinct
       ,sa.RESULT_DATE
       ,sa.RESULT_TIME
 from Scr_all sa
-join [@server].[&&PCORNET_CDM].DEMOGRAPHIC d
+join [@dblink].[&&dbname].[&&PCORNET_CDM].DEMOGRAPHIC d
 on sa.PATID = d.PATID
 )
 select PATID
