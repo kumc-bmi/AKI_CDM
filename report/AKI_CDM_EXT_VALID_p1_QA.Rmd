@@ -133,7 +133,7 @@ tbl1_summ<-tbl1_dsa %>%
 
 #save results
 saveRDS(Table1,file="./data/Table1.rda")
-# saveRDS(consort_tbl,file="./data/consort_tbl.rda")
+saveRDS(consort_tbl,file="./data/consort_tbl.rda")
 
 #clean up
 rm(cohort); gc()
