@@ -441,8 +441,8 @@ kable(vital_summ %>% dplyr::select(-key),
 Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
 
 ```{r vital_out2, echo=F, warning=F, message=F}
-vital_smoke_summ %<>% filter(enc_cnt!="<11") %>%
-  arrange(key,desc(enc_cnt))
+vital_smoke_summ %<>% filter(`2.encounters#`!="<11") %>%
+  arrange(key,desc(`2.encounters#`))
 
 row_grp_pos<-vital_smoke_summ %>% 
   mutate(rn=1:n()) %>%
@@ -525,7 +525,9 @@ lab_summ<-lab %>%
       #HIPPA, low counts masking
       mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
              record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt)),
-             sd=ifelse(is.nan(sd),0,sd)),
+             sd=ifelse(is.nan(sd),0,sd)) %>%
+      gather(summ,summ_val,-key,-dsa_grp) %>%
+      spread(dsa_grp,summ_val),
     by=c("key","summ")
   ) %>%
   arrange(freq_rk,summ) %>%
@@ -549,8 +551,7 @@ lab_temp<-lab_summ %>%
   dplyr::select(key,summ,overall) %>% unique %>%
   spread(summ,overall,fill=0) %>%
   mutate(record_intensity=round(record_cnt/enc_cnt,2)) %>%
-  mutate(label=ifelse(dense_rank(-enc_cnt)<=10 | dense_rank(-record_intensity)<=10,
-                      key,""))
+  mutate(label=ifelse(dense_rank(-enc_cnt)<=10 | dense_rank(-record_intensity)<=10,key,""))
 
 ggplot(lab_temp,aes(x=record_intensity,y=enc_cnt,label=label))+
   geom_point()+ geom_text_repel(segment.alpha=0.5,segment.color="grey")+
