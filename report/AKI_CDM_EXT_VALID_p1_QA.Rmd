@@ -441,8 +441,8 @@ kable(vital_summ %>% dplyr::select(-key),
 Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
 
 ```{r vital_out2, echo=F, warning=F, message=F}
-vital_smoke_summ %<>% filter(`2.encounters#`!="<11") %>%
-  arrange(key,desc(`2.encounters#`))
+vital_smoke_summ %<>% filter(enc_cnt!="<11") %>%
+  arrange(key,desc(enc_cnt))
 
 row_grp_pos<-vital_smoke_summ %>% 
   mutate(rn=1:n()) %>%
@@ -510,15 +510,6 @@ lab_summ<-lab %>%
   mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
          record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt))) %>%
   gather(summ,overall,-key,-freq_rk) %>%
-  mutate(summ=recode(summ,
-                     enc_cnt="1.encounters#",
-                     record_cnt="2.records#",
-                     min="3a.min",
-                     median="3b.median",
-                     mean="3c.mean",
-                     sd="3d.sd",
-                     cov="3e.cov",
-                     max="3f.max")) %>%
   left_join(
     lab %>%
       group_by(key,dsa_grp) %>%
@@ -534,18 +525,7 @@ lab_summ<-lab %>%
       #HIPPA, low counts masking
       mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
              record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt)),
-             sd=ifelse(is.nan(sd),0,sd)) %>%
-      gather(summ,summ_val,-key,-dsa_grp) %>%
-      spread(dsa_grp,summ_val) %>%
-      mutate(summ=recode(summ,
-                         enc_cnt="1.encounters#",
-                         record_cnt="2.records#",
-                         min="3a.min",
-                         median="3b.median",
-                         mean="3c.mean",
-                         sd="3d.sd",
-                         cov="3e.cov",
-                         max="3f.max")),
+             sd=ifelse(is.nan(sd),0,sd)),
     by=c("key","summ")
   ) %>%
   arrange(freq_rk,summ) %>%
@@ -564,15 +544,15 @@ rm(lab); gc()
 
 ```{r lab_out, echo=F, warning=F, message=F}
 lab_temp<-lab_summ %>%
-  filter(summ %in% c("1.encounters#","2.records#")) %>%
+  filter(summ %in% c("enc_cnt","record_cnt")) %>%
   mutate(overall=suppressWarnings(ifelse(overall=="<11",10,as.numeric(overall)))) %>%
   dplyr::select(key,summ,overall) %>% unique %>%
   spread(summ,overall,fill=0) %>%
-  mutate(record_intensity=round(`2.records#`/`1.encounters#`,2)) %>%
-  mutate(label=ifelse(dense_rank(-`1.encounters#`)<=10 | dense_rank(-record_intensity)<=10,
+  mutate(record_intensity=round(record_cnt/enc_cnt,2)) %>%
+  mutate(label=ifelse(dense_rank(-enc_cnt)<=10 | dense_rank(-record_intensity)<=10,
                       key,""))
 
-ggplot(lab_temp,aes(x=record_intensity,y=`1.encounters#`,label=label))+
+ggplot(lab_temp,aes(x=record_intensity,y=enc_cnt,label=label))+
   geom_point()+ geom_text_repel(segment.alpha=0.5,segment.color="grey")+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
@@ -602,13 +582,12 @@ uhc_DRG<-dbGetQuery(conn,
   left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
             by=c("PATID","ENCOUNTERID")) %>%
   dplyr::mutate(dsa=round(as.numeric(difftime(DRG_DATE,critical_date,units="days")))) %>%
-  dplyr::rename(key1=DRG_TYPE,key2=DRG) %>% 
-  dplyr::select(PATID,ENCOUNTERID,key1,key2,dsa) %>%
+  dplyr::select(PATID,ENCOUNTERID,DRG_TYPE,DRG,dsa) %>%
   unique
 
 #collect summaries
 DRG_summ<-uhc_DRG %>%
-  group_by(key1,key2) %>%
+  group_by(DRG_TYPE,DRG) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
                    pat_cnt=length(unique(PATID)),
@@ -622,19 +601,7 @@ DRG_summ<-uhc_DRG %>%
   mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",as.character(pat_cnt)),
          enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt)),
          record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",as.character(record_cnt))) %>%
-  gather(summ,summ_val,-key1,-key2) %>%
-  dplyr::mutate(summ=recode(summ,
-                            pat_cnt="1.patients#",
-                            enc_cnt="2.encounters#",
-                            record_cnt="3.records#",
-                            max_history="4a.min_history",
-                            median_history="4b.median_history",
-                            mean_history="4c.mean_history",
-                            sd_history="4d.sd_history",
-                            min_history="4f.max_history")) %>%
-  unite("DRG",c("key2","key2"),sep="_") %>%
-  spread(summ,summ_val) %>%
-  arrange(DRG)
+  arrange(DRG_TYPE,DRG)
 
 #save
 saveRDS(uhc_DRG,file="./data/AKI_DRG.rda")
@@ -647,14 +614,12 @@ rm(uhc_DRG); gc()
 
 ```{r uhc_out, echo=F, warning=F, message=F}
 drg_temp<-DRG_summ %>% 
-  dplyr::select(key1,DRG,`2.encounters#`,`4c.mean_history`) %>%
-  mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
-                                                 as.numeric(`2.encounters#`))),
-         `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
-  mutate(label=ifelse(dense_rank(-`2.encounters#`)<=10,
-                      DRG,""))
+  dplyr::select(DRG_TYPE,DRG,enc_cnt,mean_history) %>%
+  mutate(enc_cnt=suppressWarnings(ifelse(enc_cnt=="<11",10,as.numeric(enc_cnt))),
+         mean_history=as.numeric(mean_history)) %>%
+  mutate(label=ifelse(dense_rank(-enc_cnt)<=10,DRG,""))
 
-ggplot(drg_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,color=key1,label=label))+
+ggplot(drg_temp,aes(x=mean_history,y=enc_cnt,color=DRG_TYPE,label=label))+
   geom_point()+geom_text_repel()+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
@@ -702,17 +667,6 @@ dx_summ<-dx %>%
   mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",pat_cnt),
          enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
          record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt)) %>%
-  gather(summ,summ_val,-key) %>%
-  dplyr::mutate(summ=recode(summ,
-                            pat_cnt="1.patients#",
-                            enc_cnt="2.encounters#",
-                            record_cnt="3.records#",
-                            max_history="4a.min_history",
-                            median_history="4b.median_history",
-                            mean_history="4c.mean_history",
-                            sd_history="4d.sd_history",
-                            min_history="4f.max_history")) %>%
-  spread(summ,summ_val) %>%
   arrange(key)
 
 #save
@@ -725,14 +679,13 @@ rm(dx); gc()
 
 
 ```{r dx_out, echo=F, warning=F, message=F}
-dx_temp<-dx_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>% 
-  mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
-                                                 as.numeric(`2.encounters#`))),
-         `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
-  mutate(label=ifelse(dense_rank(-`2.encounters#`)<=10,
-                      key,""))
+dx_temp<-dx_summ %>% 
+  dplyr::select(key,enc_cnt,mean_history) %>% 
+  mutate(enc_cnt=suppressWarnings(ifelse(enc_cnt=="<11",10,as.numeric(enc_cnt))),
+         mean_history=as.numeric(mean_history)) %>%
+  mutate(label=ifelse(dense_rank(-enc_cnt)<=10,key,""))
 
-ggplot(dx_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,label=label))+
+ggplot(dx_temp,aes(x=mean_history,y=enc_cnt,label=label))+
   geom_point()+geom_text_repel()+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
@@ -778,17 +731,6 @@ px_summ<-px %>%
          enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
          record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt),
          sd_history=ifelse(is.na(sd_history),0,sd_history)) %>%
-  gather(summ,summ_val,-key) %>%
-  dplyr::mutate(summ=recode(summ,
-                            pat_cnt="1.patients#",
-                            enc_cnt="2.encounters#",
-                            record_cnt="3.records#",
-                            max_history="4a.min_history",
-                            median_history="4b.median_history",
-                            mean_history="4c.mean_history",
-                            sd_history="4d.sd_history",
-                            min_history="4f.max_history")) %>%
-  spread(summ,summ_val) %>%
   arrange(key)
 
 #save
@@ -801,16 +743,15 @@ rm(px); gc()
 
 
 ```{r px_out, echo=F, warning=F, message=F}
-px_temp<-px_summ %>% dplyr::select(key,`2.encounters#`,`4c.mean_history`) %>% 
-  mutate(`2.encounters#`=suppressWarnings(ifelse(`2.encounters#`=="<11",10,
-                                                 as.numeric(`2.encounters#`))),
-         `4c.mean_history`=as.numeric(`4c.mean_history`)) %>%
-  arrange(desc(`2.encounters#`)) %>%
-  mutate(label=ifelse(dense_rank(-`2.encounters#`)<=10,
-                      key,""))
+px_temp<-px_summ %>% 
+  dplyr::select(key,enc_cnt,mean_history) %>% 
+  mutate(enc_cnt=suppressWarnings(ifelse(enc_cnt=="<11",10,as.numeric(enc_cnt))),
+         mean_history=as.numeric(mean_history)) %>%
+  arrange(desc(enc_cnt)) %>%
+  mutate(label=ifelse(dense_rank(-enc_cnt)<=10,key,""))
 
 
-ggplot(px_temp,aes(x=`4c.mean_history`,y=`2.encounters#`,label=label))+
+ggplot(px_temp,aes(x=mean_history,y=enc_cnt,label=label))+
   geom_point()+geom_text_repel()+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
@@ -905,15 +846,6 @@ med_summ<-med %>%
   dplyr::mutate(cov_expos=round(sd_expos/mean_expos,1)) %>%
   gather(summ,summ_val,-key,-dsa_grp) %>%
   spread(dsa_grp,summ_val) %>%
-  dplyr::mutate(summ=recode(summ,
-                            enc_cnt="1.encounters#",
-                            record_cnt="2.records#",
-                            min_expos="3a.min_expos",
-                            median_expos="3b.median_expos",
-                            mean_expos="3c.mean_expos",
-                            sd_expos="3d.sd_expos",
-                            cov_expos="3e.cov_expos",
-                            max_expos="3f.max_expos")) %>%
   arrange(key,summ) 
 
 #save
@@ -927,28 +859,26 @@ rm(med,med2); gc()
 
 ```{r med_out, echo=F, warning=F, message=F, fig.height = 8, fig.width = 12}
 med_temp<-med_summ %>% 
-  filter(summ %in% c("1.encounters#","3b.median_expos")) %>% 
+  filter(summ %in% c("enc_cnt","median_expos")) %>% 
   gather(dsa_grp,summ_val,-summ,-key) %>%
-  filter(!(summ=="1.encounters#" & summ_val=="<11")) %>%
+  filter(!(summ=="enc_cnt" & summ_val=="<11")) %>%
   filter(!is.na(summ_val)) %>%
   mutate(summ_val=as.numeric(summ_val)) %>%
   spread(summ,summ_val) %>%
-  filter(!is.na(`1.encounters#`)) %>%
-  mutate(`1.encounters#`=ifelse(`1.encounters#` == "<11", 10,
-                                as.numeric(`1.encounters#`))) %>%
-  arrange(`3b.median_expos`) %>%
+  filter(!is.na(enc_cnt)) %>%
+  mutate(enc_cnt=ifelse(enc_cnt == "<11", 10,as.numeric(enc_cnt))) %>%
+  arrange(median_expos) %>%
   group_by(dsa_grp) %>%
-  dplyr::mutate(label=ifelse(dense_rank(-`3b.median_expos`)<=2 | dense_rank(-`1.encounters#`)<=3,
-                             key,"")) %>%
+  dplyr::mutate(label=ifelse(dense_rank(-median_expos)<=2 | dense_rank(-enc_cnt)<=3,key,"")) %>%
   ungroup
 
-ggplot(med_temp,aes(x=dsa_grp,y=`1.encounters#`,color=`3b.median_expos`,label=label)) +
+ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=median_expos,label=label)) +
   geom_point() + geom_text_repel()+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
   scale_color_gradient2(low = "green",mid="blue",high ="red", 
                         midpoint = 20)+
-  labs(x="Start Date",y="Number of Encounters",color="Median Exposure (days)",
+  labs(x="Start Date",y="Encounter Counts",color="Median Exposure (days)",
        title="Figure 5 - Medication Exposure Summaries")
 ```
 
