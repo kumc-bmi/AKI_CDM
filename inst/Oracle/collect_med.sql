@@ -24,7 +24,7 @@ select distinct
       ,p.RX_REFILLS
       ,p.RX_DAYS_SUPPLY
       ,p.RX_FREQUENCY
-      ,case when p.RX_DAYS_SUPPLY > 0 and p.RX_QUANTITY_DAILY is not null then round(p.RX_QUANTITY/p.RX_DAYS_SUPPLY) 
+      ,case when p.RX_DAYS_SUPPLY > 0 and p.RX_QUANTITY is not null then round(p.RX_QUANTITY/p.RX_DAYS_SUPPLY) 
             else null end as RX_QUANTITY_DAILY
 from AKI_onsets pat
 join &&PCORNET_CDM.PRESCRIBING@dblink p
