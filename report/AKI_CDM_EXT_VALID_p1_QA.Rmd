@@ -851,7 +851,7 @@ med_summ<-med %>%
 
 #save
 saveRDS(med2,file="./data/AKI_med.rda")
-# saveRDS(med_summ,file="./data/med_summ.rda")
+saveRDS(med_summ,file="./data/med_summ.rda")
 
 #clean up
 rm(med,med2); gc()
@@ -862,12 +862,10 @@ rm(med,med2); gc()
 med_temp<-med_summ %>% 
   filter(summ %in% c("enc_cnt","median_expos")) %>% 
   gather(dsa_grp,summ_val,-summ,-key) %>%
-  filter(!(summ=="enc_cnt" & summ_val=="<11")) %>%
-  filter(!is.na(summ_val)) %>%
+  filter(!is.na(summ_val) & (summ_val!="<11")) %>%
   mutate(summ_val=as.numeric(summ_val)) %>%
   spread(summ,summ_val) %>%
-  filter(!is.na(enc_cnt)) %>%
-  mutate(enc_cnt=ifelse(enc_cnt == "<11", 10,as.numeric(enc_cnt))) %>%
+  filter(!is.na(median_expos) & enc_cnt>=1000) %>%
   arrange(median_expos) %>%
   group_by(dsa_grp) %>%
   dplyr::mutate(label=ifelse(dense_rank(-median_expos)<=2 | dense_rank(-enc_cnt)<=3,key,"")) %>%
