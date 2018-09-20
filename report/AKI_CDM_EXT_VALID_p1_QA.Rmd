@@ -865,7 +865,7 @@ med_temp<-med_summ %>%
   filter(!is.na(summ_val) & (summ_val!="<11")) %>%
   mutate(summ_val=as.numeric(summ_val)) %>%
   spread(summ,summ_val) %>%
-  filter(!is.na(median_expos) & enc_cnt>=1000) %>%
+  filter(!is.na(median_expos) & enc_cnt>=enc_tot*0.005) %>%
   arrange(median_expos) %>%
   group_by(dsa_grp) %>%
   dplyr::mutate(label=ifelse(dense_rank(-median_expos)<=2 | dense_rank(-enc_cnt)<=3,key,"")) %>%
