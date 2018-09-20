@@ -246,7 +246,6 @@ demo_nice_tbl<-demo_summ %>%
   unite("AKI2",paste0("AKI2_",c("enc_cnt","enc_prop")),sep=", ") %>%
   unite("AKI3",paste0("AKI3_",c("enc_cnt","enc_prop")),sep=", ") %>%
   unite("NONAKI",paste0("NONAKI_",c("enc_cnt","enc_prop")),sep=", ") %>%
-  spread(summ,summ_val) %>%
   arrange(key,value)
 
 kable(demo_nice_tbl,
