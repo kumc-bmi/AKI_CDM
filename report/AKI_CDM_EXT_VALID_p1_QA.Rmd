@@ -699,7 +699,7 @@ ggplot(px_temp,aes(x=mean_history,y=enc_cnt,label=label))+
 ```
 
 
-A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before the encounter of interest. Figure 4 gives an overview of average history of patients' procedures prior to tne encounter of interest as well as the highly frequent historical procedures they had recieved. It can help identify the common procedures or typical occuring times of precedures (e.g. at KUMC, CPT:99213, 99214(office or outpatient visit), CPT:36415 (cardiovascular surgery), CPT:80053(metabolic panel), CPT:85025(complete CBC) are the common procedures). Note that Figure2, Figure3 and Figure4 may display similar distributions as a result of corrlations between diagnoses and procedures. 
+A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before the encounter of interest. Figure3 gives an overview of average history of patients' procedures prior to tne encounter of interest as well as the highly frequent historical procedures they had recieved. It can help identify the common procedures or typical occuring times of precedures (e.g. at KUMC, CPT:99213, 99214(office or outpatient visit), CPT:36415 (cardiovascular surgery), CPT:80053(metabolic panel), CPT:85025(complete CBC) are the common procedures). Note that Figure2 and Figure3 may display similar distributions as a result of corrlations between diagnoses and procedures. 
 
 
 ***
