@@ -676,8 +676,6 @@ rm(dxa); gc()
 
 
 
-
-
 ```{r dx_out, echo=F, warning=F, message=F}
 dx_temp<-dx_summ %>% 
   dplyr::select(key,enc_cnt,mean_history) %>% 
@@ -691,10 +689,19 @@ ggplot(dx_temp,aes(x=mean_history,y=enc_cnt,label=label))+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
   labs(title="Figure 2 - Data Density vs. Recency (CCS)")
+
+load("./data/ccs_ref.Rdata")
+dx_report<-dx_temp %>% 
+  arrange(desc(enc_cnt)) %>%
+  slice(1:6) %>%
+  dplyr::select(key) %>%
+  left_join(ccs_ref %>% filter(type=="dx"),by=c("key"="ccs_code")) %>%
+  dplyr:select(key,ccs_name)
+  
 ```
 
 
-A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnosis has been assigned to patients before the encounter of interest. Figure 3 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses(e.g. 259(Residual codes; unclassified), 257(Other aftercare), 133(Other lower respiratory disease)).
+A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnosis has been assigned to patients before the encounter of interest. Figure 3 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses(e.g. `r dx_report$key[1]`(`r r dx_report$ccs_name[1]`); `r dx_report$key[2]`(`r r dx_report$ccs_name[2]`); `r dx_report$key[3]`(`r r dx_report$ccs_name[3]`); `r dx_report$key[4]`(`r r dx_report$ccs_name[4]`); `r dx_report$key[5]`(`r r dx_report$ccs_name[5]`); `r dx_report$key[6]`(`r r dx_report$ccs_name[6]`)).
 
 
 ***
