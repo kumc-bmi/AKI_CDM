@@ -6,6 +6,7 @@ zip.R
 meta.R
 extract_cohort_spark.R
 AKI_CDM_EXT_VALID_p1_QA.R
+AKI_CDM_EXT_VALID_p1_QA_full.Rmd
 derby.log
 logs/
 *config.csv
