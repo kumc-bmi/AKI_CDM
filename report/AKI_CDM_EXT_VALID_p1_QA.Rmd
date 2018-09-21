@@ -55,6 +55,8 @@ require_libraries(c("DBI",
                     "kableExtra",
                     "ggplot2",
                     "ggrepel",
+                    "RCurl",
+                    "XML",
                     "openxlsx"))
 
 ```
@@ -138,6 +140,7 @@ saveRDS(consort_tbl,file="./data/consort_tbl.rda")
 #clean up
 rm(cohort); gc()
 ```
+
 
 ```{r consort, echo=F}
 #consort diagram

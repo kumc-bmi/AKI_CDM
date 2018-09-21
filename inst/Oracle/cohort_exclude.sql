@@ -51,8 +51,7 @@ from AKI_Scr_eGFR
 where rn = 1
 )
     ,AKI_EXCLD_RT48_EN as (
-
-unionselect distinct scr48.ENCOUNTERID
+select distinct scr48.ENCOUNTERID
 from scr48
 where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS@dblink dx
               where dx.PATID = scr48.PATID and
@@ -69,6 +68,7 @@ where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS@dblink dx
                       ) and
                     dx.ADMIT_DATE < scr48.time_bd
                 )
+union all
 select distinct scr48.ENCOUNTERID
 from scr48
 where exists (select 1 from &&PCORNET_CDM.PROCEDURES@dblink px
@@ -83,10 +83,10 @@ where exists (select 1 from &&PCORNET_CDM.PROCEDURES@dblink px
 )
 -- Burn Patients (admitting diagnosis)
     ,AKI_EXCLD_BURN_EN as (
-select distinct scr48.ENCOUNTERID
-from scr48
+select distinct aki.ENCOUNTERID
+from AKI_Initial aki
 where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS@dblink dx
-              where dx.ENCOUNTERID = scr48.ENCOUNTER and
+              where dx.ENCOUNTERID = aki.ENCOUNTERID and
                     -- ICD9 for burn patients
                     ((dx.DX_TYPE = '09' and
                       (   regexp_like(dx.DX,'906\.[5-9]')
