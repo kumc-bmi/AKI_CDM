@@ -168,6 +168,42 @@ execute_batch_sql<-function(conn,statements,verb,...){
   }
 }
 
+## print link for LOINC code search result
+get_loinc_ref<-function(loinc){
+  #url to loinc.org 
+  url<-paste0(paste0("https://loinc.org/",loinc))
+  
+  #return the link
+  return(url)
+}
+
+
+#ref: https://www.r-bloggers.com/web-scraping-google-urls/
+google_loinc<-function(loinc){
+  #search on google
+  gu<-paste0("https://www.google.com/search?q=LOINC+",loinc)
+  html<-getURL(gu)
+  
+  #parse HTML into tree structure
+  doc<-htmlParse(html)
+  
+  #extract url nodes using XPath. Originally I had used "//a[@href][@class='l']" until the google code change.
+  attrs<-xpathApply(doc, "//h3//a[@href]", xmlAttrs)
+  
+  #extract urls
+  links<-sapply(attrs, function(x) x[[1]])
+  
+  #only keep the secure links
+  links<-links[grepl("(https\\:)+",links)]
+  
+  #free doc from memory
+  free(doc)
+  
+  return(links)
+}
+
+
+
 ## render report
 render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
                         DBMS_type){

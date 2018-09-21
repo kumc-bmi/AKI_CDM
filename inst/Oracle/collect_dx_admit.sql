@@ -1,11 +1,11 @@
 /********************************************************************************/
-/*@file collect_dx.sql
+/*@file collect_dx_admit.sql
 /*
 /*in: AKI_onsets
 /*
 /*params: @dbname, &&PCORNET_CDM
 /*
-/*out: AKI_DX
+/*out: AKI_DX_ADMIT
 /*
 /*action: query
 /********************************************************************************/
@@ -21,9 +21,8 @@ select pat.PATID
       ,round(dx.ADMIT_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
 from AKI_onsets pat
 join &&PCORNET_CDM.DIAGNOSIS@dbname dx
-on pat.PATID = dx.PATID
-where dx.ADMIT_DATE between pat.ADMIT_DATE-365 and
-                            pat.ADMIT_DATE-1
+on pat.ENCOUNTERID = dx.ENCOUNTERID
+where dx.DX_SOURCE = 'AD'
 order by pat.PATID, pat.ENCOUNTERID, dx.ADMIT_DATE desc
 
 
