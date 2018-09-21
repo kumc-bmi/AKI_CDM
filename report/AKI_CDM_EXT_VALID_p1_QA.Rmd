@@ -279,10 +279,8 @@ vital<-dbGetQuery(conn,
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
                              ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
                              ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
-  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
-            by=c("PATID","ENCOUNTERID")) %>%
-  dplyr::mutate(dsa=round(as.numeric(difftime(MEASURE_DATE_TIME,critical_date,units="days")),2)) %>%
-  dplyr::select(-MEASURE_DATE_TIME,-critical_date,-chk_pt,-stg_tot_cnt) %>%
+  dplyr::mutate(dsa=DAY_SINCE_ADMIT) %>%
+  dplyr::select(-MEASURE_DATE_TIME) %>%
   gather(key,value,-PATID,-ENCOUNTERID,-dsa) %>%
   filter(!is.na(key) & !is.na(value)) %>%
   dplyr::select(PATID,ENCOUNTERID,key,value,dsa) %>%
@@ -480,9 +478,7 @@ lab<-dbGetQuery(conn,
                           cdm_db_name=config_file$cdm_db_name,
                           cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME) %>%
-  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
-            by=c("PATID","ENCOUNTERID")) %>%
-  dplyr::mutate(dsa=round(as.numeric(difftime(SPECIMEN_DATE_TIME,critical_date,units="days")),2)) %>%
+  dplyr::mutate(dsa=DAY_SINCE_ADMIT) %>%
   dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT) %>%
   dplyr::select(PATID,ENCOUNTERID,key,value,unit,dsa) %>%
   filter(!is.na(key) & !is.na(value)) %>%
@@ -565,17 +561,17 @@ ggplot(lab_temp,aes(x=record_intensity,y=enc_cnt,label=label))+
        y="Encounter Counts",
        title="Figure 1 - Data Density vs. Records Intensity")
 
-lab_enc_top<-lab_temp %>% arrange(desc(enc_cnt)) %>% slice(1:6)
-lab_intens_top<-lab_temp %>% arrange(desc(record_intensity)) %>% slice(1:2)
-
 #get their searchable link
-lab_report<-data.frame(key=c(lab_enc_top$key,lab_intens_top$key),
-                       stringsAsFactors = F) %>%
+lab_report<-lab_temp %>% arrange(desc(enc_cnt)) %>% slice(1:5) %>%
+  bind_rows(
+    lab_temp %>% arrange(desc(record_intensity)) %>% slice(1:3)
+  ) %>%
+  dplyr::select(key) %>%
   mutate(link=lapply(key,get_loinc_pag))
 
 ```
 
-A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible (NI may present), among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. the common labs for this study cohort are [`r lab_report$key[1]`], [`r lab_report$key[2]`],[`r lab_report$key[3]`],[`r lab_report$key[4]`],[`r lab_report$key[5]`],...), and labs with very high recording intensity (e.g. [`r lab_report$key[6]`], [`lab_report$key[7]`]).
+A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible (NI may present), among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. the common labs for this study cohort are [`r lab_report$key[1]`], [`r lab_report$key[2]`],[`r lab_report$key[3]`],[`r lab_report$key[4]`],[`r lab_report$key[5]`],...), and labs with very high recording intensity (e.g. [`r lab_report$key[6]`], [`lab_report$key[7]`], [`lab_report$key[8]`]).
 
 [`r lab_report$key[1]`]: `r lab_report$link[1]`
 [`r lab_report$key[2]`]: `r lab_report$link[2]` 
@@ -584,6 +580,7 @@ A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible
 [`r lab_report$key[5]`]: `r lab_report$link[5]`
 [`r lab_report$key[6]`]: `r lab_report$link[6]`
 [`r lab_report$key[7]`]: `r lab_report$link[7]`
+[`r lab_report$key[8]`]: `r lab_report$link[8]`
 
 
 ***
@@ -593,6 +590,46 @@ A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible
 ```{r dx, include=F}
 load("./data/ccs_icd_cw.Rdata")
 conn<-connect_to_db(params$DBMS_type,config_file)
+
+## admission diagnosis
+dxa<-dbGetQuery(conn,
+               parse_sql(paste0("./inst/",params$DBMS_type,"/collect_dx_admit.sql"),
+                         cdm_db_link=config_file$cdm_db_link,
+                         cdm_db_name=config_file$cdm_db_name,
+                         cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+  #attach CCS diagnosis grouping
+  dplyr::mutate(DX_ICD=paste0("ICD",DX_TYPE,":",DX)) %>%
+  left_join(ccs_icd %>% select(-ccs_name),by=c("DX_ICD"="icd_w_type")) %>%
+  unique %>% filter(!is.na(ccs_code)) %>%
+  dplyr::rename(key=ccs_code, dsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,SERUM_CREAT_BASE,key,dsa) %>%
+  unique
+
+#collect summaries
+dxa_summ<-dxa %>%
+  group_by(PATID,ENCOUNTERID,key) %>%
+  top_n(n=1L,wt=-dsa) %>%
+  ungroup %>%
+  group_by(key) %>%
+  dplyr::summarize(record_cnt=n(),
+                   pat_cnt=length(unique(PATID)),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   scr_mean=mean(SERUM_CREAT_BASE,na.rm=T),
+                   scr_sd=sd(SERUM_CREAT_BASE,na.rm=T)) %>%
+  ungroup %>%
+  #HIPPA, low counts masking
+  mutate(record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt),
+         pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",pat_cnt),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt)) %>%
+  arrange(key)
+
+#save
+saveRDS(dxa,file="./data/AKI_dxa.rda")
+# saveRDS(dxa_summ,file="./data/dxa_summ.rda")
+
+#clean up
+rm(dxa); gc()
+
 
 ## historical diagnosis
 dx<-dbGetQuery(conn,
@@ -632,51 +669,14 @@ saveRDS(dx,file="./data/AKI_dx.rda")
 
 #clean up
 rm(dx); gc()
-
-
-## admission diagnosis
-dxa<-dbGetQuery(conn,
-               parse_sql(paste0("./inst/",params$DBMS_type,"/collect_dx_admit.sql"),
-                         cdm_db_link=config_file$cdm_db_link,
-                         cdm_db_name=config_file$cdm_db_name,
-                         cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
-  #attach CCS diagnosis grouping
-  dplyr::mutate(DX_ICD=paste0("ICD",DX_TYPE,":",DX)) %>%
-  left_join(ccs_icd %>% select(-ccs_name),by=c("DX_ICD"="icd_w_type")) %>%
-  unique %>% filter(!is.na(ccs_code)) %>%
-  dplyr::rename(key=ccs_code, dsa=DAYS_SINCE_ADMIT) %>%
-  dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
-  unique
-
-#collect summaries
-dxa_summ<-dxa %>%
-  group_by(PATID,ENCOUNTERID,key) %>%
-  top_n(n=1L,wt=-dsa) %>%
-  ungroup %>%
-  group_by(key) %>%
-  dplyr::summarize(record_cnt=n(),
-                   pat_cnt=length(unique(PATID)),
-                   enc_cnt=length(unique(ENCOUNTERID))) %>%
-  ungroup %>%
-  #HIPPA, low counts masking
-  mutate(record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt),
-         pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",pat_cnt),
-         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt)) %>%
-  arrange(key)
-
-#save
-saveRDS(dxa,file="./data/AKI_dxa.rda")
-# saveRDS(dxa_summ,file="./data/dxa_summ.rda")
-
-#clean up
-rm(dxa); gc()
-
-
 ```
 
 
 
 ```{r dx_out, echo=F, warning=F, message=F}
+load("./data/ccs_ref.Rdata")
+
+#historical diagnosis
 dx_temp<-dx_summ %>% 
   dplyr::select(key,enc_cnt,mean_history) %>% 
   mutate(enc_cnt=suppressWarnings(ifelse(enc_cnt=="<11",
@@ -690,18 +690,48 @@ ggplot(dx_temp,aes(x=mean_history,y=enc_cnt,label=label))+
                                          name = 'Percentage'))+
   labs(title="Figure 2 - Data Density vs. Recency (CCS)")
 
-load("./data/ccs_ref.Rdata")
 dx_report<-dx_temp %>% 
   arrange(desc(enc_cnt)) %>%
   slice(1:6) %>%
   dplyr::select(key) %>%
   left_join(ccs_ref %>% filter(type=="dx"),by=c("key"="ccs_code")) %>%
   dplyr:select(key,ccs_name)
+
+
+#admission diagnosis
+dxa_temp<-dxa_summ %>% 
+  dplyr::select(key,enc_cnt,scr_mean) %>% 
+  mutate(enc_cnt=suppressWarnings(ifelse(enc_cnt=="<11",
+                                         10,as.numeric(enc_cnt)))) %>%
+  mutate(label=ifelse(dense_rank(-enc_cnt)<=10,key,""))
+
+ggplot(dxa_temp,aes(x=scr_mean,y=enc_cnt,label=label))+
+  geom_point()+geom_text_repel()+
+  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+                                         name = 'Percentage'))+
+  labs(title="Figure 3 - Admission Diagnoses vs. Baseline SCr")
+
+dxa_report<-dxa_temp %>% 
+  arrange(desc(enc_cnt)) %>%
+  slice(1:3) %>%
+  bind_rows(
+    dxa_temp %>% 
+      arrange(desc(scr_mean)) %>%
+      slice(1:3)
+  ) %>%
+  dplyr::select(key) %>%
+  mutate(pos=1:n()) %>% #in case sorting in left_join
+  left_join(ccs_ref %>% filter(type=="dx"),
+            by=c("key"="ccs_code")) %>%
+  dplyr:select(key,ccs_name) %>%
+  arrange(pos)
   
 ```
 
 
-A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnosis has been assigned to patients before the encounter of interest. Figure 3 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses(e.g. `r dx_report$key[1]`(`r r dx_report$ccs_name[1]`); `r dx_report$key[2]`(`r r dx_report$ccs_name[2]`); `r dx_report$key[3]`(`r r dx_report$ccs_name[3]`); `r dx_report$key[4]`(`r r dx_report$ccs_name[4]`); `r dx_report$key[5]`(`r r dx_report$ccs_name[5]`); `r dx_report$key[6]`(`r r dx_report$ccs_name[6]`)).
+A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnoses has been assigned to patients before the encounter of interest. Figure 2 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses(e.g. `r dx_report$key[1]`(`r dx_report$ccs_name[1]`), `r dx_report$key[2]`(`r dx_report$ccs_name[2]`), `r dx_report$key[3]`(`r dx_report$ccs_name[3]`), `r dx_report$key[4]`(`r dx_report$ccs_name[4]`), `r dx_report$key[5]`(`r dx_report$ccs_name[5]`), `r dx_report$key[6]`(`r dx_report$ccs_name[6]`)).
+
+There are `r length(unique(dxa_summ$key))` distcint CCS-group admission diagnoses for encounters of interest. Figure 3 layouts the ditribution of the admission diagnoses associated with patients' baseline serum creatinine characteristics (e.g. `r dx_report$key[1]`(`r dxa_report$ccs_name[1]`), `r dxa_report$key[2]`(`r dxa_report$ccs_name[2]`), `r dxa_report$key[3]`(`r dxa_report$ccs_name[3]`) are the most common diagnosis for this study cohort; while patients admitted due to `r dxa_report$key[4]`(`r dxa_report$ccs_name[4]`), `r dxa_report$key[5]`(`r dxa_report$ccs_name[5]`), `r dxa_report$key[6]`(`r dxa_report$ccs_name[6]` ) tends to have lower average baseline SCr. 
 
 
 ***
@@ -766,11 +796,24 @@ ggplot(px_temp,aes(x=dsa_grp,y=enc_cnt,label=label))+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
   labs(title="Figure 3 - Procedure Density over Time")
+
+px_report<-px_temp %>%
+  top_n(n=5L,wt=enc_cnt) %>%
+  dplyr::select(key) %>%
+  mutate(link=lapply(key,google_code))
+  
 ```
 
 
-A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before the encounter of interest. Figure3 gives an overview of average history of patients' procedures prior to tne encounter of interest as well as the highly frequent historical procedures they had recieved. It can help identify the common procedures or typical occuring times of precedures (e.g. at KUMC, CPT:99213, 99214(office or outpatient visit), CPT:36415 (cardiovascular surgery), CPT:80053(metabolic panel), CPT:85025(complete CBC) are the common procedures). Note that Figure2 and Figure3 may display similar distributions as a result of corrlations between diagnoses and procedures. 
+A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before the encounter of interest. Figure3 gives an overview of average history of patients' procedures prior to tne encounter of interest as well as the highly frequent historical procedures they had recieved. It can help identify the common procedures or typical occuring times of precedures (e.g. [`r px_report$key[1]`], [`r px_report$key[2]`],[`r px_report$key[3]`],[`r px_report$key[4]`],[`r px_report$key[5]`],...). Note that Figure2 and Figure3 may display similar distributions as a result of corrlations between diagnoses and procedures.
 
+[`r px_report$key[1]`]: `r px_report$link[1]`
+[`r px_report$key[2]`]: `r px_report$link[2]` 
+[`r px_report$key[3]`]: `r px_report$link[3]`
+[`r px_report$key[4]`]: `r px_report$link[4]`
+[`r px_report$key[5]`]: `r px_report$link[5]`
+
+*note: links for cpt codes may lead to invalid page* 
 
 ***
 
@@ -888,9 +931,21 @@ ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=median_expos,label=label)) +
                         midpoint = 20)+
   labs(x="Start Date",y="Encounter Counts",color="Median Exposure (days)",
        title="Figure 4 - Medication Exposure Summaries")
+
+med_report<-med_temp %>%
+  arrange(desc(enc_cnt)) %>% slice(1:3) %>%
+  bind_rows(
+    med_temp %>%
+      arrange(desc(median_expos)) %>% slice(1:3)
+  ) %>%
+  mutate(pos=1:n())%>%
+  dplyr:select(key) %>%
+  mutate(key=gsub("\\:.*","",key)) %>%
+  mutate(rx_name=lapply(key,get_rxcui_nm)) %>%
+  arrange(pos)
 ```
 
-A Total of `r length(unique(med_summ$key))` distinct RXNORM medication concepts are discovered for the cohort. Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay (e.g. at KUMC, the typical medications identified are 1807627(sodium chloride), 1740467(ondansetron)), and examples of drugs of noticably long exposures are 308395(ACE inhibitor), 799835(alvimopan)).
+A Total of `r length(unique(med_summ$key))` distinct RXNORM medication concepts are discovered for the cohort. Figure 5 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay. (e.g. the typical medications identified are `r med_report$key[1]`(`r med_report$rx_name[1]`), `r med_report$key[2]`(`r med_report$rx_name[2]`), `r med_report$key[3]`(`r med_report$rx_name[3]`); while `r med_report$key[1]`(`r med_report$rx_name[1]`), `r med_report$key[2]`(`r med_report$rx_name[2]`), `r med_report$key[3]`(`r med_report$rx_name[3]`) seems to be exposed for relatively long period on average).
 
 
 ```{r final, include=F}
@@ -901,8 +956,9 @@ final_out<-list(Table1=consort_tbl,
                 Table5=vital_smoke_summ,
                 Table6=lab_summ,
                 Table7=dx_summ,
-                Table8=px_summ,
-                Table9=med_summ)
+                Table8=dxa_summ,
+                Table9=px_summ,
+                Table10=med_summ)
 write.xlsx(final_out,file="./output/AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx")
 
 

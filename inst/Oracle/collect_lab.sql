@@ -24,6 +24,7 @@ select distinct
       ,l.RESULT_QUAL
       ,l.RESULT_NUM
       ,l.RESULT_UNIT
+      ,round(v.SPECIMEN_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
 from AKI_onsets pat
 join &&PCORNET_CDM.LAB_RESULT_CM@dblink l
 on pat.ENCOUNTERID = l.ENCOUNTERID

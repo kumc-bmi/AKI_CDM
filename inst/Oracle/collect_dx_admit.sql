@@ -11,6 +11,7 @@
 /********************************************************************************/
 select pat.PATID
       ,pat.ENCOUNTERID
+      ,pat.SERUM_CREAT_BASE
       --,dx.ENC_TYPE
       ,dx.DX
       ,dx.DX_TYPE
