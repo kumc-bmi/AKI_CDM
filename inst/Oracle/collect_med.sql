@@ -31,7 +31,7 @@ join &&PCORNET_CDM.PRESCRIBING@dblink p
 on pat.ENCOUNTERID = p.ENCOUNTERID
 where p.RXNORM_CUI is not null and p.RX_START_DATE is not null and
       p.RX_ORDER_DATE is not null and p.RX_ORDER_TIME is not null and
-      p.RX_ORDER_DATE between pat.ADMIT_DATE-60 and
+      p.RX_ORDER_DATE between pat.ADMIT_DATE-30 and
                               pat.DISCHARGE_DATE
 order by PATID, ENCOUNTERID, RXNORM_CUI, RX_START_DATE
 

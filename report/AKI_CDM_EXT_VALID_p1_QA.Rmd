@@ -282,7 +282,7 @@ vital<-dbGetQuery(conn,
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
                              ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
                              ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
-  dplyr::mutate(dsa=DAY_SINCE_ADMIT) %>%
+  dplyr::mutate(dsa=DAYS_SINCE_ADMIT) %>%
   dplyr::select(-MEASURE_DATE_TIME) %>%
   gather(key,value,-PATID,-ENCOUNTERID,-dsa) %>%
   filter(!is.na(key) & !is.na(value)) %>%
@@ -480,8 +480,8 @@ lab<-dbGetQuery(conn,
                           cdm_db_link=config_file$cdm_db_link,
                           cdm_db_name=config_file$cdm_db_name,
                           cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
-  dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME) %>%
-  dplyr::mutate(dsa=DAY_SINCE_ADMIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME,DAYS_SINCE_ADMIT) %>%
+  dplyr::mutate(dsa=DAYS_SINCE_ADMIT) %>%
   dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT) %>%
   dplyr::select(PATID,ENCOUNTERID,key,value,unit,dsa) %>%
   filter(!is.na(key) & !is.na(value)) %>%
@@ -570,7 +570,7 @@ lab_report<-lab_temp %>% arrange(desc(enc_cnt)) %>% slice(1:5) %>%
     lab_temp %>% arrange(desc(record_intensity)) %>% slice(1:3)
   ) %>%
   dplyr::select(key) %>%
-  mutate(link=lapply(key,get_loinc_pag))
+  mutate(link=lapply(key,get_loinc_ref))
 
 ```
 
@@ -831,17 +831,20 @@ med<-dbGetQuery(conn,
                           cdm_db_link=config_file$cdm_db_link,
                           cdm_db_name=config_file$cdm_db_name,
                           cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+  group_by(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS) %>%
+  arrange(RX_START_DATE) %>%
+  dplyr::mutate(rx_start_lead1=lead(RX_START_DATE),
+                rx_end_lead1=lead(RX_END_DATE)) %>%
+  replace_na(list(rx_start_lead1=RX_START_DATE,
+                  rx_end_lead1=RX_END_DATE)) %>%
+  ungroup %>%
+  mutate(RX_START_DATE=pmin(RX_START_DATE,rx_start_lead1),
+         RX_END_DATE=pmax(RX_END_DATE,rx_end_lead1)) %>%
+  unique %>% 
+  dplyr::select(-rx_start_lead1,-rx_end_lead1) %>%
   dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
                                     pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
-  group_by(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS) %>%
-  dplyr::summarize(RX_START_DATE=min(RX_START_DATE),
-                   RX_END_DATE=max(RX_END_DATE),
-                   RX_QUANTITY_DAILY=max(RX_QUANTITY_DAILY,na.rm=T),
-                   RX_EXPOS=max(RX_EXPOS,na.rm=T)) %>%
-  ungroup %>%
-  dplyr::mutate(RX_EXPOS=pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),
-                              RX_EXPOS,na.rm=T)) %>%
   left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
             by=c("PATID","ENCOUNTERID")) %>%
   dplyr::mutate(sdsa=round(as.numeric(difftime(RX_START_DATE,critical_date,units="days")))) %>%
