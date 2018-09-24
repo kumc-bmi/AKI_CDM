@@ -76,7 +76,6 @@ statements<-paste0(
     "/cohort_final.sql")
 )
 
-# test
 sql<-parse_sql(file_path=statements[5],
                cdm_db_link=cdm_db_link,
                cdm_db_name=cdm_db_name,
@@ -88,5 +87,57 @@ execute_single_sql(conn,
                    statement=sql$statement,
                    write=(sql$action=="write"),
                    table_name=toupper(sql$tbl_out))
+
+
+# test medication extraction and summary
+med<-dbGetQuery(conn,
+                parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
+                          cdm_db_link=config_file$cdm_db_link,
+                          cdm_db_name=config_file$cdm_db_name,
+                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+  dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
+                                    pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
+  replace_na(list(RX_QUANTITY_DAILY=1)) %>%
+  dplyr::mutate(sdsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
+  unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
+
+#converted to daily exposure
+batch<-20
+expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch)))
+med2<-med %>% filter(RX_EXPOS<=1) %>% 
+  dplyr::mutate(dsa=as.character(sdsa),edsa=sdsa,value=RX_QUANTITY_DAILY) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
+
+for(i in seq_len(length(expos_quant)-1)){
+  start_i<-Sys.time()
+  
+  med_sub<-med %>% filter(RX_EXPOS > expos_quant[i] & RX_EXPOS <= expos_quant[i+1])
+  med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
+    group_by(PATID,ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
+    dplyr::mutate(expos_daily=1:n()-1) %>% 
+    dplyr::summarize(edsa=max(sdsa+expos_daily),
+                     dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
+    ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
+    dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
+  med2 %<>% bind_rows(med_expand)
+  
+  lapse_i<-Sys.time()-start_i
+  cat("batch",i,"of exposures between",expos_quant[i],"and",expos_quant[i+1],
+      "days are collected in",lapse_i,units(lapse_i),".\n")
+  
+  gc()
+}
+
+#merge overlapped precribing intervals
+med2 %<>% 
+  group_by(PATID,ENCOUNTERID,key,sdsa,edsa,dsa) %>%
+  dplyr::summarize(value=value[1]) %>%
+  ungroup
+
+med<-med2 %>%
+  group_by(PATID,ENCOUNTERID,key,sdsa) %>%
+  dplyr::summarize(RX_EXPOS=sum(value,na.rm=T)) %>%
+  ungroup
 
 
