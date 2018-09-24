@@ -698,7 +698,7 @@ dx_report<-dx_temp %>%
   slice(1:6) %>%
   dplyr::select(key) %>%
   left_join(ccs_ref %>% filter(type=="dx"),by=c("key"="ccs_code")) %>%
-  dplyr:select(key,ccs_name)
+  dplyr::select(key,ccs_name)
 
 
 #admission diagnosis
@@ -726,9 +726,8 @@ dxa_report<-dxa_temp %>%
   mutate(pos=1:n()) %>% #in case sorting in left_join
   left_join(ccs_ref %>% filter(type=="dx"),
             by=c("key"="ccs_code")) %>%
-  dplyr:select(key,ccs_name) %>%
-  arrange(pos)
-  
+  arrange(pos) %>%
+  dplyr::select(key,ccs_name)
 ```
 
 
@@ -831,27 +830,14 @@ med<-dbGetQuery(conn,
                           cdm_db_link=config_file$cdm_db_link,
                           cdm_db_name=config_file$cdm_db_name,
                           cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
-  group_by(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS) %>%
-  arrange(RX_START_DATE) %>%
-  dplyr::mutate(rx_start_lead1=lead(RX_START_DATE),
-                rx_end_lead1=lead(RX_END_DATE)) %>%
-  replace_na(list(rx_start_lead1=RX_START_DATE,
-                  rx_end_lead1=RX_END_DATE)) %>%
-  ungroup %>%
-  mutate(RX_START_DATE=pmin(RX_START_DATE,rx_start_lead1),
-         RX_END_DATE=pmax(RX_END_DATE,rx_end_lead1)) %>%
-  unique %>% 
-  dplyr::select(-rx_start_lead1,-rx_end_lead1) %>%
   dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
                                     pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
-  left_join(aki_stage_ind %>% filter(chk_pt=="ADMIT"),
-            by=c("PATID","ENCOUNTERID")) %>%
-  dplyr::mutate(sdsa=round(as.numeric(difftime(RX_START_DATE,critical_date,units="days")))) %>%
+  dplyr::mutate(sdsa=DAYS_SINCE_ADMIT) %>%
   dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
   unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
 
-
+#converted to daily exposure
 batch<-20
 expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch)))
 med2<-med %>% filter(RX_EXPOS<=1) %>% 
@@ -859,8 +845,6 @@ med2<-med %>% filter(RX_EXPOS<=1) %>%
   dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
 
 for(i in seq_len(length(expos_quant)-1)){
-  start_i<-Sys.time()
-  
   med_sub<-med %>% filter(RX_EXPOS > expos_quant[i] & RX_EXPOS <= expos_quant[i+1])
   med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
     group_by(PATID,ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
@@ -870,13 +854,19 @@ for(i in seq_len(length(expos_quant)-1)){
     ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
     dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
   med2 %<>% bind_rows(med_expand)
-
-  lapse_i<-Sys.time()-start_i
-  cat("batch",i,"of exposures between",expos_quant[i],"and",expos_quant[i+1],
-      "days are collected in",lapse_i,units(lapse_i),".\n")
-  
   gc()
 }
+
+#merge overlapped precribing intervals
+med2 %<>% 
+  group_by(PATID,ENCOUNTERID,key,sdsa,edsa,dsa) %>%
+  dplyr::summarize(value=value[1]) %>%
+  ungroup
+
+med<-med2 %>%
+  group_by(PATID,ENCOUNTERID,key,sdsa) %>%
+  dplyr::summarize(RX_EXPOS=sum(value,na.rm=T)) %>%
+  ungroup
 
 #collect summaries
 med_summ<-med %>% 
@@ -945,7 +935,6 @@ med_report<-med_temp %>%
       arrange(desc(median_expos)) %>% slice(1:3)
   ) %>%
   mutate(pos=1:n())%>%
-  dplyr:select(key) %>%
   mutate(key=gsub("\\:.*","",key)) %>%
   mutate(rx_name=lapply(key,get_rxcui_nm)) %>%
   arrange(pos)
