@@ -68,7 +68,7 @@ where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS@dblink dx
                       ) and
                     dx.ADMIT_DATE < scr48.time_bd
                 )
-union
+union all
 select distinct scr48.ENCOUNTERID
 from scr48
 where exists (select 1 from &&PCORNET_CDM.PROCEDURES@dblink px
@@ -81,11 +81,25 @@ where exists (select 1 from &&PCORNET_CDM.PROCEDURES@dblink px
                     px.ADMIT_DATE < scr48.time_bd
               )
 )
--- Burn Patients (UHC diagnosis, admit DRG)
+-- Burn Patients (admitting diagnosis)
     ,AKI_EXCLD_BURN_EN as (
-select ENCOUNTERID
-from AKI_Initial
-where DRG in ('927','928','929','933','934-1','935') -- burn
+select distinct aki.ENCOUNTERID
+from AKI_Initial aki
+where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS@dblink dx
+              where dx.ENCOUNTERID = aki.ENCOUNTERID and
+                    -- ICD9 for burn patients
+                    ((dx.DX_TYPE = '09' and
+                      (   regexp_like(dx.DX,'906\.[5-9]')
+                       or regexp_like(dx.DX,'^94[0-9]'))
+                      ) or
+                    -- ICD10 for burn patients
+                     (dx.DX_TYPE = '10' and
+                      (   regexp_like(dx.DX,'^T2[0-8]')
+                       or regexp_like(dx.DX,'^T3[0-2]'))
+                       )
+                      ) and
+                    dx.DX_SOURCE = 'AD'
+                )
 )
 -- collect all excluded encounters
 select ENCOUNTERID, 'Less_than_2_SCr' EXCLUD_TYPE from AKI_EXCLD_1SCR_EN

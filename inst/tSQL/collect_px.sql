@@ -22,7 +22,8 @@ select distinct
 from AKI_onsets pat
 left join [@dblink].[&&dbname].[&&PCORNET_CDM].PROCEDURES px
 on pat.PATID = px.PATID
-where datediff(dd,px.PX_DATE,pat.ADMIT_DATE) between 1 and 365 
+where px.PX_DATE between dateadd(day,-30,pat.ADMIT_DATE) and
+                         pat.DISCHARGE_DATE
 order by pat.PATID, pat.ENCOUNTERID, px.PX_DATE desc
 
 

@@ -22,6 +22,7 @@ select pat.PATID
       ,case when v.SMOKING = 'NI' then null else v.SMOKING end as SMOKING
       ,case when v.TOBACCO = 'NI' then null else v.TOBACCO end as TOBACCO
       ,case when v.TOBACCO_TYPE = 'NI' then null else v.TOBACCO_TYPE end as TOBACCO_TYPE
+      ,round(v.MEASURE_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
 from AKI_onsets pat
 left join &&PCORNET_CDM.VITAL@dblink v
 on pat.PATID = v.PATID

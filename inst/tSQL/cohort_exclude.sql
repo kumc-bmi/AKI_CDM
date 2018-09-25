@@ -84,12 +84,24 @@ where exists (select 1 from [@dblink].[&&dbname].[&&PCORNET_CDM].PROCEDURES px
     ,AKI_EXCLD_BURN_EN as (
 select ENCOUNTERID
 from #AKI_Initial
-where DRG in ('927','928','929','933','934-1','935') -- burn
+where exists (select 1 from [@dblink].[&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
+              where dx.ENCOUNTERID = aki.ENCOUNTERID and
+                    -- ICD9 for burn patients
+                    ((dx.DX_TYPE = '09' and
+                      (   regexp_like(dx.DX,'906\.[5-9]')
+                       or regexp_like(dx.DX,'^94[0-9]'))
+                      ) or
+                    -- ICD10 for burn patients
+                     (dx.DX_TYPE = '10' and
+                      (   regexp_like(dx.DX,'^T2[0-8]')
+                       or regexp_like(dx.DX,'^T3[0-2]'))
+                       )
+                      ) and
+                    dx.DX_SOURCE = 'AD'
+                )
 )
 -- collect all excluded encounters
 select ENCOUNTERID, 'Less_than_2_SCr' EXCLUD_TYPE from AKI_EXCLD_1SCR_EN
-union all
-select ENCOUNTERID, 'Initial_SCr_above_1.3' EXCLUD_TYPE from AKI_EXCLD_H1SCR_EN
 union all
 select ENCOUNTERID, 'Initial_GFR_below_15' EXCLUD_TYPE from AKI_EXCLD_L1GFR_EN
 union all 
