@@ -201,8 +201,12 @@ get_rxcui_nm<-function(rxcui){
 
 #ref: https://www.r-bloggers.com/web-scraping-google-urls/
 google_code<-function(code,nlink=1){
+  code_type<-ifelse(gsub(":.*","",code)=="CH","CPT",
+                    gsub(":.*","",code))
+  code<-gsub(".*:","",code)
+  
   #search on google
-  gu<-paste0("https://www.google.com/search?q=",code)
+  gu<-paste0("https://www.google.com/search?q=",code_type,":",code)
   html<-getURL(gu)
   
   #parse HTML into tree structure
@@ -216,6 +220,7 @@ google_code<-function(code,nlink=1){
   
   #only keep the secure links
   links<-links[grepl("(https\\:)+",links)]
+  links<-gsub("(\\&sa=U).*$","",links)
   links<-paste0("https://",gsub(".*(https://)","",links))
   
   #free doc from memory
@@ -223,7 +228,6 @@ google_code<-function(code,nlink=1){
   
   return(links[1])
 }
-
 
 
 ## render report

@@ -575,13 +575,13 @@ lab_report<-lab_temp %>%
       dplyr::filter(key != "NI") %>%
       arrange(desc(record_intensity)) %>% 
       dplyr::select(key) %>%
-      unique %>% slice(1:3)
+      unique %>% slice(1:2)
   ) %>%
   mutate(link=lapply(key,get_loinc_ref))
 
 ```
 
-A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible (NI may present), among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. the common labs for this study cohort are [`r lab_report$key[1]`], [`r lab_report$key[2]`],[`r lab_report$key[3]`],[`r lab_report$key[4]`],[`r lab_report$key[5]`],...), and labs with very high recording intensity (e.g. [`r lab_report$key[6]`], [`r lab_report$key[7]`], [`r lab_report$key[8]`]).
+A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible (NI may present), among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. the common labs for this study cohort are [`r lab_report$key[1]`], [`r lab_report$key[2]`],[`r lab_report$key[3]`],[`r lab_report$key[4]`],[`r lab_report$key[5]`],...), and labs with very high recording intensity (e.g. [`r lab_report$key[6]`], [`r lab_report$key[7]`]).
 
 [`r lab_report$key[1]`]: `r lab_report$link[1]`
 [`r lab_report$key[2]`]: `r lab_report$link[2]` 
@@ -590,7 +590,6 @@ A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible
 [`r lab_report$key[5]`]: `r lab_report$link[5]`
 [`r lab_report$key[6]`]: `r lab_report$link[6]`
 [`r lab_report$key[7]`]: `r lab_report$link[7]`
-[`r lab_report$key[8]`]: `r lab_report$link[8]`
 
 
 ***
@@ -863,7 +862,7 @@ med_temp<-med_summ %>%
   dplyr::mutate(label=ifelse(label!="",label,
                              ifelse(dense_rank(-median_expos)<=2,key,"")))
 
-ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=mean_expos,label=label)) +
+ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=median_expos,label=label)) +
   geom_point() + geom_text_repel()+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
