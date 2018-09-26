@@ -1,22 +1,23 @@
 /********************************************************************************/
-/*@file get_final_cohort.sql
+/*@file cohort_final.sql
 /*
-/*in: AKI_stages_daily, AKI_Initial
+/*in: #AKI_stages_daily, #AKI_Initial
 /*
-/*out: AKI_onsets
+/*out: #AKI_onsets
 /*
 /*action: write
 /********************************************************************************/
+create table AKI_onsets as
 with pat_enc as (
 select distinct 
-       cast(PATID as integer) PATID
-      ,cast(ENCOUNTERID as integer) ENCOUNTERID
+       to_number(PATID) PATID
+      ,to_number(ENCOUNTERID) ENCOUNTERID
       ,trunc(ADMIT_DATE_TIME) ADMIT_DATE
       ,SERUM_CREAT_BASE
-from AKI_stages_daily
+from #AKI_stages_daily
 )
    ,onsets as (
-select * from
+select ENCOUNTERID, [0] as NONAKI_ANCHOR, [1] as AKI1_ONSET, [2] as AKI2_ONSET, [3] as AKI3_ONSET from
 (select ENCOUNTERID
        ,AKI_STAGE
        ,SPECIMEN_DATE
@@ -28,18 +29,17 @@ select * from
        ,SPECIMEN_DATE
  from #AKI_stages_daily
  where rn_desc = 1 and AKI_STAGE_max = 0 and AKI_STAGE = 0
- )
+ )as s1
 pivot 
 (min(SPECIMEN_DATE)
- for AKI_STAGE in (0 as NONAKI_ANCHOR,
-                   1 as AKI1_ONSET,
-                   2 as AKI2_ONSET,
-                   3 as AKI3_ONSET)
- )
- order by ENCOUNTERID
+ for AKI_STAGE in ([0] ,
+                   [1] ,
+                   [2] ,
+                   [3] )
+ ) as pvt1
 )
    ,onsets_val as (
-select * from
+select ENCOUNTERID, [0] as NON_AKI_SCR, [1] as AKI1_SCR, [2] as AKI2_SCR, [3] as AKI3_SCR from
 (select ENCOUNTERID
        ,AKI_STAGE
        ,SERUM_CREAT
@@ -50,18 +50,17 @@ select * from
        ,AKI_STAGE
        ,SERUM_CREAT
  from #AKI_stages_daily
- where rn_desc = 1 and AKI_STAGE_max = 0 and AKI_STAGE = 0)
+ where rn_desc = 1 and AKI_STAGE_max = 0 and AKI_STAGE = 0) as s2
 pivot 
 (max(SERUM_CREAT)
- for AKI_STAGE in (0 as NON_AKI_SCR,
-                   1 as AKI1_SCR,
-                   2 as AKI2_SCR,
-                   3 as AKI3_SCR)
- )
- order by ENCOUNTERID
+ for AKI_STAGE in ([0] ,
+                   [1] ,
+                   [2] ,
+                   [3] )
+ ) as pvt2
 )
    ,onsets_inc as (
-select * from
+select ENCOUNTERID, [0] as NON_AKI_INC, [1] as AKI1_INC, [2] as AKI2_INC, [3] as AKI3_INC from
 (select ENCOUNTERID
        ,AKI_STAGE
        ,SERUM_CREAT_INC
@@ -72,15 +71,14 @@ select * from
        ,AKI_STAGE
        ,SERUM_CREAT_INC
  from #AKI_stages_daily
- where rn_desc = 1 and AKI_STAGE_max = 0 and AKI_STAGE = 0)
+ where rn_desc = 1 and AKI_STAGE_max = 0 and AKI_STAGE = 0) as s3
 pivot 
 (max(SERUM_CREAT_INC)
- for AKI_STAGE in (0 as NON_AKI_INC,
-                   1 as AKI1_INC,
-                   2 as AKI2_INC,
-                   3 as AKI3_INC)
- )
- order by ENCOUNTERID
+ for AKI_STAGE in ([0],
+                   [1],
+                   [2],
+                   [3])
+ ) as pvt3
 )
    ,raw_onset as (
 select pe.PATID
@@ -89,19 +87,19 @@ select pe.PATID
       ,trunc(init.DISCHARGE_DATE_TIME) DISCHARGE_DATE
       ,pe.SERUM_CREAT_BASE
       ,ons.NONAKI_ANCHOR
-      ,datediff(dd,pe.ADMIT_DATE,ons.NONAKI_ANCHOR) NONAKI_SINCE_ADMIT
+      ,(ons.NONAKI_ANCHOR-pe.ADMIT_DATE) NONAKI_SINCE_ADMIT
       ,NON_AKI_SCR
       ,NON_AKI_INC
       ,ons.AKI1_ONSET
-      ,datediff(dd,pe.ADMIT_DATE,ons.AKI1_ONSET) AKI1_SINCE_ADMIT
+      ,(ons.AKI1_ONSET-pe.ADMIT_DATE) AKI1_SINCE_ADMIT
       ,scr.AKI1_SCR
       ,inc.AKI1_INC
       ,ons.AKI2_ONSET
-      ,datediff(dd,pe.ADMIT_DATE,ons.AKI2_ONSET) AKI2_SINCE_ADMIT
+      ,(ons.AKI2_ONSET-pe.ADMIT_DATE) AKI2_SINCE_ADMIT
       ,scr.AKI2_SCR
       ,inc.AKI2_INC
       ,ons.AKI3_ONSET
-      ,datediff(dd,pe.ADMIT_DATE,ons.AKI3_ONSET) AKI3_SINCE_ADMIT
+      ,(ons.AKI3_ONSET-pe.ADMIT_DATE) AKI3_SINCE_ADMIT
       ,scr.AKI3_SCR
       ,inc.AKI3_INC
 from pat_enc pe
@@ -145,6 +143,7 @@ select distinct
       ,AKI3_SINCE_ADMIT
       ,AKI3_SCR
       ,AKI3_INC
+into #AKI_onsets
 from raw_onset
 order by PATID, ENCOUNTERID
-into #AKI_onsets
+

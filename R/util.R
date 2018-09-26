@@ -32,6 +32,7 @@ connect_to_db<-function(DBMS_type,config_file){
     conn <- dbConnect(drv, url)
     
   }else if(DBMS_type=="PostgreSQL"){
+    #not tested yet!
     require_libraries("RPostgres")
     server<-gsub("/","",str_extract(config_file$access,"//.*(/)"))
     host<-gsub(":.*","",server)

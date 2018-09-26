@@ -1,9 +1,9 @@
 /*******************************************************************************/
-/*@file collect_SCr_eGFR.sql
+/*@file cohort_baseline_SCr.sql
 /*
-/*in: AKI_Initial, AKI_Scr_eGFR, All_Scr_eGFR
+/*in: #AKI_Initial, #AKI_Scr_eGFR, #All_Scr_eGFR
 /*       
-/*out: AKI_Scr_base
+/*out: #AKI_Scr_base
 /*
 /*action: write
 /********************************************************************************/
@@ -21,13 +21,13 @@ select scre1.PATID
       ,scr.LAB_ORDER_DATE
       ,scr.SPECIMEN_DATE_TIME
       ,scr.RESULT_DATE_TIME
-      ,scre1.LAB_ORDER_DATE - scr.LAB_ORDER_DATE days_prior
-      ,dense_rank() over (partition by scr.PATID order by abs(scr.LAB_ORDER_DATE-scre1.LAB_ORDER_DATE)) rn_prior
+      ,datediff(dd,scr.LAB_ORDER_DATE,scre1.LAB_ORDER_DATE) days_prior
+      ,dense_rank() over (partition by scr.PATID order by abs(datediff(dd,scr.LAB_ORDER_DATE,scre1.LAB_ORDER_DATE))) rn_prior
 from scr_enc1 scre1
 join #All_Scr_eGFR scr
 on scre1.PATID = scr.PATID
 where scr.LAB_ORDER_DATE < scre1.LAB_ORDER_DATE and
-      datediff(scr.LAB_ORDER_DATE,scre1.LAB_ORDER_DATE)< 2 and -- within 2 days prior
+      datediff(dd,scr.LAB_ORDER_DATE,scre1.LAB_ORDER_DATE)< 2 and -- within 2 days prior
       scre1.LAB_ORDER_DATE > scr.LAB_ORDER_DATE
 )
 --get the most recent historical Scr if there exists one
@@ -65,6 +65,6 @@ select scrb.PATID
       ,scrb.days_prior
 from scr_base_dup scrb
 join #AKI_Initial init
+into #AKI_Scr_base
 on scrb.ENCOUNTERID = init.ENCOUNTERID
 group by scrb.PATID,scrb.ENCOUNTERID,init.ADMIT_DATE_TIME,scrb.LAB_ORDER_DATE,scrb.SPECIMEN_DATE_TIME,scrb.RESULT_DATE_TIME,scrb.days_prior
-into #AKI_Scr_base

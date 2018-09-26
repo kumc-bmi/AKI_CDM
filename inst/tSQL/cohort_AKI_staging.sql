@@ -1,9 +1,9 @@
 /*******************************************************************************/
-/*@file stage_AKI.sql
+/*@file cohort_AKI_staging.sql
 /*
-/*in: AKI_eligible
+/*in: #AKI_eligible
 /*
-/*out: AKI_stages_daily
+/*out: #AKI_stages_daily
 /*
 /*action: write
 /********************************************************************************/
@@ -121,6 +121,6 @@ select PATID
       ,row_number() over (partition by ENCOUNTERID, AKI_STAGE order by DAY_SINCE_ADMIT) rn_asc
       ,row_number() over (partition by ENCOUNTERID, AKI_STAGE order by DAY_SINCE_ADMIT desc) rn_desc
       ,max(AKI_STAGE) over (partition by ENCOUNTERID) AKI_STAGE_max
+into #AKI_stages_daily
 from stage_uni
 order by PATID, ENCOUNTERID, AKI_STAGE, SPECIMEN_DATE
-into #AKI_stages_daily

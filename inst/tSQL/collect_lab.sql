@@ -1,9 +1,9 @@
 /********************************************************************************/
 /*@file collect_lab.sql
 /*
-/*in: AKI_onsets
+/*in: #AKI_onsets
 /*
-/*params: [@dblink], &&dbname, &&PCORNET_CDM
+/*params: &&dbname, &&PCORNET_CDM
 /*
 /*out: AKI_LAB
 /*
@@ -27,8 +27,8 @@ select distinct
       ,l.RESULT_NUM
       ,l.RESULT_UNIT
       ,datediff(dd,pat.ADMIT_DATE,l.SPECIMEN_DATE) DAYS_SINCE_ADMIT
-from AKI_onsets pat
-join [@dblink].[&&dbname].[&&PCORNET_CDM].LAB_RESULT_CM l
+from #AKI_onsets pat
+join [&&dbname].[&&PCORNET_CDM].LAB_RESULT_CM l
 on pat.ENCOUNTERID = l.ENCOUNTERID
 order by pat.PATID, pat.ENCOUNTERID, SPECIMEN_DATE_TIME
 

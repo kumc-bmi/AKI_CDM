@@ -26,7 +26,7 @@ select distinct
       ,p.RX_FREQUENCY
       ,case when p.RX_DAYS_SUPPLY > 0 and p.RX_QUANTITY is not null then round(p.RX_QUANTITY/p.RX_DAYS_SUPPLY) 
             else null end as RX_QUANTITY_DAILY
-      ,round(p.RX_START_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
+      ,round(p.RX_START_DATE-pat.ADMIT_DATE,2) DAYS_SINCE_ADMIT
 from AKI_onsets pat
 join &&PCORNET_CDM.PRESCRIBING@dblink p
 on pat.ENCOUNTERID = p.ENCOUNTERID

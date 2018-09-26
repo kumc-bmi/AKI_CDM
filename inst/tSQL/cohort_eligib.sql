@@ -1,9 +1,9 @@
 /*******************************************************************************/
-/*@file create_eligib_cohort.sql
+/*@file cohort_eligb.sql
 /*
-/*in: AKI_Scr_eGFR, AKI_Scr_base, exclude_all
+/*in: #AKI_Scr_eGFR, #AKI_Scr_base, #exclude_all
 /*
-/*out: AKI_eligible
+/*out: #AKI_eligible
 /*
 /*action: write
 /********************************************************************************/
@@ -35,8 +35,9 @@ select scr.PATID
       ,scr.SPECIMEN_DATE_TIME
       ,scr.RESULT_DATE_TIME
       ,scr.rn
+into #AKI_eligible
 from scr_all scr
 join #AKI_Scr_base scrb
 on scr.ENCOUNTERID = scrb.ENCOUNTERID
 order by scr.PATID, scr.ENCOUNTERID, scr.rn
-into #AKI_eligible
+

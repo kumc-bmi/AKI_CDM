@@ -3,7 +3,7 @@
 /*
 /*in: AKI_onsets
 /*
-/*params: @dblink, &&dbname, &&PCORNET_CDM
+/*params: &&dbname, &&PCORNET_CDM
 /*
 /*out: AKI_DEMO
 /*
@@ -13,7 +13,7 @@ select distinct
        pat.PATID
       ,pat.ENCOUNTERID
       ,demo.BIRTH_DATE
-      ,datediff(demo.BIRTH_DATE,pat.ADMIT_DATE) AGE
+      ,datediff(yy,demo.BIRTH_DATE,pat.ADMIT_DATE) as AGE
       ,demo.SEX
       ,demo.RACE
       ,demo.HISPANIC
@@ -22,9 +22,9 @@ select distinct
       ,dth.DEATH_DATE_IMPUTE
       ,dth.DEATH_SOURCE
 from AKI_onsets pat
-left join [@dblink].[&&dbname].[&&PCORNET_CDM].DEMOGRAPHIC demo
+left join [&&dbname].[&&PCORNET_CDM].DEMOGRAPHIC demo
 on pat.PATID = demo.PATID
-left join [@dblink].[&&dbname].[&&PCORNET_CDM].DEATH dth
+left join [&&dbname].[&&PCORNET_CDM].DEATH dth
 on pat.PATID = dth.PATID
 order by pat.PATID, pat.ENCOUNTERID
 
