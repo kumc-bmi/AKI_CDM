@@ -20,7 +20,6 @@ params:
 ##### Exclusion criteria:
 
 * had no documented SCr measurements during admission; 
-* had initial SCr greater than or equal to 1.3 mg/dL; 
 * developed stage 2 AKI (eGFR <= 15 mL/min per 1.73m^2) initially; 
 * pre-existing chronic renal failure (DX); 
 * received RRT within 48 hours since admission; 
@@ -428,7 +427,7 @@ saveRDS(vital,file="./data/AKI_vital.rda")
 # saveRDS(vital_smoke_summ,file="./data/vital_smoke_summ.rda")
 
 #clean up
-rm(vital); gc()
+rm(vital,vital1); gc()
 ```
 
 
@@ -443,7 +442,16 @@ kable(vital_summ %>% dplyr::select(-key),
   group_rows("WT", 41, 50)  
 ```
 
-Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes.
+Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes. Here is the list of how *high* and *low* vitals are defined (adopted from CDM EDC report):
+
+  |vital type  |upper bound for low values|lower bound for high values|     
+  |:----------:|:------------------------:|:-------------------------:|   
+  |HT(inches)  |0                         |95                         |   
+  |WT(lbs)     |0                         |350                        |   
+  |BMI         |0                         |50                         |    
+  |BP_DIASTOLIC|40                        |120                        |     
+  |BP_SYSTOLIC |40                        |210                        |     
+
 
 ```{r vital_out2, echo=F, warning=F, message=F}
 vital_smoke_summ %<>% filter(`2.encounters#`!="<11") %>%
@@ -463,6 +471,7 @@ kable(vital_smoke_summ %>% dplyr::select(-key),
   group_rows(row_grp_pos$key[2], row_grp_pos$begin[2],row_grp_pos$end[2]) %>%
   group_rows(row_grp_pos$key[3], row_grp_pos$begin[3],row_grp_pos$end[3])
 ```
+
 
 Table 2b identifies unreliable reporting of smoking status. A significant mismatch between smoking and tabacco summaries needs some further investigation.
 
@@ -748,7 +757,7 @@ px_report<-px_temp %>%
 ```
 
 
-A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before the encounter of interest. Figure3 gives an overview of procedures that patients had recieved at the encounters of interest. It can help identify the common procedures or typical occuring times of precedures (e.g. [`r px_report$key[1]`], [`r px_report$key[2]`],[`r px_report$key[3]`],[`r px_report$key[4]`],[`r px_report$key[5]`],...). Note that Figure2 and Figure3 may display similar distributions as a result of corrlations between diagnoses and procedures.
+A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before or at the encounter of interest. Figure3 gives an overview of procedures that patients had recieved before or at the encounters of interest. It can help identify the common procedures or typical occuring times of precedures (e.g. [`r px_report$key[1]`], [`r px_report$key[2]`],[`r px_report$key[3]`],[`r px_report$key[4]`],[`r px_report$key[5]`],...). Note that Figure2 and Figure3 may display similar distributions as a result of corrlations between diagnoses and procedures.
 
 [`r px_report$key[1]`]: `r px_report$link[1]`
 [`r px_report$key[2]`]: `r px_report$link[2]` 
@@ -886,7 +895,7 @@ med_report<-med_temp %>%
   arrange(pos)
 ```
 
-A Total of `r length(unique(med_summ$key))` distinct RXNORM medication concepts are discovered for the cohort. Figure4 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay. (e.g. the typical medications identified are `r med_report$key[1]`(`r med_report$rx_name[1]`), `r med_report$key[2]`(`r med_report$rx_name[2]`), `r med_report$key[3]`(`r med_report$rx_name[3]`; while drugs such as `r med_report$key[4]`(`r med_report$rx_name[4]`), `r med_report$key[5]`(`r med_report$rx_name[5]`), `r med_report$key[6]`(`r med_report$rx_name[6]`) are used with a relative longer exposure than the others).
+A Total of `r length(unique(med_summ$key))` distinct RXNORM medication concepts are discovered for the cohort. Figure4 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay. (e.g. the typical medications identified are `r med_report$key[1]`(`r med_report$rx_name[1]`), `r med_report$key[2]`(`r med_report$rx_name[2]`), `r med_report$key[3]`(`r med_report$rx_name[3]`); while drugs such as `r med_report$key[4]`(`r med_report$rx_name[4]`), `r med_report$key[5]`(`r med_report$rx_name[5]`), `r med_report$key[6]`(`r med_report$rx_name[6]`) are used with a relative longer exposure than the others).
 
 
 ```{r final, include=F}

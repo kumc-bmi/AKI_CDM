@@ -1,7 +1,7 @@
 /********************************************************************************/
 /*@file collect_dx_admit.sql
 /*
-/*in: AKI_onsets
+/*in: #AKI_onsets
 /*
 /*params: @dblink, &&dbname, &&PCORNET_CDM
 /*
@@ -20,7 +20,7 @@ select pat.PATID
       ,dx.ADMIT_DATE DX_DATE
       ,datediff(dd,pat.ADMIT_DATE,dx.ADMIT_DATE) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-join [@dblink].[&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
+join [&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
 on pat.ENCOUNTERID = dx.ENCOUNTERID
 where dx.DX_SOURCE = 'AD'
 order by pat.PATID, pat.ENCOUNTERID, dx.ADMIT_DATE desc

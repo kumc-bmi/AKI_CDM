@@ -1,9 +1,9 @@
 /********************************************************************************/
 /*@file collect_px.sql
 /*
-/*in: AKI_onsets
+/*in: #AKI_onsets
 /*
-/*params: [@dblink], &&dbname, &&PCORNET_CDM
+/*params: &&dbname, &&PCORNET_CDM
 /*
 /*out: AKI_PX
 /*
@@ -17,10 +17,10 @@ select distinct
       ,px.PX_TYPE
       ,px.PX_SOURCE
       ,px.PX_DATE
-      ,-datediff(dd,pat.ADMIT_DATE,px.PX_DATE) DAYS_SINCE_ADMIT
+      ,datediff(dd,pat.ADMIT_DATE,px.PX_DATE) DAYS_SINCE_ADMIT
 --      ,px.PPX
-from AKI_onsets pat
-left join [@dblink].[&&dbname].[&&PCORNET_CDM].PROCEDURES px
+from #AKI_onsets pat
+left join [&&dbname].[&&PCORNET_CDM].PROCEDURES px
 on pat.PATID = px.PATID
 where px.PX_DATE between dateadd(day,-30,pat.ADMIT_DATE) and
                          pat.DISCHARGE_DATE

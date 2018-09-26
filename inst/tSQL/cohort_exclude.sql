@@ -1,11 +1,11 @@
 /*******************************************************************************/
-/*@file exclude.sql
+/*@file cohort_exclude.sql
 /*
-/*in: AKI_Scr_eGFR, AKI_Initial
+/*in: #AKI_Scr_eGFR, #AKI_Initial
 /*
-/*params: @dblink, &&dbname, &&PCORNET_CDM
+/*params: &&dbname, &&PCORNET_CDM
 /*
-/*out: exclude_all
+/*out: #exclude_all
 /*
 /*action: write
 /********************************************************************************/
@@ -26,20 +26,20 @@ where rn = 1 and eGFR <= 15
     ,AKI_EXCLD_PRF_EN as (
 select aki.ENCOUNTERID
 from #AKI_Initial aki
-where exists (select 1 from [@dblink].[&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
+where exists (select 1 from [&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
               where dx.PATID = aki.PATID and
                     -- ICD9 for renal failure
                     ((dx.DX_TYPE = '09' and
-                      (   regexp_like(dx.DX,'586')
-                       or regexp_like(dx.DX,'585\.9'))
+                      (   dx.DX like '586%'
+                       or dx.DX like '585.9%')
                       ) or
                     -- ICD10 for renal failure
                      (dx.DX_TYPE = '10' and
-                      (   regexp_like(dx.DX,'N18')
-                       or regexp_like(dx.DX,'N19'))
+                      (   dx.DX like 'N18%'
+                       or dx.DX like 'N19%')
                        )
                       ) and
-                    dx.ADMIT_DATE < trunc(aki.ADMIT_DATE_TIME)
+                    dx.ADMIT_DATE < CONVERT(date, aki.ADMIT_DATE_TIME)
                 )
 )
 -- Receive renal transplant withing 48 hr since 1st Scr (PX, DX)
@@ -52,17 +52,17 @@ where rn = 1
     ,AKI_EXCLD_RT48_EN as (
 select distinct scr48.ENCOUNTERID
 from scr48
-where exists (select 1 from [@dblink].[&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
+where exists (select 1 from [&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
               where dx.PATID = scr48.PATID and
                     -- ICD9 for RRT
                     ((dx.DX_TYPE = '09' and
-                      (   regexp_like(dx.DX,'^996\.81')
-                       or regexp_like(dx.DX,'^V42\.0'))
+                      (   dx.DX like '996.81%'
+                       or dx.DX like 'V42.0%')
                       ) or
                     -- ICD10 for RRT
                      (dx.DX_TYPE = '10' and
-                      (   regexp_like(dx.DX,'^Z94\.0')
-                       or regexp_like(dx.DX,'^T86\.1[0|1|2]'))
+                      (   dx.DX like 'Z94.0%'
+                       or dx.DX in ('T86.10', 'T86.11', 'T86.12'))
                        )
                       ) and
                     dx.ADMIT_DATE < scr48.time_bd
@@ -70,37 +70,59 @@ where exists (select 1 from [@dblink].[&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
 union
 select distinct scr48.ENCOUNTERID
 from scr48
-where exists (select 1 from [@dblink].[&&dbname].[&&PCORNET_CDM].PROCEDURES px
+where exists (select 1 from [&&dbname].[&&PCORNET_CDM].PROCEDURES px
               where px.PATID = scr48.PATID and
                     -- CPT codes
-                    (   regexp_like(px.px,'00868')
-                     or regexp_like(px.px,'5030[0|3|5|7|8|9]')
-                     or regexp_like(px.px,'503[4|7|8]0')
-                     or regexp_like(px.px,'5036[0|5]')) and
+                    (   px.px like '00868%'
+                     or px.px in ('50300','50303','50305','50307','50308','50309','50340','50370','50380','50360','50365')) and
                     px.ADMIT_DATE < scr48.time_bd
               )
 )
--- Burn Patients (UHC diagnosis, admit DRG)
+-- Burn Patients
     ,AKI_EXCLD_BURN_EN as (
 select ENCOUNTERID
 from #AKI_Initial
-where exists (select 1 from [@dblink].[&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
+where exists (select 1 from [&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
               where dx.ENCOUNTERID = aki.ENCOUNTERID and
                     -- ICD9 for burn patients
                     ((dx.DX_TYPE = '09' and
-                      (   regexp_like(dx.DX,'906\.[5-9]')
-                       or regexp_like(dx.DX,'^94[0-9]'))
+                      (   dx.DX like '906.5%' 
+                       or dx.DX like '906.6%'
+                       or dx.DX like '906.7%'
+                       or dx.DX like '906.8%'
+                       or dx.DX like '906.9%'
+                       or dx.DX like '940%'
+                       or dx.DX like '941%'
+                       or dx.DX like '942%'
+                       or dx.DX like '943%'
+                       or dx.DX like '944%'
+                       or dx.DX like '945%'
+                       or dx.DX like '946%'
+                       or dx.DX like '947%'
+                       or dx.DX like '948%'
+                       or dx.DX like '949%')
                       ) or
                     -- ICD10 for burn patients
                      (dx.DX_TYPE = '10' and
-                      (   regexp_like(dx.DX,'^T2[0-8]')
-                       or regexp_like(dx.DX,'^T3[0-2]'))
+                      (   dx.DX like 'T20.%' 
+                       or dx.DX like 'T21.%%'
+                       or dx.DX like 'T22.%'
+                       or dx.DX like 'T23.%'
+                       or dx.DX like 'T24.%'
+                       or dx.DX like 'T25.%'
+                       or dx.DX like 'T26.%'
+                       or dx.DX like 'T27.%'
+                       or dx.DX like 'T28.%'
+                       or dx.DX like 'T30.%'
+                       or dx.DX like 'T31.%'
+                       or dx.DX like 'T32.%')
                        )
                       ) and
                     dx.DX_SOURCE = 'AD'
                 )
 )
 -- collect all excluded encounters
+SELECT * into #exclude_all FROM (
 select ENCOUNTERID, 'Less_than_2_SCr' EXCLUD_TYPE from AKI_EXCLD_1SCR_EN
 union all
 select ENCOUNTERID, 'Initial_GFR_below_15' EXCLUD_TYPE from AKI_EXCLD_L1GFR_EN
@@ -109,5 +131,5 @@ select ENCOUNTERID, 'Pre_renal_failure' EXCLUD_TYPE from AKI_EXCLD_PRF_EN
 union all
 select ENCOUNTERID, 'Renal_transplant_within_48hr' EXCLUD_TYPE from AKI_EXCLD_RT48_EN
 union all
-select ENCOUNTERID, 'Burn_patients' EXCLUD_TYPE from AKI_EXCLD_BURN_EN
-into #exclude_all
+select ENCOUNTERID, 'Burn_patients' EXCLUD_TYPE from AKI_EXCLD_BURN_EN) as tmp
+

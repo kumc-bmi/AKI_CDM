@@ -9,6 +9,7 @@ AKI_CDM_EXT_VALID_p1_QA.R
 AKI_CDM_EXT_VALID_p1_QA_full.Rmd
 derby.log
 logs/
+feature_dict.csv
 *config.csv
 *.xlsx
 *.rda

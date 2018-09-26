@@ -1,9 +1,9 @@
 /*******************************************************************************/
-/*@file create_initial_cohort.sql
+/*@file cohort_initial.sql
 /*
 /*in: PCORNET_CDM tables 
 /*
-/*params: @dblink, &&dbname, &&PCORNET_CDM, &&start_date, &&end_date
+/*params: &&dbname, &&PCORNET_CDM, &&start_date, &&end_date
 /*       
 /*out: AKI_Initial
 /*
@@ -12,24 +12,20 @@
 with age_at_admit as (
 select e.ENCOUNTERID
       ,e.PATID
-      ,convert(datetime, 
-               convert(CHAR(8), e.ADMIT_DATE, 112)+ ' ' + CONVERT(CHAR(8), e.ADMIT_TIME, 108)
-               ) ADMIT_DATE_TIME
-      ,round((e.ADMIT_DATE-d.BIRTH_DATE)/365.25) age_at_admit
-      ,convert(datetime, 
-               convert(CHAR(8), e.DISCHARGE_DATE, 112)+ ' ' + CONVERT(CHAR(8), e.DISCHARGE_TIME, 108)
-               ) DISCHARGE_DATE_TIME
-      ,round(e.DISCHARGE_DATE - e.ADMIT_DATE) LOS
+      ,convert(datetime,convert(CHAR(8), e.ADMIT_DATE, 112)+ ' ' + CONVERT(CHAR(8), e.ADMIT_TIME, 108)) ADMIT_DATE_TIME
+      ,datediff(yy,d.BIRTH_DATE,d.ADMIT_DATE) as age_at_admit
+      ,convert(datetime,convert(CHAR(8), e.DISCHARGE_DATE, 112)+ ' ' + CONVERT(CHAR(8), e.DISCHARGE_TIME, 108)) DISCHARGE_DATE_TIME
+      ,round(datediff(dd,e.ADMIT_DATE,e.DISCHARGE_DATE),0) LOS
       ,e.ENC_TYPE
       ,e.DISCHARGE_DISPOSITION
       ,e.DISCHARGE_STATUS
       ,e.DRG
       ,e.DRG_TYPE
       ,e.ADMITTING_SOURCE
-from [@dblink].[&&dbname].[&&PCORNET_CDM].ENCOUNTER e
-join [@dblink].[&&dbname].[&&PCORNET_CDM].DEMOGRAPHIC d
+from [&&dbname].[&&PCORNET_CDM].ENCOUNTER e
+join [&&dbname].[&&PCORNET_CDM].DEMOGRAPHIC d
 on e.PATID = d.PATID
-where e.DISCHARGE_DATE - e.ADMIT_DATE >= 2 and
+where datediff(dd,e.ADMIT_DATE,e.DISCHARGE_DATE) >= 2 and
       e.ENC_TYPE in ('EI','IP','IS') and
       e.ADMIT_DATE between Date &&start_date and Date &&end_date
 )
@@ -46,9 +42,9 @@ select ENCOUNTERID
       ,DRG
       ,DRG_TYPE
       ,ADMITTING_SOURCE
+into #AKI_Initial
 from age_at_admit
 where age_at_admit >= 18
-into #AKI_Initial
 
 
 

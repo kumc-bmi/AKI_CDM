@@ -1,5 +1,5 @@
 /*******************************************************************************/
-/*@file stage_AKI.sql
+/*@file cohort_AKI_staging.sql
 /*
 /*in: AKI_eligible
 /*

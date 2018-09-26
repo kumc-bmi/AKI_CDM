@@ -1,9 +1,9 @@
 /********************************************************************************/
 /*@file collect_med.sql
 /*
-/*in: AKI_onsets
+/*in: #AKI_onsets
 /*
-/*params: [@dblink], &&dbname, &&PCORNET_CDM
+/*params: &&dbname, &&PCORNET_CDM
 /*
 /*out: AKI_MED
 /*
@@ -16,7 +16,9 @@ select distinct
                convert(CHAR(8), e.RX_ORDER_DATE, 112)+ ' ' + CONVERT(CHAR(8), e.RX_ORDER_TIME, 108)
                ) RX_ORDER_DATE_TIME
       ,p.RX_START_DATE
-      ,least(pat.DISCHARGE_DATE,p.RX_END_DATE) RX_END_DATE
+      ,CASE WHEN pat.DISCHARGE_DATE < p.RX_END_DATE THEN pat.DISCHARGE_DATE 
+            ELSE p.RX_END_DATE 
+       END RX_END_DATE
       ,p.RX_BASIS
       ,p.RXNORM_CUI
       --,regexp_substr(p.RAW_RX_MED_NAME,'[^\[]+',1,1) RX_MED_NAME
@@ -28,8 +30,8 @@ select distinct
       ,case when p.RX_DAYS_SUPPLY is not null and p.RX_DAYS_SUPPLY is not null then round(p.RX_QUANTITY/p.RX_DAYS_SUPPLY) 
             else null end as RX_QUANTITY_DAILY
       ,datediff(dd,pat.ADMIT_DATE,p.RX_START_DATE) DAYS_SINCE_ADMIT
-from AKI_onsets pat
-join [@dblink].[&&dbname].[&&PCORNET_CDM].PRESCRIBING p
+from #AKI_onsets pat
+join [&&dbname].[&&PCORNET_CDM].PRESCRIBING p
 on pat.ENCOUNTERID = p.ENCOUNTERID
 where p.RXNORM_CUI is not null and p.RX_START_DATE is not null and
       p.RX_ORDER_DATE is not null and p.RX_ORDER_TIME is not null and

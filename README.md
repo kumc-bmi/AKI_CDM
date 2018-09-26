@@ -50,7 +50,10 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 * [kableExtra]: for generating nice tables
 * [ggplot2] (>=2.2.1): for generating nice plots    
 * [ggrepel]: to avoid overlapping labels in plots   
-* [openxlsx] (>=4.1.0): to save tables into multiple sheets within a single .xlsx file    
+* [openxlsx] (>=4.1.0): to save tables into multiple sheets within a single .xlsx file      
+* [RCurl]: for linkable descriptions (when uploading giant mapping tables are not feasible)
+* [XML]: for linkable descriptions (when uploading giant mapping tables are not feasible)
+
 
 
 [R Program]: https://www.r-project.org/
@@ -70,7 +73,8 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 [ggrepel]: https://github.com/slowkow/ggrepel
 [openxlsx]: https://cran.r-project.org/web/packages/openxlsx/openxlsx.pdf
 [digest]: https://cran.r-project.org/web/packages/digest/digest.pdf
-[htmltools]: https://cran.r-project.org/web/packages/htmltools/htmltools.pdf
+[RCurl]: https://cran.r-project.org/web/packages/RCurl/RCurl.pdf
+[XML]: https://cran.r-project.org/web/packages/XML/XML.pdf
 
 
 ***

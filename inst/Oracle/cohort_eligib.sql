@@ -1,5 +1,5 @@
 /*******************************************************************************/
-/*@file create_eligib_cohort.sql
+/*@file cohort_eligb.sql
 /*
 /*in: AKI_Scr_eGFR, AKI_Scr_base, exclude_all
 /*

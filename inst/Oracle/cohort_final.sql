@@ -1,5 +1,5 @@
 /********************************************************************************/
-/*@file get_final_cohort.sql
+/*@file cohort_final.sql
 /*
 /*in: AKI_stages_daily, AKI_Initial
 /*
