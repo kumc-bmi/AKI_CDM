@@ -428,7 +428,7 @@ saveRDS(vital,file="./data/AKI_vital.rda")
 # saveRDS(vital_smoke_summ,file="./data/vital_smoke_summ.rda")
 
 #clean up
-rm(vital); gc()
+rm(vital,vital1); gc()
 ```
 
 

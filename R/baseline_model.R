@@ -2,23 +2,80 @@
 format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
   if(type=="demo"){
     #demo has to be unqiue for each encounter
-    dat %<>% dplyr::select(-PATID) %>%
+    dat_out<-dat%>% dplyr::select(-PATID) %>%
       filter(key %in% c("AGE","SEX","RACE","HISPANIC")) %>%
       group_by(ENCOUNTER_ID) %>%
       top_n(n=1L,wt=key) %>% #randomly pick one if multiple entries exist
       ungroup 
   }else if(type=="vital"){
+    dat_out<-c()
+    
     #multiple smoking status is resolved by using the most recent record
+    dat_out %<>%
+      bind_rows(dat %>% dplyr::select(-PATID) %>%
+                  filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
+                  group_by(ENCOUNTERID,key) %>%
+                  arrange(value) %>% slice(1:1) %>%
+                  ungroup)
     
-    
+    #multiple ht,wt,bmi resolved by taking median
+    dat_out %<>%
+      bind_rows(dat %>% dplyr::select(-PATID) %>%
+                  filter(key %in% c("HT","WT","BMI")) %>%
+                  group_by(ENCOUNTERID,key) %>%
+                  dplyr::mutate(value=median(value,na.rm=T)) %>%
+                  ungroup)
+
     #multiple bp are aggregated by taking: lowest & slope
+    bp<-dat %>% dplyr::select(-PATID) %>%
+      filter(key %in% c("BP_DIASTOLIC","BP_SYSTOLIC")) %>%
+      mutate(value=ifelse((key=="BP_DIASTOLIC" & (value>120 | value<40))|
+                          (key=="BP_SYSTOLIC" & (value>210 | value<40)),NA,value),
+             dsa_int=round(dsa)) %>%
+      group_by(ENCOUNTERID,key,dsa_int) %>%
+      dplyr::mutate(value_imp=median(value)) %>%
+      ungroup %>%
+      mutate(value=ifelse(is.na(value),value_imp,value)) %>%
+      dplyr::select(-value_mp) 
     
+    bp_min<-bp %>%
+      group_by(ENCOUNTERID,key,dsa_int) %>%
+      dplyr::summarize(value_lowest=min(value,na.rm=T)) %>%
+      ungroup %>%
+      mutate(key=paste0(key,"_min"))
+    
+    bp_slp_obj<-bp %>%
+      group_by(ENCOUNTERID,key,dsa_int) %>%
+      do(fit_val=lm(value ~ dsa,data=.))
+    
+    bp_slp<-tidy(bp_slp_obj,fit_val) %>%
+      filter(term=="dsa") %>%
+      dplyr::rename(value=estimate) %>%
+      mutate(key=paste0(key,"_slope"))
+    
+    bp<-bp_min %>% 
+      dplyr::select(ENCOUNTERID,key,value,dsa_int) %>%
+      bind_rows(bp_slp %>% 
+                  dplyr::select(ENCOUNTERID,key,value,dsa_int))
+    
+    dat_out %<>%
+      mutate(dsa_int=-1) %>% bind_rows(bp)
+    
+    rm(bp,bp_min,bp_slp_obj,bp_slp)
+    gc()
   }else if(type=="lab"){
     #multiple same lab will be resolved by using the most recent record
-    
+    dat_out<-dat %>% dplyr::select(-PATID) %>%
+      mutate(dsa_int=round(dsa)) %>%
+      unite("key_unit",c("key","unit"),sep="@") %>%
+      group_by(ENCOUNTERID,key_unit,dsa_int) %>%
+      top_n(n=1L,wt=dsa) %>% #randomly pick one if multiple entries exist
+      ungroup %>%
+      dplyr::rename(key=key_unit) %>%
+      dplye::select(ENCOUTNERID,key,value,dsa_int)
     
     #calculated new features: BUN/SCr ratio (same-day)
-    
+    bun_scr_ratio<-dat %>% filter(key=="LOINC")
     
     #engineer new features: change of lab from last collection
     
@@ -26,13 +83,29 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     
   }else if(type %in% c("dx","px")){
     #multiple records resolved as "present (1) or absent (0)"
-  
+    dat_out<-dat %>% dplyr::select(-PATID) %>%
+      mutate(dsa_int=round(dsa)) %>%
+      group_by(ENCOUNTERID,key,dsa_int) %>%
+      dplyr::summarize(value=(n() >= 1)*1) %>%
+      ungroup
+      
   }else if(type=="med"){
     #multiple records accumulated
-    
+    dat_out<-dat %>% dplyr::select(-PATID) %>%
+      mutate(dsa_int=round(dsa)) %>%
+      group_by(ENCOUNTERID,key) %>%
+      arrange(dsa_int) %>%
+      dplyr::mutate(value=cumsum(value)) %>%
+      ungroup %>%
+      mutate(key=paste0(key,"_cum")) %>%
+      dplyr::select(ENCOUNTERID,key,value, dsa_int) %>%
+      bind_rows(dat %>% dplyr::select(-PATID) %>%
+                  mutate(dsa_int=round(dsa)) %>%
+                  dplyr::select(ENCOUNTERID,key,value, dsa_int) %>%
+                  unique)
   }
   
-  return(dat)
+  return(dat_out)
 }
 
 
