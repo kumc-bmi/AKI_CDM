@@ -4,9 +4,9 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     #demo has to be unqiue for each encounter
     dat_out<-dat%>% dplyr::select(-PATID) %>%
       filter(key %in% c("AGE","SEX","RACE","HISPANIC")) %>%
-      group_by(ENCOUNTER_ID) %>%
-      top_n(n=1L,wt=key) %>% #randomly pick one if multiple entries exist
-      ungroup 
+      group_by(ENCOUNTERID,key) %>%
+      top_n(n=1L,wt=value) %>% #randomly pick one if multiple entries exist
+      ungroup
   }else if(type=="vital"){
     dat_out<-c()
     
@@ -23,7 +23,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
       bind_rows(dat %>% dplyr::select(-PATID) %>%
                   filter(key %in% c("HT","WT","BMI")) %>%
                   group_by(ENCOUNTERID,key) %>%
-                  dplyr::mutate(value=median(value,na.rm=T)) %>%
+                  dplyr::summarize(value=median(as.numeric(value),na.rm=T)) %>%
                   ungroup)
 
     #multiple bp are aggregated by taking: lowest & slope
@@ -64,18 +64,17 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     rm(bp,bp_min,bp_slp_obj,bp_slp)
     gc()
   }else if(type=="lab"){
-    #multiple same lab will be resolved by using the most recent record
+    #multiple same lab on the same will be resolved by taking the average
     dat_out<-dat %>% dplyr::select(-PATID) %>%
-      mutate(dsa_int=round(dsa)) %>%
       unite("key_unit",c("key","unit"),sep="@") %>%
-      group_by(ENCOUNTERID,key_unit,dsa_int) %>%
-      top_n(n=1L,wt=dsa) %>% #randomly pick one if multiple entries exist
+      group_by(ENCOUNTERID,key_unit,dsa) %>%
+      dplyr::summarize(value=mean(value,na.rm=T)) %>%
       ungroup %>%
       dplyr::rename(key=key_unit) %>%
-      dplye::select(ENCOUTNERID,key,value,dsa_int)
+      dplye::select(ENCOUTNERID,key,value,dsa)
     
     #calculated new features: BUN/SCr ratio (same-day)
-    bun_scr_ratio<-dat %>% filter(key=="LOINC")
+    bun_scr_ratio<-dat_out %>% filter(key %in% c())
     
     #engineer new features: change of lab from last collection
     
