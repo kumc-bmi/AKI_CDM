@@ -13,7 +13,7 @@ with age_at_admit as (
 select e.ENCOUNTERID
       ,e.PATID
       ,convert(datetime,convert(CHAR(8), e.ADMIT_DATE, 112)+ ' ' + CONVERT(CHAR(8), e.ADMIT_TIME, 108)) ADMIT_DATE_TIME
-      ,(CONVERT(int,CONVERT(char(8),d.ADMIT_DATE,112))-CONVERT(int,CONVERT(char(8),d.BIRTH_DATE,112)))/10000 AS age_at_admit
+      ,(CONVERT(int,CONVERT(char(8),e.ADMIT_DATE,112))-CONVERT(int,CONVERT(char(8),d.BIRTH_DATE,112)))/10000 AS age_at_admit
       ,convert(datetime,convert(CHAR(8), e.DISCHARGE_DATE, 112)+ ' ' + CONVERT(CHAR(8), e.DISCHARGE_TIME, 108)) DISCHARGE_DATE_TIME
       ,round(datediff(dd,e.ADMIT_DATE,e.DISCHARGE_DATE),0) LOS
       ,e.ENC_TYPE

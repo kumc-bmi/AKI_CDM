@@ -1,4 +1,48 @@
-#source utility functions
+#test format_data()
+#demo
+rm(list=ls());gc()
+type<-"demo"
+dat<-readRDS("./data/AKI_demo.rda")
+dat_out<-dat%>% dplyr::select(-PATID) %>%
+  filter(key %in% c("AGE","SEX","RACE","HISPANIC")) %>%
+  group_by(ENCOUNTERID,key) %>%
+  top_n(n=1L,wt=value) %>% #randomly pick one if multiple entries exist
+  ungroup
+
+#vital
+rm(list=ls());gc()
+type<-"vital"
+dat<-readRDS("./data/AKI_vital.rda")
+dat_out<-dat %>% dplyr::select(-PATID) %>%
+  filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
+  group_by(ENCOUNTERID,key) %>%
+  arrange(value) %>% slice(1:1) %>%
+  ungroup
+
+dat_out<-dat %>% dplyr::select(-PATID) %>%
+  filter(key %in% c("HT","WT","BMI")) %>%
+  group_by(ENCOUNTERID,key) %>%
+  dplyr::summarize(value=median(as.numeric(value),na.rm=T)) %>%
+  ungroup
+
+bp<-dat %>% dplyr::select(-PATID) %>%
+  filter(key %in% c("BP_DIASTOLIC","BP_SYSTOLIC")) %>%
+  mutate(value=ifelse((key=="BP_DIASTOLIC" & (value>120 | value<40))|
+                        (key=="BP_SYSTOLIC" & (value>210 | value<40)),NA,value),
+         dsa_int=round(dsa)) %>%
+  group_by(ENCOUNTERID,key,dsa_int) %>%
+  dplyr::mutate(value_imp=median(value)) %>%
+  ungroup 
+bp_
+
+%>%
+  mutate(value=ifelse(is.na(value),value_imp,value)) %>%
+  dplyr::select(-value_mp) 
+
+
+
+
+
 source("./R/util.R")
 source("./R/extract_cohort.R")
 source("./R/viz.R")
