@@ -70,7 +70,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     rm(bp,bp_min,bp_slp_obj,bp_slp)
     gc()
   }else if(type=="lab"){
-    #multiple same lab on the same will be resolved by taking the average
+    #multiple same lab on the same day will be resolved by taking the average
     dat_out<-dat %>% dplyr::select(-PATID) %>%
       unite("key_unit",c("key","unit"),sep="@") %>%
       group_by(ENCOUNTERID,key_unit,dsa) %>%
@@ -81,40 +81,63 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     
     #calculated new features: BUN/SCr ratio (same-day)
     bun_scr_ratio<-dat_out %>% 
-      filter(key %in% c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
-                        )) %>%
-      mutate(key_agg=case_when(key %in% c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8') ~ "SCR",
-                               key %in% c('3094-0','6299-2',) ~ "BUN",
-                               key %in% c('3097-3' ~ "BUN_SCR")))
+      mutate(key_agg=case_when(key %in% c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
+                                          '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
+                                          '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9') ~ "SCR",
+                               key %in% c('12966-8','12965-0','6299-2','59570-2','12964-3','49071-4','72270-2',
+                                          '11065-0','3094-0','35234-4','14937-7') ~ "BUN",
+                               key %in% c('3097-3','44734-2') ~ "BUN_SCR")) %>%
+      filter(toupper(unit) %in% c("MG/DL","MG/MG") & key_agg %in% c("SCR","BUN","BUN_SCR")) %>%
+      group_by(ENCOUNTERID,key_agg,dsa) %>%
+      dplyr::summarize(value=mean(value,na.rm=T)) %>%
+      ungroup %>%
+      spread(key_agg,value) %>%
+      filter((!is.na(SCR)&!is.na(BUN))|!is.na(BUN_SCR)) %>%
+      mutate(BUN_SCR = ifelse(is.na(BUN_SCR),round(BUN/SCR,2),BUN_SCR)) %>%
+      mutate(key="BUN_SCR") %>%
+      dplyr::rename(value=BUN_SCR) %>%
+      dplyr::select(ENCOUNTERID,key,value,dsa)
     
     #engineer new features: change of lab from last collection
+    lab_delta_eligb<-dat_out %>%
+      group_by(ENCOUNTERID,key) %>%
+      dplyr::mutate(lab_cnt=length(unique(dsa))) %>%
+      ungroup %>%
+      group_by(key) %>%
+      dplyr::summarize(p5=quantile(lab_cnt,probs=0.05,na.rm=T),
+                       p25=quantile(lab_cnt,probs=0.25,na.rm=T),
+                       med=median(lab_cnt,na.rm=T),
+                       p75=quantile(lab_cnt,probs=0.75,na.rm=T),
+                       p95=quantile(lab_cnt,probs=0.95,na.rm=T))
     
+    lab_delta<-dat_out %>%
+      semi_join(lab_delta_eligb %>% filter(med>=2),
+                by="key")
+    dsa_rg<-seq(min(lab_delta$dsa),max(lab_delta$dsa))
+    
+      
     
     
   }else if(type %in% c("dx","px")){
     #multiple records resolved as "present (1) or absent (0)"
     dat_out<-dat %>% dplyr::select(-PATID) %>%
-      mutate(dsa_int=round(dsa)) %>%
-      group_by(ENCOUNTERID,key,dsa_int) %>%
+      group_by(ENCOUNTERID,key,dsa) %>%
       dplyr::summarize(value=(n() >= 1)*1) %>%
       ungroup
       
   }else if(type=="med"){
     #multiple records accumulated
     dat_out<-dat %>% dplyr::select(-PATID) %>%
-      mutate(dsa_int=round(dsa)) %>%
       group_by(ENCOUNTERID,key) %>%
-      arrange(dsa_int) %>%
+      arrange(dsa) %>%
       dplyr::mutate(value=cumsum(value)) %>%
       ungroup %>%
       mutate(key=paste0(key,"_cum")) %>%
-      dplyr::select(ENCOUNTERID,key,value, dsa_int) %>%
+      dplyr::select(ENCOUNTERID,key,value, dsa) %>%
       bind_rows(dat %>% dplyr::select(-PATID) %>%
-                  mutate(dsa_int=round(dsa)) %>%
-                  dplyr::select(ENCOUNTERID,key,value, dsa_int) %>%
+                  dplyr::select(ENCOUNTERID,key,value, dsa) %>%
                   unique)
   }
-  
   return(dat_out)
 }
 
