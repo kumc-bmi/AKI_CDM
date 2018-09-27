@@ -1,3 +1,19 @@
+source("./R/util.R")
+#load libraries
+require_libraries(c("DBI",
+                    "tidyr",
+                    "dplyr",
+                    "magrittr",
+                    "stringr",
+                    "knitr",
+                    "kableExtra",
+                    "ggplot2",
+                    "ggrepel",
+                    "RCurl",
+                    "XML",
+                    "openxlsx"))
+
+
 #test format_data()
 #demo
 rm(list=ls());gc()
@@ -27,40 +43,46 @@ dat_out<-dat %>% dplyr::select(-PATID) %>%
 
 bp<-dat %>% dplyr::select(-PATID) %>%
   filter(key %in% c("BP_DIASTOLIC","BP_SYSTOLIC")) %>%
+  mutate(value=as.numeric(value)) %>%
   mutate(value=ifelse((key=="BP_DIASTOLIC" & (value>120 | value<40))|
                         (key=="BP_SYSTOLIC" & (value>210 | value<40)),NA,value),
          dsa_int=round(dsa)) %>%
   group_by(ENCOUNTERID,key,dsa_int) %>%
-  dplyr::mutate(value_imp=median(value)) %>%
+  dplyr::mutate(value_imp=median(value,na.rm=T)) %>%
   ungroup 
-bp_
 
-%>%
+bp %>% group_by(key) %>% 
+  dplyr::summarize(rec_cnt=n(),na_cnt=sum((is.na(value)))) %>%
+  ungroup %>% View
+
+bp %<>%
+  filter(!is.na(value_imp)) %>%
   mutate(value=ifelse(is.na(value),value_imp,value)) %>%
-  dplyr::select(-value_mp) 
+  dplyr::select(-value_imp)
+
+bp_min<-bp %>%
+  group_by(ENCOUNTERID,key,dsa_int) %>%
+  dplyr::summarize(value_lowest=min(value,na.rm=T)) %>%
+  ungroup %>%
+  mutate(key=paste0(key,"_min"))
+
+bp_slp_obj<-bp %>%
+  group_by(ENCOUNTERID,key,dsa_int) %>%
+  mutate(dsa=1:n()) %>%
+  do(fit_val=lm(value ~ dsa,data=.))
+
+bp_slp<-tidy(bp_slp_obj,fit_val) %>%
+  filter(term=="dsa") %>%
+  dplyr::rename(value=estimate) %>%
+  mutate(key=paste0(key,"_slope"))
 
 
 
 
 
-source("./R/util.R")
+#
 source("./R/extract_cohort.R")
 source("./R/viz.R")
-
-#load libraries
-require_libraries(c("DBI",
-                    "tidyr",
-                    "dplyr",
-                    "magrittr",
-                    "stringr",
-                    "knitr",
-                    "kableExtra",
-                    "ggplot2",
-                    "ggrepel",
-                    "RCurl",
-                    "XML",
-                    "openxlsx"))
-
 params<-list(  DBMS_type="Oracle",
                remote_CDM=FALSE)
 

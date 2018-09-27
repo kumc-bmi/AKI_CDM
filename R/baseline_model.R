@@ -29,14 +29,16 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     #multiple bp are aggregated by taking: lowest & slope
     bp<-dat %>% dplyr::select(-PATID) %>%
       filter(key %in% c("BP_DIASTOLIC","BP_SYSTOLIC")) %>%
+      mutate(value=as.numeric(value)) %>%
       mutate(value=ifelse((key=="BP_DIASTOLIC" & (value>120 | value<40))|
                           (key=="BP_SYSTOLIC" & (value>210 | value<40)),NA,value),
              dsa_int=round(dsa)) %>%
       group_by(ENCOUNTERID,key,dsa_int) %>%
-      dplyr::mutate(value_imp=median(value)) %>%
+      dplyr::mutate(value_imp=median(value,na.rm=T)) %>%
       ungroup %>%
+      filter(!is.na(value_imp)) %>%
       mutate(value=ifelse(is.na(value),value_imp,value)) %>%
-      dplyr::select(-value_mp) 
+      dplyr::select(-value_imp) 
     
     bp_min<-bp %>%
       group_by(ENCOUNTERID,key,dsa_int) %>%

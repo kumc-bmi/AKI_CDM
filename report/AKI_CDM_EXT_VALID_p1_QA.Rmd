@@ -281,11 +281,11 @@ vital<-dbGetQuery(conn,
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
                              ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
                              ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
-  dplyr::mutate(dsa=DAYS_SINCE_ADMIT) %>%
-  dplyr::select(-MEASURE_DATE_TIME) %>%
-  gather(key,value,-PATID,-ENCOUNTERID,-dsa) %>%
+  dplyr::rename(dsa=DAYS_SINCE_ADMIT,
+                timestamp=MEASURE_DATE_TIME) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,dsa,timestamp) %>%
+  gather(key,value,-PATID,-ENCOUNTERID,-dsa,-timestamp) %>%
   filter(!is.na(key) & !is.na(value)) %>%
-  dplyr::select(PATID,ENCOUNTERID,key,value,dsa) %>%
   mutate(key=recode(key,
                     ORIGINAL_BMI="BMI",
                     SYSTOLIC="BP_SYSTOLIC",
@@ -490,9 +490,9 @@ lab<-dbGetQuery(conn,
                           cdm_db_name=config_file$cdm_db_name,
                           cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME,DAYS_SINCE_ADMIT) %>%
-  dplyr::mutate(dsa=DAYS_SINCE_ADMIT) %>%
-  dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT) %>%
-  dplyr::select(PATID,ENCOUNTERID,key,value,unit,dsa) %>%
+  dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT,
+                dsa=DAYS_SINCE_ADMIT,timestamp=SPECIMEN_DATE_TIME) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,unit,dsa,timestamp) %>%
   filter(!is.na(key) & !is.na(value)) %>%
   unique %>%
   mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
@@ -697,8 +697,7 @@ px<-dbGetQuery(conn,
                          cdm_db_name=config_file$cdm_db_name,
                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
   dplyr::mutate(PX=paste0(PX_TYPE,":",PX)) %>%
-  dplyr::select(PATID,ENCOUNTERID,PX,DAYS_SINCE_ADMIT) %>%
-  dplyr::rename(key=PX, dsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::rename(key=PX,dsa=DAYS_SINCE_ADMIT) %>%
   dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
   unique %>%
   mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
@@ -783,7 +782,7 @@ med<-dbGetQuery(conn,
   dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
                                     pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
-  dplyr::mutate(sdsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
   dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
   unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
 
