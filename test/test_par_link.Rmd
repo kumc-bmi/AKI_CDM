@@ -1,0 +1,106 @@
+---
+title: "test_par_link"
+author: "xsong"
+date: "9/21/2018"
+output: html_document
+---
+
+
+```{r loinc}
+library(tidyr)
+library(dplyr)
+library(magrittr)
+
+get_loinc_ref<-function(loinc){
+  #url to loinc.org 
+  url<-paste0(paste0("https://loinc.org/",loinc))
+  
+  #return the link
+  return(url)
+}
+
+lab_report<-data.frame(key=c("2160-0","2951-2","17861-6"),
+                       stringsAsFactors = F) %>%
+  mutate(link=lapply(key,get_loinc_ref))
+```
+
+try print out [`r lab_report$key[1]`], [`r lab_report$key[2]`],[`r lab_report$key[3]`]
+
+[`r lab_report$key[1]`]: `r lab_report$link[1]`
+[`r lab_report$key[2]`]: `r lab_report$link[2]`
+[`r lab_report$key[3]`]: `r lab_report$link[3]`
+
+
+```{r px}
+library(RCurl)
+library(XML)
+
+google_code<-function(code,nlink=1){
+  #search on google
+  gu<-paste0("https://www.google.com/search?q=",code)
+  html<-getURL(gu)
+  
+  #parse HTML into tree structure
+  doc<-htmlParse(html)
+  
+  #extract url nodes using XPath. Originally I had used "//a[@href][@class='l']" until the google code change.
+  attrs<-xpathApply(doc, "//h3//a[@href]", xmlAttrs)
+  
+  #extract urls
+  links<-sapply(attrs, function(x) x[[1]])
+  
+  #only keep the secure links
+  links<-links[grepl("(https\\:)+",links)]
+  links<-paste0("https://",gsub(".*(https://)","",links))
+  
+  #free doc from memory
+  free(doc)
+  
+  return(links[1])
+}
+
+px_report<-data.frame(key=c("CPT:99213","CPT:99214","CPT:36415"),
+                      stringsAsFactors = F) %>%
+  mutate(link=lapply(key,google_code))
+
+```
+
+try print out [`r px_report$key[1]`], [`r px_report$key[2]`],[`r px_report$key[3]`]
+
+[`r px_report$key[1]`]: `r px_report$link[1]`
+[`r px_report$key[2]`]: `r px_report$link[2]`
+[`r px_report$key[3]`]: `r px_report$link[3]`
+
+
+
+```{r med}
+get_rxcui_nm<-function(rxcui){
+  #url link to REST API
+  rx_url<-paste0("https://rxnav.nlm.nih.gov/REST/rxcui/",rxcui,"/")
+  
+  #get and parse html object
+  rxcui_obj <- getURL(url = rx_url)
+  rxcui_content<-htmlParse(rxcui_obj)
+  
+  #extract name
+  rxcui_name<-xpathApply(rxcui_content, "//body//rxnormdata//idgroup//name", xmlValue)
+  
+  if (length(rxcui_name)==0){
+    rxcui_name<-NA
+  }else{
+    rxcui_name<-unlist(rxcui_name)
+  }
+  return(rxcui_name)
+}
+
+rx_report<-data.frame(key=c("1807627:01","1740467:01","308395:02"),
+                      stringsAsFactors = F) %>%
+  mutate(key=gsub("\\:.*","",key)) %>%
+  mutate(rx_name=lapply(key,get_rxcui_nm))
+
+```
+
+try print out `r rx_report$rx_name[1]`, `r rx_report$rx_name[2]`,`r rx_report$rx_name[3]`
+
+  
+
