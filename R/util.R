@@ -141,14 +141,24 @@ parse_sql<-function(file_path,...){
 ## execute single sql snippet
 execute_single_sql<-function(conn,statement,write,table_name){
   if(write){
-    if(dbExistsTable(conn,table_name)){
-      DBI::dbSendQuery(conn,paste("drop table",table_name))
+    #oracle and sql sever uses different connection driver and different functions are expected for sending queries
+    #dbSendQuery silently returns an S4 object after execution, which causes error in RJDBC connection (for sql server)
+    if(attr(conn,"DBMS_type")=="Oracle"){
+      if(dbExistsTable(conn,table_name)){
+        dbSendQuery(conn,paste("drop table",table_name))
+      }
+      dbSendQuery(conn,statement)
+    }else if(attr(conn,"DBMS_type")=="tSQL"){
+      if(dbExistsTable(conn,table_name)){
+        dbSendUpdate(conn,paste("drop table",table_name))
+      }
+      dbSendUpdate(conn,statement)
+    }else{
+      warning("DBMS type not supported!")
     }
-    DBI::dbSendQuery(conn,statement)
-  }
-  
-  if(!write){
-    DBI::dbSendQuery(conn,statement)
+  }else{
+    dat<-dbGetQuery(conn,statement)
+    return(dat)
   }
 }
 

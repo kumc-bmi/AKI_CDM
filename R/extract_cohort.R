@@ -2,7 +2,7 @@
 
 extract_cohort<-function(conn,
                          remote_CDM=params$remote_CDM,
-                         cdm_db_link,
+                         cdm_db_link=NULL,
                          cdm_db_name,
                          cdm_db_schema,
                          start_date="2010-01-01",
@@ -19,7 +19,7 @@ extract_cohort<-function(conn,
     warning("must specify the cdm_db_link for CDM when remote_CDM=T!")
   }
   
-  #execute the following sql snippets according to the specified order
+  #execute(write) the following sql snippets according to the specified order
   statements<-paste0(
     paste0("./inst/",DBMS_type),
     c("/cohort_initial.sql",
@@ -40,17 +40,15 @@ extract_cohort<-function(conn,
                     end_date=end_date)
   
   #collect attrition info
-  attrition<-dbGetQuery(conn,
-                        parse_sql(paste0("./inst/",DBMS_type,
-                                         "/consort_diagram.sql"))$statement)
-  
-  #query back final cohort
-  tbl1_nm<-"AKI_onsets"
-  if(DBMS_type=="tSQL"){
-    tbl1_nm<-paste0("#",tbl1_nm) #special syntax for tSQL
-  }
-  aki_enc<-dbGetQuery(conn,
-                      paste("select * from",tbl1_nm))
+  sql<-parse_sql(paste0("./inst/",DBMS_type,"/consort_diagram.sql"))
+  attrition<-execute_single_sql(conn,
+                                statement=sql$statement,
+                                write=(sql$action=="write"),
+                                table_name=toupper(sql$tbl_out))
+
+  #read Table1
+  tbl1<-parse_sql(statements[length(statements)])$tbl_out
+  aki_enc<-dbGetQuery(conn,paste("select * from",tbl1))
   
   #clean out intermediate tables
   for(i in 1:(length(statements)-1)){
@@ -58,10 +56,13 @@ extract_cohort<-function(conn,
     if(parse_out$action=="write"){
       if(DBMS_type=="Oracle"){
         drop_temp<-paste("drop table",parse_out$tbl_out,"purge") # purge is only required in Oracle for completely destroying temporary tables
-      }else{
+        dbSendQuery(conn,drop_temp)
+      }else if((DBMS_type=="tSQL")){
         drop_temp<-paste("drop table",parse_out$tbl_out)
+        dbSendUpdate(conn,drop_temp)
+      }else{
+        warning("DBMS type not supported!")
       }
-      dbSendQuery(conn,drop_temp)
     }else{
       warning("no temporary table was created by this statment!")
     }
