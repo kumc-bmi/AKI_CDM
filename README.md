@@ -92,9 +92,9 @@ The following instructions are for extracting cohort and generating final report
       ii) clone the AKI_CDM repository by typing command line: `$ git clone https://github.com/kumc-bmi/AKI_CDM`  
 
 
-2. Prepare configeration file `config.csv` and save alongside the AKI_CDM project folder    
-      i) **download** the `config_<DBMS_type>_example.csv` file according to `DBMS_type`
-      ii) **fill in** the content accordingly (or you can manually create the file using the following format)
+2. Prepare configeration file `config.csv` and save in the AKI_CDM project folder    
+      i) **download** the `config_<DBMS_type>_example.csv` file according to `DBMS_type`      
+      ii) **fill in** the content accordingly (or you can manually create the file using the following format)      
     
     |username     |password    |access         |cdm_db_name/sid                 |cdm_db_schema      |temp_db_schema |   
     |:------------|:-----------|:--------------|:-------------------------------|:------------------|:--------------|    
@@ -138,4 +138,4 @@ It takes about **1 ~ 1.5 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd
 
 
 ***
-*updated 09/24/2018*
+*updated 09/26/2018*
