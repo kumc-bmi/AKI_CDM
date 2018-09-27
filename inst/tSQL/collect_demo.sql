@@ -13,7 +13,7 @@ select distinct
        pat.PATID
       ,pat.ENCOUNTERID
       ,demo.BIRTH_DATE
-      ,datediff(yy,demo.BIRTH_DATE,pat.ADMIT_DATE) as AGE
+      ,(CONVERT(int,CONVERT(char(8),pat.ADMIT_DATE,112))-CONVERT(int,CONVERT(char(8),demo.BIRTH_DATE,112)))/10000 AS AGE
       ,demo.SEX
       ,demo.RACE
       ,demo.HISPANIC

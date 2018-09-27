@@ -34,7 +34,7 @@ group by l.PATID,l.ENCOUNTERID,l.LAB_ORDER_DATE,
 select distinct
        sa.PATID
       ,sa.ENCOUNTERID
-      ,datediff(yy,d.BIRTH_DATE,sa.LAB_ORDER_DATE) as age_at_Scr
+      ,(CONVERT(int,CONVERT(char(8),sa.LAB_ORDER_DATE,112))-CONVERT(int,CONVERT(char(8),d.BIRTH_DATE,112)))/10000 AS age_at_Scr
       ,case when d.SEX = 'F' then 1 else 0 end as female_ind 
       ,case when d.RACE = '03' then 1 else 0 end as race_aa_ind /*03=Black or African American*/
       ,sa.RESULT_NUM
