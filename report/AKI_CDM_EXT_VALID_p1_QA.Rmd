@@ -74,7 +74,6 @@ conn<-connect_to_db(params$DBMS_type,config_file)
 # by default, we assume cdm schema is on the same server as current schema,
 cohort<-extract_cohort(conn,
                        remote_CDM=params$remote_CDM,
-                       cdm_db_link=config_file$cdm_db_link,
                        cdm_db_name=config_file$cdm_db_name,
                        cdm_db_schema=config_file$cdm_db_schema,
                        start_date="2010-01-01",
@@ -175,11 +174,14 @@ Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*,
 ## demographic
 conn<-connect_to_db(params$DBMS_type,config_file)
 
-demo<-dbGetQuery(conn,
-                 parse_sql(paste0("./inst/",params$DBMS_type,"/collect_demo.sql"),
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_demo.sql"),
                            cdm_db_link=config_file$cdm_db_link,
                            cdm_db_name=config_file$cdm_db_name,
-                           cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+                           cdm_db_schema=config_file$cdm_db_schema)
+
+demo<-execute_single_sql(conn,
+                         statement=sql$statement,
+                         write=(sql$action=="write")) %>%
   mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
                            AGE >= 26 & AGE <= 35 ~ "26-35",
                            AGE >= 36 & AGE <= 45 ~ "36-45",
@@ -230,7 +232,7 @@ demo_summ<-aki_stage_ind %>%
   replace(.,is.na(.),0)
 
 #save results
-saveRDS(demo,file="./data/AKI_demo.rda")
+saveRDS(demo,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
 # saveRDS(demo_summ,file="./data/demo_summ.rda")
 
 #clean up
@@ -273,17 +275,19 @@ Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, D
 ## vital
 conn<-connect_to_db(params$DBMS_type,config_file)
 
-vital<-dbGetQuery(conn,
-                  parse_sql(paste0("./inst/",params$DBMS_type,"/collect_vital.sql"),
-                            cdm_db_link=config_file$cdm_db_link,
-                            cdm_db_name=config_file$cdm_db_name,
-                            cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_vital.sql"),
+                           cdm_db_link=config_file$cdm_db_link,
+                           cdm_db_name=config_file$cdm_db_name,
+                           cdm_db_schema=config_file$cdm_db_schema)
+
+vital<-execute_single_sql(conn,
+                          statement=sql$statement,
+                          write=(sql$action=="write")) %>%
   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
                              ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
                              ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
   dplyr::rename(dsa=DAYS_SINCE_ADMIT,
                 timestamp=MEASURE_DATE_TIME) %>%
-  dplyr::select(PATID,ENCOUNTERID,key,value,dsa,timestamp) %>%
   gather(key,value,-PATID,-ENCOUNTERID,-dsa,-timestamp) %>%
   filter(!is.na(key) & !is.na(value)) %>%
   mutate(key=recode(key,
@@ -422,7 +426,7 @@ vital_smoke_summ<-vital %>%
 
 
 #save
-saveRDS(vital,file="./data/AKI_vital.rda")
+saveRDS(vital,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
 # saveRDS(vital_summ,file="./data/vital_summ.rda")
 # saveRDS(vital_smoke_summ,file="./data/vital_smoke_summ.rda")
 
@@ -484,12 +488,14 @@ Table 2b identifies unreliable reporting of smoking status. A significant mismat
 ## labs
 conn<-connect_to_db(params$DBMS_type,config_file)
 
-lab<-dbGetQuery(conn,
-                parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
-                          cdm_db_link=config_file$cdm_db_link,
-                          cdm_db_name=config_file$cdm_db_name,
-                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
-  dplyr::select(PATID,ENCOUNTERID,LAB_LOINC,RESULT_NUM,RESULT_UNIT,SPECIMEN_DATE_TIME,DAYS_SINCE_ADMIT) %>%
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
+                           cdm_db_link=config_file$cdm_db_link,
+                           cdm_db_name=config_file$cdm_db_name,
+                           cdm_db_schema=config_file$cdm_db_schema)
+
+lab<-execute_single_sql(conn,
+                        statement=sql$statement,
+                        write=(sql$action=="write")) %>%
   dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT,
                 dsa=DAYS_SINCE_ADMIT,timestamp=SPECIMEN_DATE_TIME) %>%
   dplyr::select(PATID,ENCOUNTERID,key,value,unit,dsa,timestamp) %>%
@@ -548,7 +554,7 @@ lab_summ<-lab %>%
          within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1))
 
 #save
-saveRDS(lab,file="./data/AKI_lab.rda")
+saveRDS(lab,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
 # saveRDS(lab_summ,file="./data/lab_summ.rda")
 
 #clean up
@@ -559,9 +565,11 @@ rm(lab); gc()
 ```{r lab_out, echo=F, warning=F, message=F}
 lab_temp<-lab_summ %>%
   filter(summ %in% c("enc_cnt","record_cnt")) %>%
-  mutate(overall=suppressWarnings(ifelse(overall=="<11",10,as.numeric(overall)))) %>%
   dplyr::select(key,summ,overall) %>% unique %>%
+  filter(overall!="<11") %>%
+  mutate(overall=as.numeric(overall)) %>%
   spread(summ,overall,fill=0) %>%
+  filter(enc_cnt > 0) %>%
   mutate(record_intensity=round(record_cnt/enc_cnt,2)) %>%
   mutate(label=ifelse(dense_rank(-enc_cnt)<=10 | dense_rank(-record_intensity)<=10,key,""))
 
@@ -610,11 +618,14 @@ load("./data/ccs_icd_cw.Rdata")
 conn<-connect_to_db(params$DBMS_type,config_file)
 
 ## historical diagnosis
-dx<-dbGetQuery(conn,
-               parse_sql(paste0("./inst/",params$DBMS_type,"/collect_dx.sql"),
-                         cdm_db_link=config_file$cdm_db_link,
-                         cdm_db_name=config_file$cdm_db_name,
-                         cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_dx.sql"),
+                           cdm_db_link=config_file$cdm_db_link,
+                           cdm_db_name=config_file$cdm_db_name,
+                           cdm_db_schema=config_file$cdm_db_schema)
+
+dx<-execute_single_sql(conn,
+                       statement=sql$statement,
+                       write=(sql$action=="write")) %>%
   #attach CCS diagnosis grouping
   dplyr::mutate(DX_ICD=paste0("ICD",DX_TYPE,":",DX)) %>%
   left_join(ccs_icd %>% select(-ccs_name),by=c("DX_ICD"="icd_w_type")) %>%
@@ -642,7 +653,7 @@ dx_summ<-dx %>%
   arrange(key)
 
 #save
-saveRDS(dx,file="./data/AKI_dx.rda")
+saveRDS(dx,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
 # saveRDS(dx_summ,file="./data/dx_summ.rda")
 
 #clean up
@@ -656,10 +667,11 @@ load("./data/ccs_ref.Rdata")
 
 #historical diagnosis
 dx_temp<-dx_summ %>% 
-  dplyr::select(key,enc_cnt,mean_history) %>% 
-  mutate(enc_cnt=suppressWarnings(ifelse(enc_cnt=="<11",
-                                         10,as.numeric(enc_cnt))),
+  dplyr::select(key,enc_cnt,mean_history) %>%
+  filter(enc_cnt!="<11") %>%
+  mutate(enc_cnt=as.numeric(enc_cnt),
          mean_history=as.numeric(mean_history)) %>%
+  filter(enc_cnt > 0) %>%
   mutate(label=ifelse(dense_rank(-enc_cnt)<=10,key,""))
 
 ggplot(dx_temp,aes(x=mean_history,y=enc_cnt,label=label))+
@@ -691,11 +703,14 @@ A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnoses has be
 ## procedure
 conn<-connect_to_db(params$DBMS_type,config_file)
 
-px<-dbGetQuery(conn,
-               parse_sql(paste0("./inst/",params$DBMS_type,"/collect_px.sql"),
-                         cdm_db_link=config_file$cdm_db_link,
-                         cdm_db_name=config_file$cdm_db_name,
-                         cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_px.sql"),
+                           cdm_db_link=config_file$cdm_db_link,
+                           cdm_db_name=config_file$cdm_db_name,
+                           cdm_db_schema=config_file$cdm_db_schema)
+
+px<-execute_single_sql(conn,
+                       statement=sql$statement,
+                       write=(sql$action=="write")) %>%
   dplyr::mutate(PX=paste0(PX_TYPE,":",PX)) %>%
   dplyr::rename(key=PX,dsa=DAYS_SINCE_ADMIT) %>%
   dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
@@ -723,7 +738,7 @@ px_summ<-px %>%
   arrange(key,dsa_grp)
 
 #save
-saveRDS(px,file="./data/AKI_px.rda")
+saveRDS(px,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
 # saveRDS(px_summ,file="./data/px_summ.rda")
 
 #clean up
@@ -734,8 +749,9 @@ rm(px); gc()
 ```{r px_out, echo=F, warning=F, message=F}
 px_temp<-px_summ %>% 
   dplyr::select(key,dsa_grp,enc_cnt) %>% 
-  mutate(enc_cnt=suppressWarnings(ifelse(enc_cnt=="<11",
-                                         10,as.numeric(enc_cnt)))) %>%
+  filter(enc_cnt!="<11") %>%
+  mutate(enc_cnt=as.numeric(enc_cnt)) %>%
+  filter(enc_cnt > 0) %>%
   arrange(desc(enc_cnt)) %>%
   mutate(label=ifelse(dense_rank(-enc_cnt)<=10,key,""))
 
@@ -774,11 +790,14 @@ A Total of `r length(unique(px_summ$key))` distinct total procedures codes have 
 ## medication
 conn<-connect_to_db(params$DBMS_type,config_file)
 
-med<-dbGetQuery(conn,
-                parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
-                          cdm_db_link=config_file$cdm_db_link,
-                          cdm_db_name=config_file$cdm_db_name,
-                          cdm_db_schema=config_file$cdm_db_schema)$statement) %>%
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
+                           cdm_db_link=config_file$cdm_db_link,
+                           cdm_db_name=config_file$cdm_db_name,
+                           cdm_db_schema=config_file$cdm_db_schema)
+
+med<-execute_single_sql(conn,
+                        statement=sql$statement,
+                        write=(sql$action=="write")) %>%
   dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
                                     pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
@@ -847,7 +866,7 @@ med_summ<-med %>%
   arrange(key,summ) 
 
 #save
-saveRDS(med2,file="./data/AKI_med.rda")
+saveRDS(med2,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
 # saveRDS(med_summ,file="./data/med_summ.rda")
 
 #clean up

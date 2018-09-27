@@ -31,34 +31,38 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
       filter(key %in% c("BP_DIASTOLIC","BP_SYSTOLIC")) %>%
       mutate(value=as.numeric(value)) %>%
       mutate(value=ifelse((key=="BP_DIASTOLIC" & (value>120 | value<40))|
-                          (key=="BP_SYSTOLIC" & (value>210 | value<40)),NA,value),
-             dsa_int=round(dsa)) %>%
-      group_by(ENCOUNTERID,key,dsa_int) %>%
+                          (key=="BP_SYSTOLIC" & (value>210 | value<40)),NA,value)) %>%
+      group_by(ENCOUNTERID,key,dsa) %>%
       dplyr::mutate(value_imp=median(value,na.rm=T)) %>%
       ungroup %>%
       filter(!is.na(value_imp)) %>%
       mutate(value=ifelse(is.na(value),value_imp,value)) %>%
       dplyr::select(-value_imp) 
     
+    #--minimal bp
     bp_min<-bp %>%
-      group_by(ENCOUNTERID,key,dsa_int) %>%
+      group_by(ENCOUNTERID,key,dsa) %>%
       dplyr::summarize(value_lowest=min(value,na.rm=T)) %>%
       ungroup %>%
       mutate(key=paste0(key,"_min"))
     
+    #--trend of bp
     bp_slp_obj<-bp %>%
-      group_by(ENCOUNTERID,key,dsa_int) %>%
-      do(fit_val=lm(value ~ dsa,data=.))
+      mutate(add_hour=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="hours")) %>%
+      mutate(timestamp=dsa+round(as.numeric(add_hour)/24,2)) %>%
+      dplyr::select(-add_hour) %>%
+      group_by(ENCOUNTERID,key,dsa) %>%
+      do(fit_val=lm(value ~ timestamp,data=.))
     
     bp_slp<-tidy(bp_slp_obj,fit_val) %>%
-      filter(term=="dsa") %>%
+      filter(term=="timestamp") %>%
       dplyr::rename(value=estimate) %>%
       mutate(key=paste0(key,"_slope"))
     
     bp<-bp_min %>% 
-      dplyr::select(ENCOUNTERID,key,value,dsa_int) %>%
+      dplyr::select(ENCOUNTERID,key,value,dsa) %>%
       bind_rows(bp_slp %>% 
-                  dplyr::select(ENCOUNTERID,key,value,dsa_int))
+                  dplyr::select(ENCOUNTERID,key,value,dsa))
     
     dat_out %<>%
       mutate(dsa_int=-1) %>% bind_rows(bp)
@@ -76,7 +80,12 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
       dplye::select(ENCOUTNERID,key,value,dsa)
     
     #calculated new features: BUN/SCr ratio (same-day)
-    bun_scr_ratio<-dat_out %>% filter(key %in% c())
+    bun_scr_ratio<-dat_out %>% 
+      filter(key %in% c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
+                        )) %>%
+      mutate(key_agg=case_when(key %in% c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8') ~ "SCR",
+                               key %in% c('3094-0','6299-2',) ~ "BUN",
+                               key %in% c('3097-3' ~ "BUN_SCR")))
     
     #engineer new features: change of lab from last collection
     
