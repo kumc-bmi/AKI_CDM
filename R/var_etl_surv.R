@@ -59,7 +59,6 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     
     #--trend of bp
     bp_slp_obj<-bp %>%
-      filter(as.numeric(format(timestamp,"%Y"))==bp_chk$yr[i]) %>%
       mutate(add_hour=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="hours")) %>%
       mutate(timestamp=dsa+sign(dsa)*round(as.numeric(add_hour)/24,2)) %>%
       dplyr::select(-add_hour) %>%

@@ -124,6 +124,7 @@ lab_delta %<>%
 ############vital###############
 #vital-smoking, tabacco, tobacco_type
 dat<-readRDS("./data/AKI_VITAL.rda")
+dat<-var_v
 dat_out<-dat %>% dplyr::select(-PATID) %>%
   filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
   group_by(ENCOUNTERID,key) %>%
