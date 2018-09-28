@@ -24,6 +24,10 @@ start_date="2010-01-01"
 end_date="2018-12-31"
 verb=F
 
+# auxilliary summaries and tables
+Table1<-readRDS("./data/Table1.rda")
+enc_tot<-length(unique(Table1$ENCOUNTERID))
+
 #statements to be tested
 sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
                cdm_db_link=config_file$cdm_db_link,

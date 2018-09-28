@@ -1,4 +1,4 @@
-#### test: lab collections ####
+#### test: demo collections ####
 source("./R/util.R")
 require_libraries(c("DBI",
                     "tidyr",
@@ -24,107 +24,79 @@ start_date="2010-01-01"
 end_date="2018-12-31"
 verb=F
 
+# auxilliary summaries and tables
+Table1<-readRDS("./data/Table1.rda")
+enc_tot<-length(unique(Table1$ENCOUNTERID))
+# critical dates of AKI encounters
+aki_stage_ind<-Table1 %>%
+  dplyr::select(PATID, ENCOUNTERID, ADMIT_DATE, DISCHARGE_DATE,
+                NONAKI_ANCHOR, AKI1_ONSET,AKI2_ONSET,AKI3_ONSET) %>%
+  gather(chk_pt, critical_date,-PATID,-ENCOUNTERID) %>%
+  filter(!is.na(critical_date)) %>%
+  mutate(chk_pt=gsub("_.*","",chk_pt)) %>%
+  group_by(chk_pt) %>%
+  dplyr::mutate(stg_tot_cnt=n()) %>%
+  ungroup %>%
+  arrange(PATID, ENCOUNTERID, chk_pt, critical_date, stg_tot_cnt)
+
+
 #statements to be tested
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_demo.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)
 
-#collect lab
-lab<-execute_single_sql(conn,
-                        statement=sql$statement,
-                        write=(sql$action=="write")) %>%
-  dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT,
-                dsa=DAYS_SINCE_ADMIT,timestamp=SPECIMEN_DATE_TIME) %>%
-  dplyr::select(PATID,ENCOUNTERID,key,value,unit,dsa,timestamp) %>%
-  filter(!is.na(key) & !is.na(value)) %>%
-  unique %>%
-  mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
-                           dsa >=0 & dsa < 1 ~ "1",
-                           dsa >=1 & dsa < 2 ~ "2",
-                           dsa >=2 & dsa < 3 ~ "3",
-                           dsa >=3 & dsa < 4 ~ "4",
-                           dsa >=4 & dsa < 5 ~ "5",
-                           dsa >=5 & dsa < 6 ~ "6",
-                           dsa >=6 & dsa < 7 ~ "7",
-                           dsa >=7 ~ "7<")) 
+demo<-execute_single_sql(conn,
+                         statement=sql$statement,
+                         write=(sql$action=="write")) %>%
+  mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
+                           AGE >= 26 & AGE <= 35 ~ "26-35",
+                           AGE >= 36 & AGE <= 45 ~ "36-45",
+                           AGE >= 46 & AGE <= 55 ~ "46-55",
+                           AGE >= 56 & AGE <= 65 ~ "56-65",
+                           AGE >= 66 ~ "66<=")) %>%
+  dplyr::select(PATID,ENCOUNTERID,
+                AGE,AGE_GRP,SEX,RACE,HISPANIC,DDAYS_SINCE_ENC) %>%
+  replace_na(list(AGE="NI",
+                  AGE_GRP="NI",
+                  SEX="NI",
+                  RACE="NI",
+                  HISPANIC="NI")) %>%
+  gather(key,value,-PATID,-ENCOUNTERID) %>%
+  unique
 #passed!
 
 
 #collect summaries
-lab_summ<-lab %>% 
-  group_by(key) %>%
-  dplyr::summarize(record_cnt=n(),
-                   enc_cnt=length(unique(ENCOUNTERID)),
-                   min=min(value,na.rm=T),
-                   mean=round(mean(value,na.rm=T),2),
-                   sd=round(sd(value,na.rm=T),3),
-                   median=round(median(value,na.rm=T)),
-                   max=max(value,na.rm=T)) %>%
-  ungroup %>%
-  mutate(cov=round(sd/mean,3)) %>%
-  mutate(freq_rk=rank(-enc_cnt,ties.method="first")) %>%
-  #HIPPA, low counts masking
-  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
-         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt))) %>%
-  gather(summ,overall,-key,-freq_rk) %>%
-  left_join(
-    lab %>%
-      group_by(key,dsa_grp) %>%
-      dplyr::summarize(record_cnt=n(),
-                       enc_cnt=length(unique(ENCOUNTERID)),
-                       min=min(value,na.rm=T),
-                       mean=round(mean(value,na.rm=T),2),
-                       sd=round(sd(value,na.rm=T),3),
-                       median=round(median(value,na.rm=T)),
-                       max=max(value,na.rm=T)) %>%
-      ungroup %>%
-      mutate(cov=round(sd/mean,3)) %>%
-      #HIPPA, low counts masking
-      mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
-             record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt)),
-             sd=ifelse(is.nan(sd),0,sd)) %>%
-      gather(summ,summ_val,-key,-dsa_grp) %>%
-      spread(dsa_grp,summ_val),
-    by=c("key","summ")
-  ) %>%
-  arrange(freq_rk,summ) %>%
-  #additional 
-  mutate(at_admission=ifelse(is.na(`1`),0,1),
-         within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1))
-#
-
-#data for plotting
-lab_temp<-lab_summ %>%
-  filter(summ %in% c("enc_cnt","record_cnt")) %>%
-  dplyr::select(key,summ,overall) %>% unique %>%
-  spread(summ,overall,fill=0) %>%
-  filter(enc_cnt!="<11") %>%
-  mutate(enc_cnt=as.numeric(enc_cnt)) %>%
-  mutate(record_intensity=round(record_cnt/enc_cnt,2)) %>%
-  mutate(label=ifelse(dense_rank(-enc_cnt)<=10 | dense_rank(-record_intensity)<=10,key,""))
-
-p1<-ggplot(lab_temp,aes(x=record_intensity,y=enc_cnt,label=label))+
-  geom_point()+ geom_text_repel(segment.alpha=0.5,segment.color="grey")+
-  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
-                                         name = 'Percentage'))+
-  labs(x="Average Records per Encounter",
-       y="Encounter Counts",
-       title="Figure 1 - Data Density vs. Records Intensity")
-
-#find links
-lab_report<-lab_temp %>%
-  dplyr::filter(key != "NI") %>%
-  arrange(desc(enc_cnt)) %>% 
-  dplyr::select(key) %>%
-  unique %>% slice(1:5) %>%
-  bind_rows(
-    lab_temp %>% 
-      dplyr::filter(key != "NI") %>%
-      arrange(desc(record_intensity)) %>% 
-      dplyr::select(key) %>%
-      unique %>% slice(1:2)
-  ) %>%
-  mutate(link=lapply(key,get_loinc_ref))
-
-
+demo_summ<-aki_stage_ind %>% 
+  filter(!chk_pt %in% c("DISCHARGE")) %>%
+  dplyr::select(-critical_date) %>%
+  left_join(demo %>% 
+              filter(!(key %in% c("AGE","DDAYS_SINCE_ENC"))), 
+            by="ENCOUNTERID") %>%
+  group_by(chk_pt,stg_tot_cnt,key,value) %>%
+  dplyr::summarize(enc_cnt = n(),
+                   enc_prop = round(n()/stg_tot_cnt[1],2)) %>%
+  ungroup %>% dplyr::select(-stg_tot_cnt) %>%
+  gather(summ,summ_val,-chk_pt,-key,-value) %>%
+  # # decode demo_val
+  # left_join(meta %>% dplyr::select(COLUMN_NAME,VAR_CODE,VAR_NAME),
+  #           by=c("demo_type"="COLUMN_NAME","demo_val"="VAR_CODE")) %>%
+  # dplyr::mutate(demo_val = ifelse(!is.na(VAR_NAME),VAR_NAME,demo_val)) %>%
+  # dplyr::select(-VAR_NAME) %>%
+  # unite("demo_type_cat",c("demo_type","demo_val")) %>%
+  # attach totals at bottom
+  bind_rows(aki_stage_ind %>%
+              filter(!chk_pt %in% c("DISCHARGE")) %>%
+              dplyr::select(chk_pt,stg_tot_cnt) %>% 
+              unique %>% 
+              dplyr::rename(enc_cnt=stg_tot_cnt) %>%
+              mutate(enc_prop=round(enc_cnt/enc_tot,2),
+                     key="TOTAL",
+                     value="(%/overall)") %>%
+              gather(summ,summ_val,-chk_pt,-key,-value) %>%
+              dplyr::select(key,value,chk_pt,summ,summ_val)) %>%
+  unite("stg_summ",c("chk_pt","summ")) %>%
+  unique %>% spread(stg_summ,summ_val) %>%
+  replace(.,is.na(.),0)
+#passed!

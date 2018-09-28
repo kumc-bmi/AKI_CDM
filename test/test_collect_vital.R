@@ -1,4 +1,4 @@
-#### test: lab collections ####
+#### test: vital collections ####
 source("./R/util.R")
 require_libraries(c("DBI",
                     "tidyr",
@@ -24,21 +24,47 @@ start_date="2010-01-01"
 end_date="2018-12-31"
 verb=F
 
+# auxilliary summaries and tables
+Table1<-readRDS("./data/Table1.rda")
+enc_tot<-length(unique(Table1$ENCOUNTERID))
+
 #statements to be tested
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_vital.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)
 
-#collect lab
-lab<-execute_single_sql(conn,
-                        statement=sql$statement,
-                        write=(sql$action=="write")) %>%
-  dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT,
-                dsa=DAYS_SINCE_ADMIT,timestamp=SPECIMEN_DATE_TIME) %>%
-  dplyr::select(PATID,ENCOUNTERID,key,value,unit,dsa,timestamp) %>%
+#collect vital
+vital<-execute_single_sql(conn,
+                          statement=sql$statement,
+                          write=(sql$action=="write")) %>%
+  mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
+                             ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
+                             ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
+  dplyr::rename(dsa=DAYS_SINCE_ADMIT,
+                timestamp=MEASURE_DATE_TIME) %>%
+  gather(key,value,-PATID,-ENCOUNTERID,-dsa,-timestamp) %>%
   filter(!is.na(key) & !is.na(value)) %>%
-  unique %>%
+  mutate(key=recode(key,
+                    ORIGINAL_BMI="BMI",
+                    SYSTOLIC="BP_SYSTOLIC",
+                    DIASTOLIC="BP_DIASTOLIC")) %>%
+  unique
+
+vital1<-vital %>%
+  dplyr::select(ENCOUNTERID, key, value, dsa) %>%
+  filter(key %in% c("HT","WT","BMI","BP_DIASTOLIC","BP_SYSTOLIC")) %>%
+  mutate(value=as.numeric(value)) %>%
+  mutate(param_low=case_when(key=="HT" ~ 0,
+                             key=="WT" ~ 0,
+                             key=="BMI" ~ 0,
+                             key %in% c("BP_DIASTOLIC",
+                                        "BP_SYSTOLIC") ~ 40),
+         param_high=case_when(key=="HT" ~ 94.99,
+                              key=="WT" ~ 350,
+                              key=="BMI" ~ 50,
+                              key=="BP_DIASTOLIC"~120,
+                              key=="BP_SYSTOLIC" ~ 210)) %>%
   mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
                            dsa >=0 & dsa < 1 ~ "1",
                            dsa >=1 & dsa < 2 ~ "2",
@@ -47,84 +73,112 @@ lab<-execute_single_sql(conn,
                            dsa >=4 & dsa < 5 ~ "5",
                            dsa >=5 & dsa < 6 ~ "6",
                            dsa >=6 & dsa < 7 ~ "7",
-                           dsa >=7 ~ "7<")) 
+                           dsa >=7 ~ "7<"))
 #passed!
 
 
 #collect summaries
-lab_summ<-lab %>% 
+vital_summ<-vital1 %>%
   group_by(key) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
+                   low_cnt=sum((value<param_low)),
+                   high_cnt=sum((value>param_high)),
                    min=min(value,na.rm=T),
-                   mean=round(mean(value,na.rm=T),2),
-                   sd=round(sd(value,na.rm=T),3),
+                   mean=round(mean(value,na.rm=T)),
+                   sd=round(sd(value,na.rm=T)),
                    median=round(median(value,na.rm=T)),
                    max=max(value,na.rm=T)) %>%
   ungroup %>%
-  mutate(cov=round(sd/mean,3)) %>%
-  mutate(freq_rk=rank(-enc_cnt,ties.method="first")) %>%
+  mutate(cov=round(sd/mean,1)) %>%
   #HIPPA, low counts masking
-  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
-         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt))) %>%
-  gather(summ,overall,-key,-freq_rk) %>%
+  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",enc_cnt),
+         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",record_cnt),
+         low_cnt=ifelse(as.numeric(low_cnt)<11 & as.numeric(low_cnt)>0,"<11",as.character(low_cnt)),
+         high_cnt=ifelse(as.numeric(high_cnt)<11 & as.numeric(high_cnt)>0,"<11",as.character(high_cnt))) %>%
+  gather(summ,overall,-key) %>%
+  mutate(summ=recode(summ,
+                     enc_cnt="1.encounters#",
+                     record_cnt="2.records#",
+                     low_cnt="3.low_records#",
+                     high_cnt="4.high_records#",
+                     min="5a.min",
+                     median="5b.median",
+                     mean="5c.mean",
+                     sd="5d.sd",
+                     cov="5e.cov",
+                     max="5f.max")) %>%
   left_join(
-    lab %>%
+    vital1 %>%
       group_by(key,dsa_grp) %>%
       dplyr::summarize(record_cnt=n(),
                        enc_cnt=length(unique(ENCOUNTERID)),
+                       low_cnt=sum((value<param_low)),
+                       high_cnt=sum((value>param_high)),
                        min=min(value,na.rm=T),
-                       mean=round(mean(value,na.rm=T),2),
-                       sd=round(sd(value,na.rm=T),3),
+                       mean=round(mean(value,na.rm=T)),
+                       sd=round(sd(value,na.rm=T)),
                        median=round(median(value,na.rm=T)),
                        max=max(value,na.rm=T)) %>%
       ungroup %>%
-      mutate(cov=round(sd/mean,3)) %>%
+      mutate(cov=round(sd/mean,1)) %>%
       #HIPPA, low counts masking
-      mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
-             record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt)),
-             sd=ifelse(is.nan(sd),0,sd)) %>%
+      mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",enc_cnt),
+             record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",record_cnt),
+             low_cnt=ifelse(as.numeric(low_cnt)<11 & as.numeric(low_cnt)>0,"<11",as.character(low_cnt)),
+             high_cnt=ifelse(as.numeric(high_cnt)<11 & as.numeric(high_cnt)>0,"<11",as.character(high_cnt))) %>%
       gather(summ,summ_val,-key,-dsa_grp) %>%
-      spread(dsa_grp,summ_val),
+      spread(dsa_grp,summ_val) %>%
+      mutate(summ=recode(summ,
+                         enc_cnt="1.encounters#",
+                         record_cnt="2.records#",
+                         low_cnt="3.low_records#",
+                         high_cnt="4.high_records#",
+                         min="5a.min",
+                         median="5b.median",
+                         mean="5c.mean",
+                         sd="5d.sd",
+                         cov="5e.cov",
+                         max="5f.max")),
     by=c("key","summ")
   ) %>%
-  arrange(freq_rk,summ) %>%
-  #additional 
-  mutate(at_admission=ifelse(is.na(`1`),0,1),
-         within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1))
-#
+  arrange(key,summ) %>%
+  gather(days_from_admit,summ_val,-key,-summ) %>% 
+  spread(summ,summ_val)
 
-#data for plotting
-lab_temp<-lab_summ %>%
-  filter(summ %in% c("enc_cnt","record_cnt")) %>%
-  dplyr::select(key,summ,overall) %>% unique %>%
-  spread(summ,overall,fill=0) %>%
-  filter(enc_cnt!="<11") %>%
-  mutate(enc_cnt=as.numeric(enc_cnt)) %>%
-  mutate(record_intensity=round(record_cnt/enc_cnt,2)) %>%
-  mutate(label=ifelse(dense_rank(-enc_cnt)<=10 | dense_rank(-record_intensity)<=10,key,""))
 
-p1<-ggplot(lab_temp,aes(x=record_intensity,y=enc_cnt,label=label))+
-  geom_point()+ geom_text_repel(segment.alpha=0.5,segment.color="grey")+
-  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
-                                         name = 'Percentage'))+
-  labs(x="Average Records per Encounter",
-       y="Encounter Counts",
-       title="Figure 1 - Data Density vs. Records Intensity")
+vital_smoke_summ<-vital %>%
+  dplyr::select(PATID,ENCOUNTERID, key, value) %>%
+  filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
+  unique %>%
+  group_by(PATID,ENCOUNTERID, key) %>%
+  dplyr::mutate(value=paste(value[order(value)],collapse = ",")) %>% 
+  ungroup %>% unique %>%
+  spread(key,value) %>%
+  right_join(Table1 %>% dplyr::select(PATID,ENCOUNTERID),
+             by=c("PATID","ENCOUNTERID")) %>%
+  replace_na(list(SMOKING="NI",
+                  TOBACCO="NI",
+                  TOBACCO_TYPE="NI")) %>%
+  gather(key,value,-PATID,-ENCOUNTERID) %>%
+  mutate(key2=key) %>%
+  unite("key_cat",c("key2","value")) %>%
+  group_by(key,key_cat) %>%
+  dplyr::summarize(pat_cnt=length(unique(PATID)),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   enc_prop=length(unique(ENCOUNTERID))/enc_tot) %>%
+  arrange(desc(pat_cnt)) %>%
+  ungroup %>%
+  #HIPPA, low counts masking
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11 & as.numeric(pat_cnt)>0,"<11",as.character(pat_cnt)),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
+         enc_prop=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",paste0(round(enc_prop,2)*100,"%"))) %>%
+  gather(summ,summ_val,-key_cat,-key) %>%
+  mutate(summ=recode(summ,
+                     pat_cnt="1.patients#",
+                     enc_cnt="2.encounters#",
+                     enc_prop="3.encounters%")) %>%
+  spread(summ,summ_val)
 
-#find links
-lab_report<-lab_temp %>%
-  dplyr::filter(key != "NI") %>%
-  arrange(desc(enc_cnt)) %>% 
-  dplyr::select(key) %>%
-  unique %>% slice(1:5) %>%
-  bind_rows(
-    lab_temp %>% 
-      dplyr::filter(key != "NI") %>%
-      arrange(desc(record_intensity)) %>% 
-      dplyr::select(key) %>%
-      unique %>% slice(1:2)
-  ) %>%
-  mutate(link=lapply(key,get_loinc_ref))
 
 
