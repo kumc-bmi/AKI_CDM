@@ -1,145 +1,66 @@
 #### survival-like prediction model ####
-format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
-  if(type=="demo"){
-    #demo has to be unqiue for each encounter
-    dat_out<-dat%>% dplyr::select(-PATID) %>%
-      filter(key %in% c("AGE","SEX","RACE","HISPANIC")) %>%
-      group_by(ENCOUNTERID,key) %>%
-      top_n(n=1L,wt=value) %>% #randomly pick one if multiple entries exist
-      ungroup
-  }else if(type=="vital"){
-    dat_out<-c()
-    
-    #multiple smoking status is resolved by using the most recent record
-    dat_out %<>%
-      bind_rows(dat %>% dplyr::select(-PATID) %>%
-                  filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
-                  group_by(ENCOUNTERID,key) %>%
-                  arrange(value) %>% slice(1:1) %>%
-                  ungroup)
-    
-    #multiple ht,wt,bmi resolved by taking median
-    dat_out %<>%
-      bind_rows(dat %>% dplyr::select(-PATID) %>%
-                  filter(key %in% c("HT","WT","BMI")) %>%
-                  group_by(ENCOUNTERID,key) %>%
-                  dplyr::summarize(value=median(as.numeric(value),na.rm=T)) %>%
-                  ungroup)
+rm(list=ls()); gc()
 
-    #multiple bp are aggregated by taking: lowest & slope
-    bp<-dat %>% dplyr::select(-PATID) %>%
-      filter(key %in% c("BP_DIASTOLIC","BP_SYSTOLIC")) %>%
-      mutate(value=as.numeric(value)) %>%
-      mutate(value=ifelse((key=="BP_DIASTOLIC" & (value>120 | value<40))|
-                          (key=="BP_SYSTOLIC" & (value>210 | value<40)),NA,value)) %>%
-      group_by(ENCOUNTERID,key,dsa) %>%
-      dplyr::mutate(value_imp=median(value,na.rm=T)) %>%
-      ungroup %>%
-      filter(!is.na(value_imp)) %>%
-      mutate(value=ifelse(is.na(value),value_imp,value)) %>%
-      dplyr::select(-value_imp) 
+source("./R/util.R")
+source("./R/var_etl_surv.R")
+require_libraries(c("tidyr",
+                    "dplyr",
+                    "magrittr",
+                    "stringr",
+                    "broom"))
+
+
+#collect and format variables on daily basis
+tbl1<-readRDS("./data/Table1.rda") %>%
+  mutate(yr=as.numeric(format(ADMIT_DATE,"%Y")))
+
+#--by chunks: encounter year
+enc_yr<-tbl1 %>%
+  dplyr::select(yr) %>%
+  unique %>% arrange(yr) %>%
+  filter(yr>2009) %>%
+  unlist
+
+#--by variable type
+var_type<-c("demo","vital","lab","dx","px","med")
+
+#--save results as array
+var_by_yr<-list()
+var_bm<-list()
+for(i in seq_along(enc_yr)){
+  start_i<-Sys.time()
+  cat("start variabl collection for year",enc_yr[i],".\n")
+  
+  dat_i<-tbl1 %>% filter(yr==enc_yr[i])
+  var_at<-c()
+  var_at_bm<-c()
+  for(v in seq_along(var_type)){
+    start_v<-Sys.time()
     
-    #--minimal bp
-    bp_min<-bp %>%
-      group_by(ENCOUNTERID,key,dsa) %>%
-      dplyr::summarize(value_lowest=min(value,na.rm=T)) %>%
-      ungroup %>%
-      mutate(key=paste0(key,"_min"))
+    var_v<-readRDS(paste0("./data/AKI_",toupper(var_type[v]),".rda")) %>%
+      semi_join(dat_i,by="ENCOUNTERID")
+
+    var_at %<>%
+      bind_rows(format_data(var_v,type=var_type[v]))
     
-    #--trend of bp
-    bp_slp_obj<-bp %>%
-      mutate(add_hour=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="hours")) %>%
-      mutate(timestamp=dsa+round(as.numeric(add_hour)/24,2)) %>%
-      dplyr::select(-add_hour) %>%
-      group_by(ENCOUNTERID,key,dsa) %>%
-      do(fit_val=lm(value ~ timestamp,data=.))
-    
-    bp_slp<-tidy(bp_slp_obj,fit_val) %>%
-      filter(term=="timestamp") %>%
-      dplyr::rename(value=estimate) %>%
-      mutate(key=paste0(key,"_slope"))
-    
-    bp<-bp_min %>% 
-      dplyr::select(ENCOUNTERID,key,value,dsa) %>%
-      bind_rows(bp_slp %>% 
-                  dplyr::select(ENCOUNTERID,key,value,dsa))
-    
-    dat_out %<>%
-      mutate(dsa_int=-1) %>% bind_rows(bp)
-    
-    rm(bp,bp_min,bp_slp_obj,bp_slp)
-    gc()
-  }else if(type=="lab"){
-    #multiple same lab on the same day will be resolved by taking the average
-    dat_out<-dat %>% dplyr::select(-PATID) %>%
-      unite("key_unit",c("key","unit"),sep="@") %>%
-      group_by(ENCOUNTERID,key_unit,dsa) %>%
-      dplyr::summarize(value=mean(value,na.rm=T)) %>%
-      ungroup %>%
-      dplyr::rename(key=key_unit) %>%
-      dplye::select(ENCOUTNERID,key,value,dsa)
-    
-    #calculated new features: BUN/SCr ratio (same-day)
-    bun_scr_ratio<-dat_out %>% 
-      mutate(key_agg=case_when(key %in% c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
-                                          '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
-                                          '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9') ~ "SCR",
-                               key %in% c('12966-8','12965-0','6299-2','59570-2','12964-3','49071-4','72270-2',
-                                          '11065-0','3094-0','35234-4','14937-7') ~ "BUN",
-                               key %in% c('3097-3','44734-2') ~ "BUN_SCR")) %>%
-      filter(toupper(unit) %in% c("MG/DL","MG/MG") & key_agg %in% c("SCR","BUN","BUN_SCR")) %>%
-      group_by(ENCOUNTERID,key_agg,dsa) %>%
-      dplyr::summarize(value=mean(value,na.rm=T)) %>%
-      ungroup %>%
-      spread(key_agg,value) %>%
-      filter((!is.na(SCR)&!is.na(BUN))|!is.na(BUN_SCR)) %>%
-      mutate(BUN_SCR = ifelse(is.na(BUN_SCR),round(BUN/SCR,2),BUN_SCR)) %>%
-      mutate(key="BUN_SCR") %>%
-      dplyr::rename(value=BUN_SCR) %>%
-      dplyr::select(ENCOUNTERID,key,value,dsa)
-    
-    #engineer new features: change of lab from last collection
-    lab_delta_eligb<-dat_out %>%
-      group_by(ENCOUNTERID,key) %>%
-      dplyr::mutate(lab_cnt=length(unique(dsa))) %>%
-      ungroup %>%
-      group_by(key) %>%
-      dplyr::summarize(p5=quantile(lab_cnt,probs=0.05,na.rm=T),
-                       p25=quantile(lab_cnt,probs=0.25,na.rm=T),
-                       med=median(lab_cnt,na.rm=T),
-                       p75=quantile(lab_cnt,probs=0.75,na.rm=T),
-                       p95=quantile(lab_cnt,probs=0.95,na.rm=T))
-    
-    lab_delta<-dat_out %>%
-      semi_join(lab_delta_eligb %>% filter(med>=2),
-                by="key")
-    dsa_rg<-seq(min(lab_delta$dsa),max(lab_delta$dsa))
-    
-      
-    
-    
-  }else if(type %in% c("dx","px")){
-    #multiple records resolved as "present (1) or absent (0)"
-    dat_out<-dat %>% dplyr::select(-PATID) %>%
-      group_by(ENCOUNTERID,key,dsa) %>%
-      dplyr::summarize(value=(n() >= 1)*1) %>%
-      ungroup
-      
-  }else if(type=="med"){
-    #multiple records accumulated
-    dat_out<-dat %>% dplyr::select(-PATID) %>%
-      group_by(ENCOUNTERID,key) %>%
-      arrange(dsa) %>%
-      dplyr::mutate(value=cumsum(value)) %>%
-      ungroup %>%
-      mutate(key=paste0(key,"_cum")) %>%
-      dplyr::select(ENCOUNTERID,key,value, dsa) %>%
-      bind_rows(dat %>% dplyr::select(-PATID) %>%
-                  dplyr::select(ENCOUNTERID,key,value, dsa) %>%
-                  unique)
+    lapse_v<-Sys.time()-start_v
+    var_at_bm<-c(var_at_bm,paste0(lapse_v,units(lapse_v)))
+    cat("...collect and transform",var_type[v],"for year",enc_yr[i],"in",lapse_v,units(lapse_v),".\n")
   }
-  return(dat_out)
+  var_by_yr[[enc_yr[i]]]<-var_at
+  
+  lapse_i<-Sys.time()-start_i
+  var_at_bm<-paste0(lapse_i,units(lapse_i))
+  cat("finish variabl collection for year",enc_yr[i],"in",lapse_i,units(lapse_i),".\n")
+  
+  var_bm[[i]]<-data.frame(bm_nm=c(var_type,"overall"),
+                          bm_time=var_at_bm,
+                          stringsAsFactors = F)
 }
+
+saveRDS(var_by_yr,file="./data/var_by_yr.rda")
+saveRDS(var_bm,file="./data/var_dm.rda")
+
 
 
 setwd("~/dkd/DKD_PM")

@@ -767,7 +767,8 @@ px_report<-px_temp %>%
   arrange(desc(enc_cnt)) %>%
   dplyr::select(key) %>%
   unique %>% slice(1:5) %>%
-  mutate(link=lapply(key,google_code))
+  # mutate(link=lapply(key,google_code)) %>%
+  mutate(link="https://coder.aapc.com/cpt-codes/")
   
 ```
 

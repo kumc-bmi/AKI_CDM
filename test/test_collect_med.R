@@ -1,4 +1,4 @@
-#### test: lab collections ####
+#### test: med collections ####
 source("./R/util.R")
 require_libraries(c("DBI",
                     "tidyr",
@@ -24,107 +24,124 @@ start_date="2010-01-01"
 end_date="2018-12-31"
 verb=F
 
+# auxilliary summaries and tables
+Table1<-readRDS("./data/Table1.rda")
+enc_tot<-length(unique(Table1$ENCOUNTERID))
+
 #statements to be tested
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)
 
-#collect lab
-lab<-execute_single_sql(conn,
+med<-execute_single_sql(conn,
                         statement=sql$statement,
                         write=(sql$action=="write")) %>%
-  dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT,
-                dsa=DAYS_SINCE_ADMIT,timestamp=SPECIMEN_DATE_TIME) %>%
-  dplyr::select(PATID,ENCOUNTERID,key,value,unit,dsa,timestamp) %>%
-  filter(!is.na(key) & !is.na(value)) %>%
-  unique %>%
-  mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
-                           dsa >=0 & dsa < 1 ~ "1",
-                           dsa >=1 & dsa < 2 ~ "2",
-                           dsa >=2 & dsa < 3 ~ "3",
-                           dsa >=3 & dsa < 4 ~ "4",
-                           dsa >=4 & dsa < 5 ~ "5",
-                           dsa >=5 & dsa < 6 ~ "6",
-                           dsa >=6 & dsa < 7 ~ "7",
-                           dsa >=7 ~ "7<")) 
-#passed!
+  dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
+                                    pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
+  replace_na(list(RX_QUANTITY_DAILY=1)) %>%
+  dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
+  unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
 
+#converted to daily exposure
+batch<-20
+expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch)))
+med2<-med %>% filter(RX_EXPOS<=1) %>% 
+  dplyr::mutate(dsa=as.character(sdsa),edsa=sdsa,value=RX_QUANTITY_DAILY) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
+
+for(i in seq_len(length(expos_quant)-1)){
+  med_sub<-med %>% filter(RX_EXPOS > expos_quant[i] & RX_EXPOS <= expos_quant[i+1])
+  med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
+    group_by(PATID,ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
+    dplyr::mutate(expos_daily=1:n()-1) %>% 
+    dplyr::summarize(edsa=max(sdsa+expos_daily),
+                     dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
+    ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
+    dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
+  med2 %<>% bind_rows(med_expand)
+  gc()
+}
+
+#merge overlapped precribing intervals
+med2 %<>% 
+  group_by(PATID,ENCOUNTERID,key,sdsa,edsa,dsa) %>%
+  dplyr::summarize(value=value[1]) %>%
+  ungroup
+
+med<-med2 %>%
+  group_by(PATID,ENCOUNTERID,key,sdsa) %>%
+  dplyr::summarize(RX_EXPOS=pmax(1,sum(value,na.rm=T))) %>%
+  ungroup
 
 #collect summaries
-lab_summ<-lab %>% 
-  group_by(key) %>%
+med_summ<-med %>% 
+  mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
+                           sdsa >=0 & sdsa < 1 ~ "1",
+                           sdsa >=1 & sdsa < 2 ~ "2",
+                           sdsa >=2 & sdsa < 3 ~ "3",
+                           sdsa >=3 & sdsa < 4 ~ "4",
+                           sdsa >=4 & sdsa < 5 ~ "5",
+                           sdsa >=5 & sdsa < 6 ~ "6",
+                           sdsa >=6 & sdsa < 7 ~ "7",
+                           sdsa >=7 ~ "7<")) %>%
+  group_by(key,dsa_grp) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
-                   min=min(value,na.rm=T),
-                   mean=round(mean(value,na.rm=T),2),
-                   sd=round(sd(value,na.rm=T),3),
-                   median=round(median(value,na.rm=T)),
-                   max=max(value,na.rm=T)) %>%
+                   min_expos=min(RX_EXPOS,na.rm=T),
+                   mean_expos=round(mean(RX_EXPOS,na.rm=T)),
+                   sd_expos=round(sd(RX_EXPOS,na.rm=T)),
+                   median_expos=round(median(RX_EXPOS,na.rm=T)),
+                   max_expos=max(RX_EXPOS,na.rm=T)) %>%
   ungroup %>%
-  mutate(cov=round(sd/mean,3)) %>%
-  mutate(freq_rk=rank(-enc_cnt,ties.method="first")) %>%
   #HIPPA, low counts masking
-  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
-         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt))) %>%
-  gather(summ,overall,-key,-freq_rk) %>%
-  left_join(
-    lab %>%
-      group_by(key,dsa_grp) %>%
-      dplyr::summarize(record_cnt=n(),
-                       enc_cnt=length(unique(ENCOUNTERID)),
-                       min=min(value,na.rm=T),
-                       mean=round(mean(value,na.rm=T),2),
-                       sd=round(sd(value,na.rm=T),3),
-                       median=round(median(value,na.rm=T)),
-                       max=max(value,na.rm=T)) %>%
-      ungroup %>%
-      mutate(cov=round(sd/mean,3)) %>%
-      #HIPPA, low counts masking
-      mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
-             record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",as.character(record_cnt)),
-             sd=ifelse(is.nan(sd),0,sd)) %>%
-      gather(summ,summ_val,-key,-dsa_grp) %>%
-      spread(dsa_grp,summ_val),
-    by=c("key","summ")
-  ) %>%
-  arrange(freq_rk,summ) %>%
-  #additional 
-  mutate(at_admission=ifelse(is.na(`1`),0,1),
-         within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1))
-#
+  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt)),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",as.character(record_cnt)),
+         sd_expos=ifelse(is.na(sd_expos),0,sd_expos)) %>%
+  dplyr::mutate(cov_expos=round(sd_expos/mean_expos,1)) %>%
+  gather(summ,summ_val,-key,-dsa_grp) %>%
+  spread(dsa_grp,summ_val) %>%
+  arrange(key,summ)
+
 
 #data for plotting
-lab_temp<-lab_summ %>%
-  filter(summ %in% c("enc_cnt","record_cnt")) %>%
-  dplyr::select(key,summ,overall) %>% unique %>%
-  spread(summ,overall,fill=0) %>%
-  filter(enc_cnt!="<11") %>%
-  mutate(enc_cnt=as.numeric(enc_cnt)) %>%
-  mutate(record_intensity=round(record_cnt/enc_cnt,2)) %>%
-  mutate(label=ifelse(dense_rank(-enc_cnt)<=10 | dense_rank(-record_intensity)<=10,key,""))
+med_temp<-med_summ %>% 
+  filter(summ %in% c("enc_cnt","median_expos")) %>% 
+  gather(dsa_grp,summ_val,-summ,-key) %>%
+  filter(!is.na(summ_val) & (summ_val!="<11")) %>%
+  mutate(summ_val=as.numeric(summ_val)) %>%
+  spread(summ,summ_val) %>%
+  filter(!is.na(median_expos) & enc_cnt>=enc_tot*0.005) %>%
+  arrange(median_expos) %>%
+  group_by(dsa_grp) %>%
+  dplyr::mutate(label=ifelse(dense_rank(-enc_cnt)<=3,key,"")) %>%
+  ungroup %>%
+  dplyr::mutate(label=ifelse(label!="",label,
+                             ifelse(dense_rank(-median_expos)<=2,key,"")))
 
-p1<-ggplot(lab_temp,aes(x=record_intensity,y=enc_cnt,label=label))+
-  geom_point()+ geom_text_repel(segment.alpha=0.5,segment.color="grey")+
+ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=median_expos,label=label)) +
+  geom_point() + geom_text_repel()+
   scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                          name = 'Percentage'))+
-  labs(x="Average Records per Encounter",
-       y="Encounter Counts",
-       title="Figure 1 - Data Density vs. Records Intensity")
+  scale_color_gradient2(low = "green",mid="blue",high ="red", 
+                        midpoint = 2)+
+  labs(x="Start Date",y="Encounter Counts",color="Median Exposure (days)",
+       title="Figure 4 - Medication Exposure Summaries")
 
-#find links
-lab_report<-lab_temp %>%
-  dplyr::filter(key != "NI") %>%
-  arrange(desc(enc_cnt)) %>% 
-  dplyr::select(key) %>%
-  unique %>% slice(1:5) %>%
-  bind_rows(
-    lab_temp %>% 
-      dplyr::filter(key != "NI") %>%
-      arrange(desc(record_intensity)) %>% 
-      dplyr::select(key) %>%
-      unique %>% slice(1:2)
-  ) %>%
-  mutate(link=lapply(key,get_loinc_ref))
 
+#add link
+med_report<-med_temp %>%
+  mutate(key=gsub("\\:.*","",key)) %>%
+  arrange(desc(enc_cnt)) %>%
+  dplyr::select(key) %>% 
+  unique %>% slice(1:3) %>%
+  bind_rows(med_temp %>%
+              mutate(key=gsub("\\:.*","",key)) %>%
+              arrange(desc(median_expos)) %>%
+              dplyr::select(key) %>%
+              unique %>% slice(1:3)) %>%
+  mutate(pos=1:n()) %>%
+  mutate(rx_name=lapply(key,get_rxcui_nm)) %>%
+  arrange(pos)
 
