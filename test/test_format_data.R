@@ -9,7 +9,8 @@ require_libraries(c("tidyr",
                     "broom"))
 
 dat<-readRDS("./data/AKI_DEMO.rda")
-dat_out<-dat%>% dplyr::select(-PATID) %>%
+dat<-var_v
+dat_out<-dat %>% dplyr::select(-PATID) %>%
   filter(key %in% c("AGE","SEX","RACE","HISPANIC")) %>%
   group_by(ENCOUNTERID,key) %>%
   top_n(n=1L,wt=value) %>% #randomly pick one if multiple entries exist
@@ -56,13 +57,13 @@ dat_out<-dat %>% dplyr::select(-PATID) %>%
 
 ############lab###########
 dat<-readRDS("./data/AKI_LAB.rda")
+dat<-var_v
 dat_out<-dat %>% dplyr::select(-PATID) %>%
-  unite("key_unit",c("key","unit"),sep="@") %>%
-  group_by(ENCOUNTERID,key_unit,dsa) %>%
+  mutate(key_cp=key,unit_cp=unit) %>%
+  unite("key_unit",c("key_cp","unit_cp"),sep="@") %>%
+  group_by(ENCOUNTERID,key,unit,key_unit,dsa) %>%
   dplyr::summarize(value=mean(value,na.rm=T)) %>%
-  ungroup %>%
-  dplyr::rename(key=key_unit) %>%
-  dplye::select(ENCOUTNERID,key,value,dsa)
+  ungroup
 
 #calculated new features: BUN/SCr ratio (same-day)
 bun_scr_ratio<-dat_out %>% 
@@ -71,14 +72,15 @@ bun_scr_ratio<-dat_out %>%
                                       '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9') ~ "SCR",
                            key %in% c('12966-8','12965-0','6299-2','59570-2','12964-3','49071-4','72270-2',
                                       '11065-0','3094-0','35234-4','14937-7') ~ "BUN",
-                           key %in% c('3097-3','44734-2') ~ "BUN_SCR")) %>%
-  filter(toupper(unit) %in% c("MG/DL","MG/MG") & key_agg %in% c("SCR","BUN","BUN_SCR")) %>%
+                           key %in% c('3097-3','44734-2') ~ "BUN_SCR")) %>% #not populated
+  filter((toupper(unit) %in% c("MG/DL","MG/MG")) & 
+         (key_agg %in% c("SCR","BUN","BUN_SCR"))) %>%
   group_by(ENCOUNTERID,key_agg,dsa) %>%
   dplyr::summarize(value=mean(value,na.rm=T)) %>%
   ungroup %>%
   spread(key_agg,value) %>%
-  filter((!is.na(SCR)&!is.na(BUN))|!is.na(BUN_SCR)) %>%
-  mutate(BUN_SCR = ifelse(is.na(BUN_SCR),round(BUN/SCR,2),BUN_SCR)) %>%
+  filter(!is.na(SCR)&!is.na(BUN)) %>%
+  mutate(BUN_SCR = round(BUN/SCR,2)) %>%
   mutate(key="BUN_SCR") %>%
   dplyr::rename(value=BUN_SCR) %>%
   dplyr::select(ENCOUNTERID,key,value,dsa)
@@ -99,15 +101,20 @@ lab_delta_eligb<-dat_out %>%
 lab_delta<-dat_out %>%
   semi_join(lab_delta_eligb %>% filter(med>=2),
             by="key")
-dsa_rg<-seq(min(lab_delta$dsa),max(lab_delta$dsa))
+
+dsa_rg<-seq(0,30)
 lab_delta %<>%
   bind_rows(data.frame(ENCOUNTERID = rep(0,length(dsa_rg)),
                        key=rep("0",length(dsa_rg)),
                        value=NA,
                        dsa=dsa_rg,
-                       stringsAsFactor = F)) %>%
+                       stringsAsFactors=F)) 
+
+lab_delta %<>%
   spread(dsa,value) %>%
-  gather(dsa,value,-ENCOUNTERID,-key) %>%
+  gather(dsa,value,-ENCOUNTERID,-key) 
+
+lab_delta %<>%
   group_by(ENCOUNTERID,key) %>%
   arrange(dsa) %>%
   dplyr::mutate(value=fill(value,.direction="down")) %>%
@@ -129,7 +136,10 @@ dat_out<-dat %>% dplyr::select(-PATID) %>%
   filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
   group_by(ENCOUNTERID,key) %>%
   arrange(value) %>% slice(1:1) %>%
-  ungroup
+  ungroup %>%
+  mutate(cat=value,dsa=-1,key_cp=key,value=1) %>%
+  unite("key",c("key_cp","cat"),sep="_") %>%
+  dplyr::select(ENCOUNTERID,key,value,dsa)
 
 dat_out %>%
   group_by(ENCOUNTERID) %>%
@@ -190,24 +200,35 @@ bp_min<-bp %>%
   ungroup %>%
   mutate(key=paste0(key,"_min"))
 
-i<-1
-bp_slp_obj<-bp %>%
-  filter(as.numeric(format(timestamp,"%Y"))==bp_chk$yr[i]) %>%
+bp_slp_eligb<-bp %>%
   mutate(add_hour=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="hours")) %>%
-  mutate(timestamp=dsa+sign(dsa)*round(as.numeric(add_hour)/24,2)) %>%
+  mutate(timestamp=sign(dsa)*round(as.numeric(add_hour),2)) %>%
   dplyr::select(-add_hour) %>%
   group_by(ENCOUNTERID,key,dsa) %>%
-  do(fit_val=lm(value ~ timestamp,data=.))
+  dplyr::mutate(df=length(unique(timestamp))-1) %>%
+  dplyr::mutate(sd=ifelse(df>0,sd(value),0))
+
+bp_slp_obj<-bp_slp_eligb %>%
+  filter(df > 1 & sd >= 1e-2) %>%
+  do(fit_val=glm(value ~ timestamp,data=.))
 
 bp_slp<-tidy(bp_slp_obj,fit_val) %>%
   filter(term=="timestamp") %>%
   dplyr::rename(value=estimate) %>%
   ungroup %>%
+  mutate(value=ifelse(p.value>0.5 | is.nan(p.value),0,value)) %>%
+  dplyr::select(ENCOUNTERID,key,dsa,value) %>%
+  bind_rows(bp_slp_eligb %>% 
+              filter(df<=1 | sd < 1e-2) %>% mutate(value=0) %>%
+              dplyr::select(ENCOUNTERID,key,value,dsa) %>%
+              ungroup %>% unique) %>%
+  bind_rows(bp_slp_eligb %>% 
+              filter(df==1 & sd >= 1e-2) %>% 
+              mutate(value=round((max(value)-min(value))/(max(timestamp)-min(timestamp)),2)) %>%
+              dplyr::select(ENCOUNTERID,key,value,dsa) %>%
+              ungroup %>% unique) %>%
   mutate(key=paste0(key,"_slope"))
 
-bp_slp %<>%
-  mutate(value=ifelse(p.value>0.5 | is.nan(p.value),0,value)) %>%
-  dplyr::select(ENCOUNTERID,key,dsa,value)
 #passed!
 
 

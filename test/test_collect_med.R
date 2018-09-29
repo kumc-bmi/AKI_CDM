@@ -6,7 +6,8 @@ require_libraries(c("DBI",
                     "magrittr",
                     "stringr"))
 params<-list(  DBMS_type="Oracle",
-               remote_CDM=FALSE)
+               remote_CDM=FALSE,
+               incl_NDC=TRUE)
 
 
 config_file_path<-"./config.csv"
@@ -29,7 +30,8 @@ Table1<-readRDS("./data/Table1.rda")
 enc_tot<-length(unique(Table1$ENCOUNTERID))
 
 #statements to be tested
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med_",
+                      ifelse(params$incl_NDC,"ndc",""),".sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)
@@ -41,8 +43,9 @@ med<-execute_single_sql(conn,
                                     pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
   dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
-  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
-  unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
+  mutate(RX_ID=ifelse(params$incl_NDC,paste(RXNORM_CUI,RAW_RX_NDC,collapse="_"),RXNORM_CUI)) %>%
+  dplyr::select(PATID,ENCOUNTERID,RX_ID,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
+  unite("key",c("RX_ID","RX_BASIS"),sep=":")
 
 #converted to daily exposure
 batch<-20

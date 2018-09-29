@@ -18,6 +18,7 @@ select distinct
       ,least(pat.DISCHARGE_DATE,p.RX_END_DATE) RX_END_DATE
       ,p.RX_BASIS
       ,p.RXNORM_CUI
+      ,p.RAW_RX_NDC
       --,regexp_substr(p.RAW_RX_MED_NAME,'[^\[]+',1,1) RX_MED_NAME
       ,p.RX_QUANTITY
       --,p.RX_QUANTITY_UNIT
@@ -30,7 +31,7 @@ select distinct
 from AKI_onsets pat
 join &&PCORNET_CDM.PRESCRIBING@dblink p
 on pat.ENCOUNTERID = p.ENCOUNTERID
-where p.RAW_RX_NDC is not null and 
+where coalesce(p.RXNORM_CUI,p.RAW_RX_NDC) is not null and 
       p.RX_START_DATE is not null and
       p.RX_ORDER_DATE is not null and 
       p.RX_ORDER_TIME is not null and
