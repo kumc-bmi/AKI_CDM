@@ -908,18 +908,16 @@ med_temp<-med_summ %>%
 
 if(nrow(med_temp)>0){
   ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=median_expos,label=label)) +
-  geom_point() + geom_text_repel()+
-  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
-                                         name = 'Percentage'))+
-  scale_color_gradient2(low = "green",mid="blue",high ="red",
-                        midpoint = 2)+
-  labs(x="Start Date",y="Encounter Counts",color="Median Exposure (days)",
-       title="Figure 4 - Medication Exposure Summaries")
+    geom_point() + geom_text_repel()+
+    scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+                                           name = 'Percentage'))+
+    scale_color_gradient2(low = "green",mid="blue",high ="red",
+                          midpoint = 2)+
+    labs(x="Start Date",y="Encounter Counts",color="Median Exposure (days)",
+         title="Figure 4 - Medication Exposure Summaries")
   
   med_report<-med_temp %>%
-    mutate(key=ifelse(params$incl_NDC,
-                      gsub(".*_","",gsub("\\:.*","",key)),
-                      gsub("\\:.*","",key))) %>%
+    mutate(key=gsub(".*_","",gsub("\\:.*","",key))) %>%
     arrange(desc(enc_cnt)) %>%
     dplyr::select(key) %>% 
     unique %>% slice(1:3) %>%
@@ -929,13 +927,11 @@ if(nrow(med_temp)>0){
   
   freq_med<-c()
   for(k in 1:nrow(med_report)){
-   freq_med<-c(freq_med,paste0(med_report$key[k],"(",med_report$rx_name[k],")")) 
+    freq_med<-c(freq_med,paste0(med_report$key[k],"(",med_report$rx_name[k],")")) 
   }
   
   med_report<-med_temp %>%
-    mutate(key=ifelse(params$incl_NDC,
-                      gsub(".*_","",gsub("\\:.*","",key)),
-                      gsub("\\:.*","",key))) %>%
+    mutate(key=gsub(".*_","",gsub("\\:.*","",key))) %>%
     arrange(desc(median_expos)) %>%
     dplyr::select(key) %>%
     unique %>% slice(1:3) %>%
@@ -945,20 +941,21 @@ if(nrow(med_temp)>0){
   
   intens_med<-c()
   for(k in 1:nrow(med_report)){
-   intens_med<-c(intens_med,paste0(med_report$key[k],"(",med_report$rx_name[k],")")) 
+    intens_med<-c(intens_med,paste0(med_report$key[k],"(",med_report$rx_name[k],")")) 
   }
   
   description<-paste0("Figure4 demonstrates average exposures for drug starting at X days since admission. 
-                       It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay. 
-                      (e.g. the typical medications identified are",freq_med,"; while drugs such as ",intens_med," 
-                      are used with a relative longer exposure than the others).")
+                      It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay. 
+                      (e.g. the typical medications identified are",paste(freq_med,collapse=","),
+                      "; while drugs such as ",paste(intens_med,collapse=","), 
+                      "are used with a relative longer exposure than the others).")
 }else{
   description<-"Medication exposure are too low as no medication identifier has a coverage of more than 0.1% of the study population."
 }
 
 ```
 
-A Total of `r length(unique(med_summ$key))` distinct `r ifelse(params$incl_NDC,"NDC","RXNORM")` medication concepts are discovered for the cohort and the overall medication (any) exposure for this cohort is `r paste0(round(med_density/enc_tot,2)*100,"%")`. `r print(description)`
+A Total of `r length(unique(med_summ$key))` distinct `r ifelse(params$incl_NDC,"NDC","RXNORM")` medication concepts are discovered for the cohort and the overall medication (any) exposure for this cohort is `r paste0(round(med_density/enc_tot,2)*100,"%")`. `r description`
 
 
 ```{r final, include=F}

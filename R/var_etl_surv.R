@@ -151,7 +151,8 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     lab_delta<-dat_out %>%
       semi_join(lab_delta_eligb %>% filter(med>=2),
                 by="key")
-    dsa_rg<-seq(0,30) #hard-coded based on onset dates
+    
+    dsa_rg<-seq(0,30) #arbitrarily determined based on onset dates
     lab_delta %<>%
       bind_rows(data.frame(ENCOUNTERID = rep(0,length(dsa_rg)),
                            key=rep("0",length(dsa_rg)),

@@ -16,6 +16,7 @@ tbl1<-readRDS("./data/Table1.rda") %>%
 
 onset_dt<-c(tbl1$AKI1_SINCE_ADMIT,tbl1$AKI2_SINCE_ADMIT,tbl1$AKI3_SINCE_ADMIT)
 quantile(onset_dt,probs=0:20/20,na.rm=T)
+dsa_rg<-seq(0,30)
 
 #--by chunks: encounter year
 enc_yr<-tbl1 %>%
@@ -67,7 +68,7 @@ saveRDS(var_bm,file="./data/var_dm.rda")
 #leave out encounters after 2017-01-01 as temporal holdout
 yr_tr<-seq(2010,2016)
 
-#within training, try two upsampling strategies:
+#within training, try two down-sampling strategies:
 #-- balance case and control
 for(yr in yr_tr){
   
