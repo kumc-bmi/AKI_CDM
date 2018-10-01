@@ -7,7 +7,7 @@ require_libraries(c("DBI",
                     "stringr"))
 params<-list(  DBMS_type="Oracle",
                remote_CDM=FALSE,
-               incl_NDC=TRUE)
+               incl_NDC=FALSE)
 
 
 config_file_path<-"./config.csv"
@@ -30,8 +30,8 @@ Table1<-readRDS("./data/Table1.rda")
 enc_tot<-length(unique(Table1$ENCOUNTERID))
 
 #statements to be tested
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med_",
-                      ifelse(params$incl_NDC,"ndc",""),".sql"),
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med",
+                      ifelse(params$incl_NDC,"_ndc",""),".sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)

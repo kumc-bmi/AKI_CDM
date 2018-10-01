@@ -66,11 +66,13 @@ saveRDS(var_bm,file="./data/var_dm.rda")
 
 ##### sampling #####
 #leave out encounters after 2017-01-01 as temporal holdout
-#within training, apply down-sampling strategy:
+#-- random sampling
+
+
+
 #-- balance case and control
-for(yr in yr_tr){
-  
-}
+
+
 
 #-- balance case and control based on pathway matching
 
