@@ -5,6 +5,7 @@ require_libraries(c("DBI",
                     "dplyr",
                     "magrittr",
                     "stringr"))
+
 params<-list(  DBMS_type="Oracle",
                remote_CDM=FALSE,
                incl_NDC=FALSE)
@@ -30,11 +31,11 @@ Table1<-readRDS("./data/Table1.rda")
 enc_tot<-length(unique(Table1$ENCOUNTERID))
 
 #statements to be tested
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med",
-                      ifelse(params$incl_NDC,"_ndc",""),".sql"),
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)
+
 
 med<-execute_single_sql(conn,
                         statement=sql$statement,
@@ -43,13 +44,12 @@ med<-execute_single_sql(conn,
                                     pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
   dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
-  mutate(RX_ID=ifelse(params$incl_NDC,paste(RXNORM_CUI,RAW_RX_NDC,collapse="_"),RXNORM_CUI)) %>%
-  dplyr::select(PATID,ENCOUNTERID,RX_ID,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
-  unite("key",c("RX_ID","RX_BASIS"),sep=":")
+  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
+  unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
 
 #converted to daily exposure
 batch<-20
-expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch)))
+expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch),na.rm=T))
 med2<-med %>% filter(RX_EXPOS<=1) %>% 
   dplyr::mutate(dsa=as.character(sdsa),edsa=sdsa,value=RX_QUANTITY_DAILY) %>%
   dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
@@ -142,9 +142,7 @@ if(nrow(med_temp)>0){
     arrange(desc(enc_cnt)) %>%
     dplyr::select(key) %>% 
     unique %>% slice(1:3) %>%
-    mutate(rx_name=lapply(key,function(x) ifelse(params$incl_NDC,
-                                                 get_ndc_nm(x),
-                                                 get_rxcui_nm(x))))
+    mutate(rx_name=lapply(key,get_rxcui_nm))
   
   freq_med<-c()
   for(k in 1:nrow(med_report)){
@@ -156,9 +154,7 @@ if(nrow(med_temp)>0){
     arrange(desc(median_expos)) %>%
     dplyr::select(key) %>%
     unique %>% slice(1:3) %>%
-    mutate(rx_name=lapply(key,function(x) ifelse(params$incl_NDC,
-                                                 get_ndc_nm(x),
-                                                 get_rxcui_nm(x))))
+    mutate(rx_name=lapply(key,get_rxcui_nm))
   
   intens_med<-c()
   for(k in 1:nrow(med_report)){

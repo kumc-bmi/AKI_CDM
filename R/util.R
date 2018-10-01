@@ -265,7 +265,7 @@ google_code<-function(code,nlink=1){
 
 ## render report
 render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
-                        DBMS_type,remote_CDM=F,incl_NDC=F){
+                        DBMS_type,remote_CDM=F){
   #to avoid <Error in unlockBinding("params", <environment>) : no binding for "params">
   #a hack to trick r thinking it's in interactive environment
   unlockBinding('interactive',as.environment('package:base'))
