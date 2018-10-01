@@ -21,7 +21,7 @@ select a.PATID
       ,a.RESULT_DATE_TIME
       ,a.rn
 from #AKI_Scr_eGFR a
-where not exists (select 1 from #exclud_unique e
+where not exists (select 1 from exclud_unique e
                   where e.ENCOUNTERID = a.ENCOUNTERID)
 )
 select scr.PATID

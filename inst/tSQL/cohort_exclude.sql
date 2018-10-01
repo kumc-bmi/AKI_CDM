@@ -19,7 +19,7 @@ having max(rn) <= 1
 -- At CKD stage 4 or higher
     ,AKI_EXCLD_L1GFR_EN as (
 select distinct ENCOUNTERID
-from $AKI_Scr_eGFR
+from #AKI_Scr_eGFR
 where rn = 1 and eGFR <= 15
 )
 -- Pre-existing renal failure (DX)
@@ -81,7 +81,7 @@ where exists (select 1 from [&&dbname].[&&PCORNET_CDM].PROCEDURES px
 -- Burn Patients
     ,AKI_EXCLD_BURN_EN as (
 select ENCOUNTERID
-from #AKI_Initial
+from #AKI_Initial aki
 where exists (select 1 from [&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
               where dx.ENCOUNTERID = aki.ENCOUNTERID and
                     -- ICD9 for burn patients

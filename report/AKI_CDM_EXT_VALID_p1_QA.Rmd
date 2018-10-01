@@ -172,8 +172,6 @@ Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*,
 
 ```{r demo, include=F}
 ## demographic
-conn<-connect_to_db(params$DBMS_type,config_file)
-
 sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_demo.sql"),
                            cdm_db_link=config_file$cdm_db_link,
                            cdm_db_name=config_file$cdm_db_name,
@@ -273,8 +271,6 @@ Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, D
 
 ```{r vital, include=F}
 ## vital
-conn<-connect_to_db(params$DBMS_type,config_file)
-
 sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_vital.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
@@ -486,8 +482,6 @@ Table 2b identifies unreliable reporting of smoking status. A significant mismat
 ##### Labs
 ```{r lab, include=F}
 ## labs
-conn<-connect_to_db(params$DBMS_type,config_file)
-
 sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
@@ -615,8 +609,6 @@ A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible
 ##### Diagnosis
 ```{r dx, include=F}
 load("./data/ccs_icd_cw.Rdata")
-conn<-connect_to_db(params$DBMS_type,config_file)
-
 ## historical diagnosis
 sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_dx.sql"),
                cdm_db_link=config_file$cdm_db_link,
@@ -701,8 +693,6 @@ A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnoses has be
 ##### Procedure
 ```{r px, include=F}
 ## procedure
-conn<-connect_to_db(params$DBMS_type,config_file)
-
 sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_px.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
@@ -789,8 +779,6 @@ A Total of `r length(unique(px_summ$key))` distinct total procedures codes have 
 ##### Medications
 ```{r med, include=F}
 ## medication
-conn<-connect_to_db(params$DBMS_type,config_file)
-
 sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,

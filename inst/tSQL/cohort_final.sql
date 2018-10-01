@@ -10,9 +10,9 @@
 create table AKI_onsets as
 with pat_enc as (
 select distinct 
-       to_number(PATID) PATID
-      ,to_number(ENCOUNTERID) ENCOUNTERID
-      ,trunc(ADMIT_DATE_TIME) ADMIT_DATE
+       PATID 
+      ,ENCOUNTERID 
+      ,CONVERT(DATETIME, CONVERT(DATE, ADMIT_DATE_TIME)) ADMIT_DATE
       ,SERUM_CREAT_BASE
 from #AKI_stages_daily
 )

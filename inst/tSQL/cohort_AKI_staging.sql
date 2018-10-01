@@ -85,10 +85,10 @@ select PATID
       ,datediff(hour,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME) HOUR_SINCE_ADMIT
       ,datediff(dd,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME)*2 HDAY_SINCE_ADMIT
       ,datediff(dd,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME) DAY_SINCE_ADMIT
-      ,dense_rank() over (partition by PATID, ENCOUNTERID, floor((SPECIMEN_DATE_TIME - ADMIT_DATE_TIME)*2)
+      ,dense_rank() over (partition by PATID, ENCOUNTERID, datediff(hour,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME)/12
                           order by datediff(dd,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME)*2 asc, 
                                    AKI_STAGE desc, SERUM_CREAT desc, SERUM_CREAT_INC desc) rn_hday
-      ,dense_rank() over (partition by PATID, ENCOUNTERID, floor((SPECIMEN_DATE_TIME - ADMIT_DATE_TIME))
+      ,dense_rank() over (partition by PATID, ENCOUNTERID, datediff(dd,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME)
                           order by datediff(dd,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME) asc,
                                    AKI_STAGE desc, SERUM_CREAT desc, SERUM_CREAT_INC desc) rn_day
 from stage_aki
