@@ -51,7 +51,6 @@ select distinct
 from scr_enc1 s1 
 left join scr_prior1 sp
 on s1.ENCOUNTERID = sp.ENCOUNTERID
-order by s1.PATID, s1.ENCOUNTERID
 )
 --looks like there exists multiple historical values on the same day 
 select scrb.PATID
@@ -63,8 +62,8 @@ select scrb.PATID
       ,scrb.SPECIMEN_DATE_TIME
       ,scrb.RESULT_DATE_TIME
       ,scrb.days_prior
+into #AKI_Scr_base
 from scr_base_dup scrb
 join #AKI_Initial init
-into #AKI_Scr_base
 on scrb.ENCOUNTERID = init.ENCOUNTERID
 group by scrb.PATID,scrb.ENCOUNTERID,init.ADMIT_DATE_TIME,scrb.LAB_ORDER_DATE,scrb.SPECIMEN_DATE_TIME,scrb.RESULT_DATE_TIME,scrb.days_prior

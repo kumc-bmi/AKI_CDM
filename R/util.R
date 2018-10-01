@@ -145,13 +145,10 @@ execute_single_sql<-function(conn,statement,write,table_name){
     #dbSendQuery silently returns an S4 object after execution, which causes error in RJDBC connection (for sql server)
     if(attr(conn,"DBMS_type")=="Oracle"){
       if(dbExistsTable(conn,table_name)){
-        dbSendQuery(conn,paste("drop table",table_name))
+        dbSendQuery(conn,paste("drop table",table_name)) #clean up residual table left from last run
       }
       dbSendQuery(conn,statement)
     }else if(attr(conn,"DBMS_type")=="tSQL"){
-      if(dbExistsTable(conn,table_name)){
-        dbSendUpdate(conn,paste("drop table",table_name))
-      }
       dbSendUpdate(conn,statement)
     }else{
       warning("DBMS type not supported!")
