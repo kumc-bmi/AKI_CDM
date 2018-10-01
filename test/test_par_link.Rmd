@@ -73,7 +73,7 @@ try print out [`r px_report$key[1]`], [`r px_report$key[2]`],[`r px_report$key[3
 
 
 
-```{r med}
+```{r med_rxnorm}
 get_rxcui_nm<-function(rxcui){
   #url link to REST API
   rx_url<-paste0("https://rxnav.nlm.nih.gov/REST/rxcui/",rxcui,"/")
@@ -102,5 +102,167 @@ rx_report<-data.frame(key=c("1807627:01","1740467:01","308395:02"),
 
 try print out `r rx_report$rx_name[1]`, `r rx_report$rx_name[2]`,`r rx_report$rx_name[3]`
 
+
+```{r med_ndc}
+get_ndc_nm<-function(ndc){
+  #url link to REST API
+  rx_url<-paste0("https://ndclist.com/?s=",ndc)
   
+  #get and parse html object
+  rx_obj<-getURL(url = rx_url)
+  if (rx_obj==""){
+    rx_name<-NA
+  }else{
+    #extract name
+    rx_content<-htmlParse(rx_obj)
+    rx_attr<-xpathApply(rx_content, "//tbody//td[@data-title]",xmlAttrs)
+    rx_name<-xpathApply(rx_content, "//tbody//td[@data-title]",xmlValue)[which(rx_attr=="Proprietary Name")]
+    rx_name<-unlist(rx_name)
+    
+    if(length(rx_name) > 1){
+      rx_name<-rx_url
+    }
+  }
+  return(rx_name)
+}
+
+rx_report<-data.frame(key=c("a_00071041813:01","b_00002446230:01","c_67877022310:02"),
+                      stringsAsFactors = F) %>%
+  mutate(key=gsub(".*_","",gsub("\\:.*","",key))) %>%
+  mutate(rx_name=lapply(key,get_ndc_nm))
+
+```
+
+try print out `r rx_report$rx_name[1]`, `r rx_report$rx_name[2]`,`r rx_report$rx_name[3]`
+
+
+```{r med_summ}
+source("../R/util.R")
+require_libraries(c("tidyr",
+                    "dplyr",
+                    "magrittr",
+                    "stringr",
+                    "knitr",
+                    "kableExtra",
+                    "ggplot2",
+                    "ggrepel",
+                    "RCurl",
+                    "XML"))
+
+params<-list(  DBMS_type="Oracle",
+               remote_CDM=FALSE,
+               incl_NDC=FALSE)
+
+med<-readRDS("../data/AKI_MED.rda") %>%
+  group_by(PATID,ENCOUNTERID,key,sdsa) %>%
+  dplyr::summarize(RX_EXPOS=pmax(1,sum(value,na.rm=T))) %>%
+  ungroup
+
+Table1<-readRDS("../data/Table1.rda")
+enc_tot<-length(unique(Table1$ENCOUNTERID))
+
+#collect summaries
+if(params$incl_NDC){
+    med_summ<-med %>%
+    mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
+                             sdsa >=0 & sdsa < 7 ~ "1w",
+                             sdsa >=7 ~ "7<")) 
+}else{
+  med_summ<-med %>%
+    mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
+                             sdsa >=0 & sdsa < 1 ~ "1",
+                             sdsa >=1 & sdsa < 2 ~ "2",
+                             sdsa >=2 & sdsa < 3 ~ "3",
+                             sdsa >=3 & sdsa < 4 ~ "4",
+                             sdsa >=4 & sdsa < 5 ~ "5",
+                             sdsa >=5 & sdsa < 6 ~ "6",
+                             sdsa >=6 & sdsa < 7 ~ "7",
+                             sdsa >=7 ~ "7<")) 
+}
+
+med_summ %<>%
+  group_by(key,dsa_grp) %>%
+  dplyr::summarize(record_cnt=n(),
+                   enc_cnt=length(unique(ENCOUNTERID)),
+                   min_expos=min(RX_EXPOS,na.rm=T),
+                   mean_expos=round(mean(RX_EXPOS,na.rm=T)),
+                   sd_expos=round(sd(RX_EXPOS,na.rm=T)),
+                   median_expos=round(median(RX_EXPOS,na.rm=T)),
+                   max_expos=max(RX_EXPOS,na.rm=T)) %>%
+  ungroup %>%
+  #HIPPA, low counts masking
+  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt)),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",as.character(record_cnt)),
+         sd_expos=ifelse(is.na(sd_expos),0,sd_expos)) %>%
+  dplyr::mutate(cov_expos=round(sd_expos/mean_expos,1)) %>%
+  gather(summ,summ_val,-key,-dsa_grp) %>%
+  spread(dsa_grp,summ_val) %>%
+  arrange(key,summ) 
+
+med_density<-length(unique(med$ENCOUNTERID))
+
+med_temp<-med_summ %>% 
+  filter(summ %in% c("enc_cnt","median_expos")) %>% 
+  gather(dsa_grp,summ_val,-summ,-key) %>%
+  filter(!is.na(summ_val) & (summ_val!="<11")) %>%
+  mutate(summ_val=as.numeric(summ_val)) %>%
+  spread(summ,summ_val) %>%
+  filter(!is.na(median_expos) & enc_cnt>=enc_tot*0.001) %>%
+  arrange(median_expos) %>%
+  group_by(dsa_grp) %>%
+  dplyr::mutate(label=ifelse(dense_rank(-enc_cnt)<=3,key,"")) %>%
+  ungroup %>%
+  dplyr::mutate(label=ifelse(label!="",label,
+                             ifelse(dense_rank(-median_expos)<=2,key,"")))
+
+
+if(nrow(med_temp)>0){
+  ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=median_expos,label=label)) +
+    geom_point() + geom_text_repel()+
+    scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+                                           name = 'Percentage'))+
+    scale_color_gradient2(low = "green",mid="blue",high ="red",
+                          midpoint = 2)+
+    labs(x="Start Date",y="Encounter Counts",color="Median Exposure (days)",
+         title="Figure 4 - Medication Exposure Summaries")
+  
+  med_report<-med_temp %>%
+    mutate(key=gsub(".*_","",gsub("\\:.*","",key))) %>%
+    arrange(desc(enc_cnt)) %>%
+    dplyr::select(key) %>% 
+    unique %>% slice(1:3) %>%
+    mutate(rx_name=lapply(key,function(x) ifelse(params$incl_NDC,
+                                                 get_ndc_nm(x),
+                                                 get_rxcui_nm(x))))
+  
+  freq_med<-c()
+  for(k in 1:nrow(med_report)){
+    freq_med<-c(freq_med,paste0(med_report$key[k],"(",med_report$rx_name[k],")")) 
+  }
+  
+  med_report<-med_temp %>%
+    mutate(key=gsub(".*_","",gsub("\\:.*","",key))) %>%
+    arrange(desc(median_expos)) %>%
+    dplyr::select(key) %>%
+    unique %>% slice(1:3) %>%
+    mutate(rx_name=lapply(key,function(x) ifelse(params$incl_NDC,
+                                                 get_ndc_nm(x),
+                                                 get_rxcui_nm(x))))
+  
+  intens_med<-c()
+  for(k in 1:nrow(med_report)){
+    intens_med<-c(intens_med,paste0(med_report$key[k],"(",med_report$rx_name[k],")")) 
+  }
+  
+  description<-paste0("Figure4 demonstrates average exposures for drug starting at X days since admission. 
+                      It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay. 
+                      (e.g. the typical medications identified are",paste(freq_med,collapse=","),
+                      "; while drugs such as ",paste(intens_med,collapse=","), 
+                      "are used with a relative longer exposure than the others).")
+}else{
+  description<-"Medication exposure are too low as no medication identifier has a coverage of more than 0.1% of the study population."
+}
+```
+
+A Total of `r length(unique(med_summ$key))` distinct `r ifelse(params$incl_NDC,"NDC","RXNORM")` medication concepts are discovered for the cohort and the overall medication (any) exposure for this cohort is `r paste0(round(med_density/enc_tot,3)*100,"%")`. `r description`
 

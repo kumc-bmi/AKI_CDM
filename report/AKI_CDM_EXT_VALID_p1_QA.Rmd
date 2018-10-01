@@ -6,6 +6,7 @@ output: html_document
 params:
   DBMS_type: Oracle
   remote_CDM: FALSE
+  incl_NDC: FALSE
 ---
 ### Aim 1: Data Feasibility Evaluation over GPC sites.
 #### Objective 1.1: Study cohort extraction and characterization
@@ -276,9 +277,9 @@ Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, D
 conn<-connect_to_db(params$DBMS_type,config_file)
 
 sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_vital.sql"),
-                           cdm_db_link=config_file$cdm_db_link,
-                           cdm_db_name=config_file$cdm_db_name,
-                           cdm_db_schema=config_file$cdm_db_schema)
+               cdm_db_link=config_file$cdm_db_link,
+               cdm_db_name=config_file$cdm_db_name,
+               cdm_db_schema=config_file$cdm_db_schema)
 
 vital<-execute_single_sql(conn,
                           statement=sql$statement,
@@ -489,9 +490,9 @@ Table 2b identifies unreliable reporting of smoking status. A significant mismat
 conn<-connect_to_db(params$DBMS_type,config_file)
 
 sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
-                           cdm_db_link=config_file$cdm_db_link,
-                           cdm_db_name=config_file$cdm_db_name,
-                           cdm_db_schema=config_file$cdm_db_schema)
+               cdm_db_link=config_file$cdm_db_link,
+               cdm_db_name=config_file$cdm_db_name,
+               cdm_db_schema=config_file$cdm_db_schema)
 
 lab<-execute_single_sql(conn,
                         statement=sql$statement,
@@ -619,9 +620,9 @@ conn<-connect_to_db(params$DBMS_type,config_file)
 
 ## historical diagnosis
 sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_dx.sql"),
-                           cdm_db_link=config_file$cdm_db_link,
-                           cdm_db_name=config_file$cdm_db_name,
-                           cdm_db_schema=config_file$cdm_db_schema)
+               cdm_db_link=config_file$cdm_db_link,
+               cdm_db_name=config_file$cdm_db_name,
+               cdm_db_schema=config_file$cdm_db_schema)
 
 dx<-execute_single_sql(conn,
                        statement=sql$statement,
@@ -704,9 +705,9 @@ A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnoses has be
 conn<-connect_to_db(params$DBMS_type,config_file)
 
 sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_px.sql"),
-                           cdm_db_link=config_file$cdm_db_link,
-                           cdm_db_name=config_file$cdm_db_name,
-                           cdm_db_schema=config_file$cdm_db_schema)
+               cdm_db_link=config_file$cdm_db_link,
+               cdm_db_name=config_file$cdm_db_name,
+               cdm_db_schema=config_file$cdm_db_schema)
 
 px<-execute_single_sql(conn,
                        statement=sql$statement,
@@ -791,10 +792,11 @@ A Total of `r length(unique(px_summ$key))` distinct total procedures codes have 
 ## medication
 conn<-connect_to_db(params$DBMS_type,config_file)
 
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
-                           cdm_db_link=config_file$cdm_db_link,
-                           cdm_db_name=config_file$cdm_db_name,
-                           cdm_db_schema=config_file$cdm_db_schema)
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med",
+                      ifelse(params$incl_NDC,"_ndc",""),".sql"),
+               cdm_db_link=config_file$cdm_db_link,
+               cdm_db_name=config_file$cdm_db_name,
+               cdm_db_schema=config_file$cdm_db_schema)
 
 med<-execute_single_sql(conn,
                         statement=sql$statement,
@@ -803,8 +805,9 @@ med<-execute_single_sql(conn,
                                     pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
   dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
-  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
-  unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
+  mutate(RX_ID=ifelse(params$incl_NDC,paste(RXNORM_CUI,RAW_RX_NDC,collapse="_"),RXNORM_CUI)) %>%
+  dplyr::select(PATID,ENCOUNTERID,RX_ID,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
+  unite("key",c("RX_ID","RX_BASIS"),sep=":")
 
 #converted to daily exposure
 batch<-20
@@ -837,17 +840,27 @@ med<-med2 %>%
   dplyr::summarize(RX_EXPOS=pmax(1,sum(value,na.rm=T))) %>%
   ungroup
 
+
 #collect summaries
-med_summ<-med %>% 
-  mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
-                           sdsa >=0 & sdsa < 1 ~ "1",
-                           sdsa >=1 & sdsa < 2 ~ "2",
-                           sdsa >=2 & sdsa < 3 ~ "3",
-                           sdsa >=3 & sdsa < 4 ~ "4",
-                           sdsa >=4 & sdsa < 5 ~ "5",
-                           sdsa >=5 & sdsa < 6 ~ "6",
-                           sdsa >=6 & sdsa < 7 ~ "7",
-                           sdsa >=7 ~ "7<")) %>%
+if(params$incl_NDC){
+    med_summ<-med %>%
+    mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
+                             sdsa >=0 & sdsa < 7 ~ "1w",
+                             sdsa >=7 ~ "7<")) 
+}else{
+  med_summ<-med %>%
+    mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
+                             sdsa >=0 & sdsa < 1 ~ "1",
+                             sdsa >=1 & sdsa < 2 ~ "2",
+                             sdsa >=2 & sdsa < 3 ~ "3",
+                             sdsa >=3 & sdsa < 4 ~ "4",
+                             sdsa >=4 & sdsa < 5 ~ "5",
+                             sdsa >=5 & sdsa < 6 ~ "6",
+                             sdsa >=6 & sdsa < 7 ~ "7",
+                             sdsa >=7 ~ "7<")) 
+}
+
+med_summ %<>%
   group_by(key,dsa_grp) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
@@ -866,6 +879,8 @@ med_summ<-med %>%
   spread(dsa_grp,summ_val) %>%
   arrange(key,summ) 
 
+med_density<-length(unique(ENCOUNTERID))
+
 #save
 saveRDS(med2,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
 # saveRDS(med_summ,file="./data/med_summ.rda")
@@ -882,7 +897,7 @@ med_temp<-med_summ %>%
   filter(!is.na(summ_val) & (summ_val!="<11")) %>%
   mutate(summ_val=as.numeric(summ_val)) %>%
   spread(summ,summ_val) %>%
-  filter(!is.na(median_expos) & enc_cnt>=enc_tot*0.005) %>%
+  filter(!is.na(median_expos) & enc_cnt>=enc_tot*0.001) %>%
   arrange(median_expos) %>%
   group_by(dsa_grp) %>%
   dplyr::mutate(label=ifelse(dense_rank(-enc_cnt)<=3,key,"")) %>%
@@ -890,31 +905,57 @@ med_temp<-med_summ %>%
   dplyr::mutate(label=ifelse(label!="",label,
                              ifelse(dense_rank(-median_expos)<=2,key,"")))
 
-ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=median_expos,label=label)) +
-  geom_point() + geom_text_repel()+
-  scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
-                                         name = 'Percentage'))+
-  scale_color_gradient2(low = "green",mid="blue",high ="red", 
-                        midpoint = 2)+
-  labs(x="Start Date",y="Encounter Counts",color="Median Exposure (days)",
-       title="Figure 4 - Medication Exposure Summaries")
 
-med_report<-med_temp %>%
-  mutate(key=gsub("\\:.*","",key)) %>%
-  arrange(desc(enc_cnt)) %>%
-  dplyr::select(key) %>% 
-  unique %>% slice(1:3) %>%
-  bind_rows(med_temp %>%
-              mutate(key=gsub("\\:.*","",key)) %>%
-              arrange(desc(median_expos)) %>%
-              dplyr::select(key) %>%
-              unique %>% slice(1:3)) %>%
-  mutate(pos=1:n()) %>%
-  mutate(rx_name=lapply(key,get_rxcui_nm)) %>%
-  arrange(pos)
+if(nrow(med_temp)>0){
+  ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=median_expos,label=label)) +
+    geom_point() + geom_text_repel()+
+    scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
+                                           name = 'Percentage'))+
+    scale_color_gradient2(low = "green",mid="blue",high ="red",
+                          midpoint = 2)+
+    labs(x="Start Date",y="Encounter Counts",color="Median Exposure (days)",
+         title="Figure 4 - Medication Exposure Summaries")
+  
+  med_report<-med_temp %>%
+    mutate(key=gsub(".*_","",gsub("\\:.*","",key))) %>%
+    arrange(desc(enc_cnt)) %>%
+    dplyr::select(key) %>% 
+    unique %>% slice(1:3) %>%
+    mutate(rx_name=lapply(key,function(x) ifelse(params$incl_NDC,
+                                                 get_ndc_nm(x),
+                                                 get_rxcui_nm(x))))
+  
+  freq_med<-c()
+  for(k in 1:nrow(med_report)){
+    freq_med<-c(freq_med,paste0(med_report$key[k],"(",med_report$rx_name[k],")")) 
+  }
+  
+  med_report<-med_temp %>%
+    mutate(key=gsub(".*_","",gsub("\\:.*","",key))) %>%
+    arrange(desc(median_expos)) %>%
+    dplyr::select(key) %>%
+    unique %>% slice(1:3) %>%
+    mutate(rx_name=lapply(key,function(x) ifelse(params$incl_NDC,
+                                                 get_ndc_nm(x),
+                                                 get_rxcui_nm(x))))
+  
+  intens_med<-c()
+  for(k in 1:nrow(med_report)){
+    intens_med<-c(intens_med,paste0(med_report$key[k],"(",med_report$rx_name[k],")")) 
+  }
+  
+  description<-paste0("Figure4 demonstrates average exposures for drug starting at X days since admission. 
+                      It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay. 
+                      (e.g. the typical medications identified are",paste(freq_med,collapse=","),
+                      "; while drugs such as ",paste(intens_med,collapse=","), 
+                      "are used with a relative longer exposure than the others).")
+}else{
+  description<-"Medication exposure are too low as no medication identifier has a coverage of more than 0.1% of the study population."
+}
+
 ```
 
-A Total of `r length(unique(med_summ$key))` distinct RXNORM medication concepts are discovered for the cohort. Figure4 demonstrates average exposures for drug starting at 1st, 2nd, 3rd,..., 7th and after 7th days since admission. It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay. (e.g. the typical medications identified are `r med_report$key[1]`(`r med_report$rx_name[1]`), `r med_report$key[2]`(`r med_report$rx_name[2]`), `r med_report$key[3]`(`r med_report$rx_name[3]`); while drugs such as `r med_report$key[4]`(`r med_report$rx_name[4]`), `r med_report$key[5]`(`r med_report$rx_name[5]`), `r med_report$key[6]`(`r med_report$rx_name[6]`) are used with a relative longer exposure than the others).
+A Total of `r length(unique(med_summ$key))` distinct `r ifelse(params$incl_NDC,"NDC","RXNORM")` medication concepts are discovered for the cohort and the overall medication (any) exposure for this cohort is `r paste0(round(med_density/enc_tot,2)*100,"%")`. `r description`
 
 
 ```{r final, include=F}

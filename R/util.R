@@ -209,6 +209,28 @@ get_rxcui_nm<-function(rxcui){
   return(rxcui_name)
 }
 
+get_ndc_nm<-function(ndc){
+  #url link to REST API
+  rx_url<-paste0("https://ndclist.com/?s=",ndc)
+  
+  #get and parse html object
+  rx_obj<-getURL(url = rx_url)
+  if (rx_obj==""){
+    rx_name<-NA
+  }else{
+    #extract name
+    rx_content<-htmlParse(rx_obj)
+    rx_attr<-xpathApply(rx_content, "//tbody//td[@data-title]",xmlAttrs)
+    rx_name<-xpathApply(rx_content, "//tbody//td[@data-title]",xmlValue)[which(rx_attr=="Proprietary Name")]
+    rx_name<-unlist(rx_name)
+    
+    if(length(rx_name) > 1){
+      rx_name<-rx_url
+    }
+  }
+  return(rx_name)
+}
+
 
 #ref: https://www.r-bloggers.com/web-scraping-google-urls/
 google_code<-function(code,nlink=1){
@@ -243,14 +265,16 @@ google_code<-function(code,nlink=1){
 
 ## render report
 render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
-                        DBMS_type){
+                        DBMS_type,remote_CDM,incl_NDC){
   #to avoid <Error in unlockBinding("params", <environment>) : no binding for "params">
   #a hack to trick r thinking it's in interactive environment
   unlockBinding('interactive',as.environment('package:base'))
   assign('interactive',function() TRUE,envir=as.environment('package:base'))
   
   rmarkdown::render(input=which_report,
-                    params=list(DBMS_type=DBMS_type),
+                    params=list(DBMS_type=DBMS_type,
+                                remote_CDM=remote_CDM,
+                                incl_NDC=incl_NDC),
                     output_dir="./output/",
                     knit_root_dir="../")
 }
