@@ -273,8 +273,7 @@ render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
   
   rmarkdown::render(input=which_report,
                     params=list(DBMS_type=DBMS_type,
-                                remote_CDM=remote_CDM,
-                                incl_NDC=incl_NDC),
+                                remote_CDM=remote_CDM),
                     output_dir="./output/",
                     knit_root_dir="../")
 }

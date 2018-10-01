@@ -118,18 +118,15 @@ The following instructions are for extracting cohort and generating final report
         - `which_report`: which report you want to render (default is `./report/AKI_CDM_EXT_VALID_p1_QA.Rmd`, but there will be more options in the future)   
         - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`)        
         - `remote_CDM`: if CDM is on a different server from the default schema (default `remote_CDM = F`),          
-                  - 1. make sure there is a valid remote database connection for sending back CDM data           
-                  - 2. set `remote_CDM = T`                   
-                  - 3. add a column `cdm_db_link` to `config.csv` and specify the link           
-        - `incl_NDC`: if `RXNORM_CUI` is not well populated and `RAW_RX_NDC` is availble in the PRESCRIBING table (default `incl_NDC = F`)          
-                  - 1. make sure that `RAW_RX_NDC` is better populated than RXNORM_CUI      
-                  - 2. set `incl_NDC = T`     
+                  -- 1. make sure there is a valid remote database connection for sending back CDM data           
+                  -- 2. set `remote_CDM = T`                   
+                  -- 3. add a column `cdm_db_link` to `config.csv` and specify the link       
       
       iii) **run** r script `render_report.R` after assigning correct values to the parameters in ii)        
       
       iv) **collect and report** all output files from `\output` folder   
-        - 1. AKI_CDM_EXT_VALID_p1_QA.html - html report with description, figures and partial tables    
-        - 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx - excel with full summary tables    
+        -- 1. AKI_CDM_EXT_VALID_p1_QA.html - html report with description, figures and partial tables    
+        -- 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx - excel with full summary tables    
 
 *Remark*: all the counts (patient, encounter, record) are masked as "<11" if the number is below 11
 
@@ -137,7 +134,7 @@ The following instructions are for extracting cohort and generating final report
 ***
 
 ## Benchmarking
-It takes about **1 ~ 1.5 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd). At peak time, it will use about **30 ~ 35GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of output for Part I is about **6MB**.
+It takes about **2 ~ 3 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of output for Part I is about **6MB**.
 
 
 ***
