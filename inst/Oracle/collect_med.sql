@@ -30,7 +30,7 @@ select distinct
 from AKI_onsets pat
 join &&PCORNET_CDM.PRESCRIBING@dblink p
 on pat.ENCOUNTERID = p.ENCOUNTERID
-where p.RAW_RX_NDC is not null and 
+where p.RXNORM_CUI is not null and
       p.RX_START_DATE is not null and
       p.RX_ORDER_DATE is not null and 
       p.RX_ORDER_TIME is not null and
