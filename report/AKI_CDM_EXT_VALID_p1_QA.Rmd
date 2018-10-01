@@ -811,7 +811,7 @@ saveRDS(med,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
 
 #converted to daily exposure
 batch<-20
-expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch)))
+expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch,na.rm=T)))
 med2<-med %>% filter(RX_EXPOS<=1) %>% 
   dplyr::mutate(dsa=as.character(sdsa),edsa=sdsa,value=RX_QUANTITY_DAILY) %>%
   dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
@@ -870,7 +870,7 @@ med_summ<- med %>%
   spread(dsa_grp,summ_val) %>%
   arrange(key,summ) 
 
-med_density<-length(unique(ENCOUNTERID))
+med_density<-length(unique(med$ENCOUNTERID))
 
 #save
 saveRDS(med2,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
