@@ -66,9 +66,7 @@ saveRDS(var_bm,file="./data/var_dm.rda")
 
 ##### sampling #####
 #leave out encounters after 2017-01-01 as temporal holdout
-yr_tr<-seq(2010,2016)
-
-#within training, try two down-sampling strategies:
+#within training, apply down-sampling strategy:
 #-- balance case and control
 for(yr in yr_tr){
   

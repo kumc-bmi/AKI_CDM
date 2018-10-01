@@ -792,8 +792,8 @@ A Total of `r length(unique(px_summ$key))` distinct total procedures codes have 
 ## medication
 conn<-connect_to_db(params$DBMS_type,config_file)
 
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med_",
-                      ifelse(params$incl_NDC,"ndc",""),".sql"),
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med",
+                      ifelse(params$incl_NDC,"_ndc",""),".sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)
