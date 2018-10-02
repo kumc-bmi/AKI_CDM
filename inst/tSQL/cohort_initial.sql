@@ -27,7 +27,7 @@ join [&&dbname].[&&PCORNET_CDM].DEMOGRAPHIC d
 on e.PATID = d.PATID
 where datediff(dd,e.ADMIT_DATE,e.DISCHARGE_DATE) >= 2 and
       e.ENC_TYPE in ('EI','IP','IS') and
-      e.ADMIT_DATE between Date &&start_date and Date &&end_date
+      e.ADMIT_DATE between &&start_date and &&end_date
 )
 
 select ENCOUNTERID

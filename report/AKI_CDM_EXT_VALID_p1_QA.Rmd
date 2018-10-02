@@ -895,7 +895,7 @@ if(nrow(med_temp)>0){
     labs(x="Start Date",y="Encounter Counts",color="Median Exposure (days)",
          title="Figure 4 - Medication Exposure Summaries")
   
-  print(p1) #need print() to demonstrate the plot in the top layer of ifelse statement
+  print(p1) #need print() to demonstrate the plot in top-layer expression(e.g. ifelse)
   
   med_report<-med_temp %>%
     mutate(key=gsub(".*_","",gsub("\\:.*","",key))) %>%
