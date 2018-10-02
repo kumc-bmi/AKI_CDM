@@ -886,7 +886,7 @@ med_temp<-med_summ %>%
 
 
 if(nrow(med_temp)>0){
-  ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=median_expos,label=label)) +
+  p1<-ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=median_expos,label=label)) +
     geom_point() + geom_text_repel()+
     scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                            name = 'Percentage'))+
@@ -894,6 +894,8 @@ if(nrow(med_temp)>0){
                           midpoint = 2)+
     labs(x="Start Date",y="Encounter Counts",color="Median Exposure (days)",
          title="Figure 4 - Medication Exposure Summaries")
+  
+  print(p1) #need print() to demonstrate the plot in the top layer of ifelse statement
   
   med_report<-med_temp %>%
     mutate(key=gsub(".*_","",gsub("\\:.*","",key))) %>%
