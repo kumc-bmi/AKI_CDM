@@ -222,7 +222,8 @@ demo_summ<-aki_stage_ind %>%
               dplyr::select(chk_pt,stg_tot_cnt) %>% 
               unique %>%
               #HIPPA compliance, low count masking
-              dplyr::rename(enc_cnt=ifelse(stg_tot_cnt<11,11,stg_tot_cnt)) %>%
+              dplyr::rename(enc_cnt=stg_tot_cnt) %>%
+              mutate(enc_cnt=ifelse(enc_cnt<11,11,enc_cnt)) %>%
               mutate(enc_prop=round(enc_cnt/enc_tot,3),
                      key="TOTAL",
                      value="(%/overall)") %>%
@@ -244,8 +245,10 @@ rm(demo); gc()
 ```{r demo_out, echo=F}
 demo_nice_tbl<-demo_summ %>%
   gather(summ,summ_val,-key,-value) %>%
-  mutate(summ_val=ifelse(grepl("_enc",summ) & summ_val==11,"<11",as.character(summ_val))) %>%
-  mutate(summ_val=ifelse(grepl("_prop",summ),paste0(summ_val*100,"%"),as.character(summ_val))) %>%
+  mutate(summ_val=ifelse(grepl("_prop",summ),summ_val*100,summ_val)) %>%
+  mutate(summ_val=as.character(summ_val)) %>%
+  mutate(summ_val=ifelse(grepl("_enc",summ) & summ_val==11,"<11",summ_val)) %>%
+  mutate(summ_val=ifelse(grepl("_prop",summ),paste0(summ_val,"%"),summ_val)) %>%
   spread(summ,summ_val) %>%
   unite("ADMIT",paste0("ADMIT_",c("enc_cnt","enc_prop")),sep=", ") %>%
   unite("AKI1",paste0("AKI1_",c("enc_cnt","enc_prop")),sep=", ") %>%
@@ -423,7 +426,7 @@ vital_smoke_summ<-vital %>%
   #HIPPA, low counts masking
   mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11 & as.numeric(pat_cnt)>0,"<11",as.character(pat_cnt)),
          enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
-         enc_prop=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",paste0(round(enc_prop,2)*100,"%"))) %>%
+         enc_prop=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",paste0(round(enc_prop,3)*100,"%"))) %>%
   gather(summ,summ_val,-key_cat,-key) %>%
   mutate(summ=recode(summ,
                      pat_cnt="1.patients#",

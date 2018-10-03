@@ -4,7 +4,10 @@ require_libraries(c("DBI",
                     "tidyr",
                     "dplyr",
                     "magrittr",
-                    "stringr"))
+                    "stringr",
+                    "knitr",
+                    "kableExtra"
+                    ))
 params<-list(  DBMS_type="Oracle",
                remote_CDM=FALSE)
 
@@ -75,9 +78,11 @@ demo_summ<-aki_stage_ind %>%
               filter(!(key %in% c("AGE","DDAYS_SINCE_ENC"))), 
             by="ENCOUNTERID") %>%
   group_by(chk_pt,stg_tot_cnt,key,value) %>%
-  dplyr::summarize(enc_cnt = n(),
-                   enc_prop = round(n()/stg_tot_cnt[1],2)) %>%
-  ungroup %>% dplyr::select(-stg_tot_cnt) %>%
+  #HIPPA compliance, low count masking
+  dplyr::summarize(enc_cnt = ifelse(n()<11,11,n())) %>%
+  mutate(enc_prop = round(enc_cnt/stg_tot_cnt[1],3)) %>%
+  ungroup %>%
+  dplyr::select(-stg_tot_cnt) %>%
   gather(summ,summ_val,-chk_pt,-key,-value) %>%
   # # decode demo_val
   # left_join(meta %>% dplyr::select(COLUMN_NAME,VAR_CODE,VAR_NAME),
@@ -89,9 +94,11 @@ demo_summ<-aki_stage_ind %>%
   bind_rows(aki_stage_ind %>%
               filter(!chk_pt %in% c("DISCHARGE")) %>%
               dplyr::select(chk_pt,stg_tot_cnt) %>% 
-              unique %>% 
+              unique %>%
+              #HIPPA compliance, low count masking
               dplyr::rename(enc_cnt=stg_tot_cnt) %>%
-              mutate(enc_prop=round(enc_cnt/enc_tot,2),
+              mutate(enc_cnt=ifelse(enc_cnt<11,11,enc_cnt)) %>%
+              mutate(enc_prop=round(enc_cnt/enc_tot,3),
                      key="TOTAL",
                      value="(%/overall)") %>%
               gather(summ,summ_val,-chk_pt,-key,-value) %>%
@@ -99,4 +106,36 @@ demo_summ<-aki_stage_ind %>%
   unite("stg_summ",c("chk_pt","summ")) %>%
   unique %>% spread(stg_summ,summ_val) %>%
   replace(.,is.na(.),0)
+
 #passed!
+
+
+demo_nice_tbl<-demo_summ %>%
+  gather(summ,summ_val,-key,-value) %>%
+  mutate(summ_val=ifelse(grepl("_prop",summ),summ_val*100,summ_val)) %>%
+  mutate(summ_val=as.character(summ_val)) %>%
+  mutate(summ_val=ifelse(grepl("_enc",summ) & summ_val==11,"<11",summ_val)) %>%
+  mutate(summ_val=ifelse(grepl("_prop",summ),paste0(summ_val,"%"),summ_val)) %>%
+  spread(summ,summ_val) %>%
+  unite("ADMIT",paste0("ADMIT_",c("enc_cnt","enc_prop")),sep=", ") %>%
+  unite("AKI1",paste0("AKI1_",c("enc_cnt","enc_prop")),sep=", ") %>%
+  unite("AKI2",paste0("AKI2_",c("enc_cnt","enc_prop")),sep=", ") %>%
+  unite("AKI3",paste0("AKI3_",c("enc_cnt","enc_prop")),sep=", ") %>%
+  unite("NONAKI",paste0("NONAKI_",c("enc_cnt","enc_prop")),sep=", ") %>%
+  arrange(key,value)
+
+row_grp_pos<-demo_nice_tbl %>% 
+  mutate(rn=1:n()) %>%
+  group_by(key) %>%
+  dplyr::summarize(begin=rn[1],
+                   end=rn[n()]) %>%
+  ungroup
+
+kable(demo_nice_tbl,
+      caption="Table1 - Demographic Summaries at AKI1, AKI2, AKI3") %>%
+  kable_styling("striped", full_width = F) %>%
+  group_rows("Age Group", row_grp_pos$begin[1],row_grp_pos$end[1]) %>%
+  group_rows("Hispanic", row_grp_pos$begin[2],row_grp_pos$end[2]) %>%
+  group_rows("Race", row_grp_pos$begin[3],row_grp_pos$end[3]) %>%
+  group_rows("Sex", row_grp_pos$begin[4],row_grp_pos$end[4]) %>%  
+  group_rows("Total",row_grp_pos$begin[5],row_grp_pos$end[5])
