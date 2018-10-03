@@ -22,7 +22,7 @@ select distinct
 from AKI_onsets pat
 left join &&PCORNET_CDM.PROCEDURES@dblink px
 on pat.PATID = px.PATID
-where px.PX_DATE between pat.ADMIT_DATE-1 and
+where px.PX_DATE between pat.ADMIT_DATE and
                          pat.DISCHARGE_DATE  
 order by pat.PATID, pat.ENCOUNTERID, px.PX_DATE desc
 
