@@ -115,6 +115,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
       group_by(ENCOUNTERID,key,unit,key_unit,dsa) %>%
       dplyr::summarize(value=mean(value,na.rm=T)) %>%
       ungroup
+    
     #calculated new features: BUN/SCr ratio (same-day)
     bun_scr_ratio<-dat_out %>% 
       mutate(key_agg=case_when(key %in% c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
@@ -149,24 +150,30 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     
     #--collect changes of lab only for those are regularly repeated
     lab_delta<-dat_out %>%
-      semi_join(lab_delta_eligb %>% filter(med>=2),
+      semi_join(lab_delta_eligb %>% filter(med>=3),
                 by="key")
     
     dsa_rg<-seq(0,30) #arbitrarily determined based on onset dates
     lab_delta %<>%
-      bind_rows(data.frame(ENCOUNTERID = rep(0,length(dsa_rg)),
+      bind_rows(data.frame(ENCOUNTERID = rep("0",length(dsa_rg)),
                            key=rep("0",length(dsa_rg)),
                            value=NA,
                            dsa=dsa_rg,
-                           stringsAsFactor = F)) %>%
+                           stringsAsFactors = F)) %>%
       spread(dsa,value) %>%
-      gather(dsa,value,-ENCOUNTERID,-key) %>%
+      gather(dsa,value,-ENCOUNTERID,-key) 
+    
+    lab_delta %<>%
+      filter(ENCOUNTERID!="0") %>%
       group_by(ENCOUNTERID,key) %>%
+      dplyr::mutate(dsa_max=max(dsa)) %>%
+      filter(dsa<=dsa_max) %>%
       arrange(dsa) %>%
-      dplyr::mutate(value=fill(value,.direction="down")) %>%
-      dplyr::mutate(value=fill(value,.direction="up")) %>%
-      dplyr::mutate(value_lag=lag(value,n=1L,default=value[1])) %>%
+      fill(value,.direction="down") %>%
+      fill(value,.direction="up") %>%
+      dplyr::mutate(value_lag=lag(value,n=1L,default=NA)) %>%
       ungroup %>%
+      filter(!is.na(value_lab)) %>%
       mutate(value=value-value_lag,
              key=paste0(key,"_change")) %>%
       dplyr::select(ENCOUNTERID,key,value,dsa) %>%
@@ -208,5 +215,56 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
                   dplyr::select(ENCOUNTERID,key,value,dsa) %>%
                   unique)
   }
+
   return(dat_out)
+}
+
+#tw should be the same time unit as dsa
+get_dsurv_temporal<-function(dat,censor,tw){
+  for(t in tw){
+    #eligibility check
+    censor %<>%
+      mutate(pred_pt=ifelse(dsa_y>=t,t,NA)) %>%
+      filter(!is.na(pred_pt)) %>%
+      
+  }
+  #pivot to sparse matrix
+  X_long %<>%
+    left_join(pat_episode %>% group_by(PATIENT_NUM, episode) %>% 
+                top_n(n=1,wt=DKD_IND_additive) %>% ungroup %>%
+                dplyr::select(PATIENT_NUM,episode) %>% unique,
+              by = "PATIENT_NUM") %>%
+    dplyr::filter(episode_x < episode) %>% 
+    unite("VARIABLE_ep",c("VARIABLE","episode_x")) %>%
+    arrange(PATIENT_NUM, episode) %>%
+    unite("PATIENT_NUM_ep",c("PATIENT_NUM","episode")) %>%
+    dplyr::select(PATIENT_NUM_ep, VARIABLE_ep, NVAL_NUM) %>%
+    long_to_sparse_matrix(.,
+                          id="PATIENT_NUM_ep",
+                          variable="VARIABLE_ep",
+                          val="NVAL_NUM")
+  
+  X_idx<-data.frame(PATIENT_NUM_ep = row.names(X_long),
+                    stringsAsFactors = F)
+  
+  #collect target
+  y_long<-pat_episode %>%
+    dplyr::select(PATIENT_NUM,episode, DKD_IND_additive) %>% unique %>%
+    group_by(PATIENT_NUM, episode) %>% 
+    top_n(n=1,wt=DKD_IND_additive) %>% ungroup %>%
+    unite("PATIENT_NUM_ep",c("PATIENT_NUM","episode")) %>%
+    semi_join(X_idx,by="PATIENT_NUM_ep") %>%
+    arrange(PATIENT_NUM_ep)
+  
+  #alignment check
+  align_row<-all((row.names(X_long)==y_long$PATIENT_NUM_ep)) # yes
+  
+  if(!align_row) {
+    stop("rows for convariate matrix and target don't align!")
+  }
+  
+  Xy_all<-list(X_ep = X_long,
+               y_ep = y_long)
+  
+  return(Xy_all)
 }
