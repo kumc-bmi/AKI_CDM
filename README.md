@@ -73,6 +73,7 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 [ggrepel]: https://github.com/slowkow/ggrepel
 [openxlsx]: https://cran.r-project.org/web/packages/openxlsx/openxlsx.pdf
 [digest]: https://cran.r-project.org/web/packages/digest/digest.pdf
+[htmltools]:  https://cran.r-project.org/web/packages/htmltools/htmltools.pdf
 [RCurl]: https://cran.r-project.org/web/packages/RCurl/RCurl.pdf
 [XML]: https://cran.r-project.org/web/packages/XML/XML.pdf
 
@@ -114,13 +115,13 @@ The following instructions are for extracting cohort and generating final report
         *OR*    
         - In *plain r* environment, **set working directory** to where `AKI_CDM` locates by runing `setwd("path-to-dir/AKI_CDM")`
             
-      ii) **edit** r script `render_report.R` by specifying the following two parameters:   
+      ii) **edit** r script `render_report.R` by specifying the following parameters:   
         - `which_report`: which report you want to render (default is `./report/AKI_CDM_EXT_VALID_p1_QA.Rmd`, but there will be more options in the future)   
         - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`)        
         - `remote_CDM`: if CDM is on a different server from the default schema (default `remote_CDM = F`),          
-                  -- 1. make sure there is a valid remote database connection for sending back CDM data           
-                  -- 2. set `remote_CDM = T`                   
-                  -- 3. add a column `cdm_db_link` to `config.csv` and specify the link       
+                  ---- 1. make sure there is a valid remote database connection for sending back CDM data           
+                  ---- 2. set `remote_CDM = T`                   
+                  ---- 3. add a column `cdm_db_link` to `config.csv` and specify the link       
       
       iii) **run** r script `render_report.R` after assigning correct values to the parameters in ii)        
       
