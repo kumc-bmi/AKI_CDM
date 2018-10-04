@@ -1,5 +1,5 @@
 #### survival-like data format transformation ####
-format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
+format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end){
   if(type=="demo"){
     #demo has to be unqiue for each encounter
     dat_out<-dat%>% dplyr::select(-PATID) %>%
@@ -139,7 +139,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     #engineer new features: change of lab from last collection
     lab_delta_eligb<-dat_out %>%
       group_by(ENCOUNTERID,key) %>%
-      dplyr::mutate(lab_cnt=length(unique(dsa))) %>%
+      dplyr::mutate(lab_cnt=sum(dsa<=pred_end)) %>%
       ungroup %>%
       group_by(key) %>%
       dplyr::summarize(p5=quantile(lab_cnt,probs=0.05,na.rm=T),
@@ -150,10 +150,10 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     
     #--collect changes of lab only for those are regularly repeated
     lab_delta<-dat_out %>%
-      semi_join(lab_delta_eligb %>% filter(med>=3),
+      semi_join(lab_delta_eligb %>% filter(med>=2),
                 by="key")
     
-    dsa_rg<-seq(0,30) #arbitrarily determined based on onset dates
+    dsa_rg<-seq(0,pred_end)
     lab_delta %<>%
       bind_rows(data.frame(ENCOUNTERID = rep("0",length(dsa_rg)),
                            key=rep("0",length(dsa_rg)),
@@ -221,50 +221,46 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
 
 #tw should be the same time unit as dsa
 get_dsurv_temporal<-function(dat,censor,tw){
+  y_surv<-c()
+  X_surv<-c()
   for(t in tw){
-    #eligibility check
+    #stack y
     censor %<>%
-      mutate(pred_pt=ifelse(dsa_y>=t,t,NA)) %>%
+      mutate(pred_pt=case_when(dsa_y >= t ~ t,
+                               dsa_y <  t ~ NA),
+             y=case_when(dsa_y == t ~ y,
+                         dsa_y >  t ~ y-1,
+                         dsa_y <  t ~ NA)) %>%
       filter(!is.na(pred_pt)) %>%
-      
+      group_by(ENCOUNTERID) %>%
+      arrange(desc(dsa_y),desc(y)) %>%
+      slice(1:1) %>%
+      ungroup %>%
+      dplyr::rename(dsa_y=pred_pt)
+    
+    y_surv %<>% 
+      bind_rows(censor %>%
+                  dplyr::select(ENCOUNTERID,dsa_y,y))
+    
+    #stack x
+    X_surv %<>% 
+      bind_rows(dat %>% left_join(censor,by="ENCOUNTERID") %>%
+                  filter(dsa < dsa_y) %>%
+                  group_by(ENCOUNTERID,key) %>%
+                  top_n(n=1,wt=-dsa) %>%
+                  ungroup %>%
+                  dplyr::select(ENCOUNTERID,dsa_y,dsa,key,val))
   }
-  #pivot to sparse matrix
-  X_long %<>%
-    left_join(pat_episode %>% group_by(PATIENT_NUM, episode) %>% 
-                top_n(n=1,wt=DKD_IND_additive) %>% ungroup %>%
-                dplyr::select(PATIENT_NUM,episode) %>% unique,
-              by = "PATIENT_NUM") %>%
-    dplyr::filter(episode_x < episode) %>% 
-    unite("VARIABLE_ep",c("VARIABLE","episode_x")) %>%
-    arrange(PATIENT_NUM, episode) %>%
-    unite("PATIENT_NUM_ep",c("PATIENT_NUM","episode")) %>%
-    dplyr::select(PATIENT_NUM_ep, VARIABLE_ep, NVAL_NUM) %>%
-    long_to_sparse_matrix(.,
-                          id="PATIENT_NUM_ep",
-                          variable="VARIABLE_ep",
-                          val="NVAL_NUM")
-  
-  X_idx<-data.frame(PATIENT_NUM_ep = row.names(X_long),
-                    stringsAsFactors = F)
-  
-  #collect target
-  y_long<-pat_episode %>%
-    dplyr::select(PATIENT_NUM,episode, DKD_IND_additive) %>% unique %>%
-    group_by(PATIENT_NUM, episode) %>% 
-    top_n(n=1,wt=DKD_IND_additive) %>% ungroup %>%
-    unite("PATIENT_NUM_ep",c("PATIENT_NUM","episode")) %>%
-    semi_join(X_idx,by="PATIENT_NUM_ep") %>%
-    arrange(PATIENT_NUM_ep)
   
   #alignment check
-  align_row<-all((row.names(X_long)==y_long$PATIENT_NUM_ep)) # yes
+  align_row<-all((X_surv$ENCOUNTERID==y_surv$ENCOUNTERID)) # yes
   
   if(!align_row) {
     stop("rows for convariate matrix and target don't align!")
   }
   
-  Xy_all<-list(X_ep = X_long,
-               y_ep = y_long)
+  Xy_surv<-list(X_surv = X_surv,
+                y_surv = y_surv)
   
-  return(Xy_all)
+  return(Xy_surv)
 }

@@ -16,7 +16,8 @@ tbl1<-readRDS("./data/Table1.rda") %>%
 
 onset_dt<-c(tbl1$AKI1_SINCE_ADMIT,tbl1$AKI2_SINCE_ADMIT,tbl1$AKI3_SINCE_ADMIT)
 quantile(onset_dt,probs=0:20/20,na.rm=T)
-dsa_rg<-seq(0,30)
+pred_end<-quantile(onset_dt,probs=0.5,na.rm=T)
+tw<-seq(0,pred_end) #
 
 #--by chunks: encounter year
 enc_yr<-tbl1 %>%
@@ -56,8 +57,9 @@ for(i in seq_along(enc_yr)){
                 mutate(cv10_idx=sample(1:10,n(),replace=T)))
   
   #--ETL variables
-  var_at<-c()
-  var_at_bm<-c()
+  X_surv<-c()
+  y_surv<-c()
+  var_etl_bm<-c()
   for(v in seq_along(var_type)){
     start_v<-Sys.time()
     
@@ -66,24 +68,26 @@ for(i in seq_along(enc_yr)){
       semi_join(dat_i,by="ENCOUNTERID")
     
     #transform
-    var_v<-format_data(var_v,type=var_type[v])
-    var_v<-get_dsurv_temporal(dat_i,var_v)
+    var_v<-format_data(var_v,type=var_type[v],pred_end)
+    Xy_surv<-get_dsurv_temporal(dat_i,var_v,tw)
     
     #load
-    var_at %<>% bind_rows(var_v)
+    X_surv %<>% bind_rows(var_xy$X_surv)
+    y_surv %<>% bind_rows(var_xy$y_surv)
     
     lapse_v<-Sys.time()-start_v
-    var_at_bm<-c(var_at_bm,paste0(lapse_v,units(lapse_v)))
+    var_etl_bm<-c(var_etl_bm,paste0(lapse_v,units(lapse_v)))
     cat("\n...collect and transform",var_type[v],"for year",enc_yr[i],"in",lapse_v,units(lapse_v),".\n")
   }
-  var_by_yr[[i]]<-var_at
+  var_by_yr[[i]]<-list(X_surv=X_surv,
+                       y_surv=y_surv)
   
   lapse_i<-Sys.time()-start_i
-  var_at_bm<-paste0(lapse_i,units(lapse_i))
+  var_etl_bm<-paste0(lapse_i,units(lapse_i))
   cat("\nfinish variabl collection for year",enc_yr[i],"in",lapse_i,units(lapse_i),".\n")
   
   var_bm[[i]]<-data.frame(bm_nm=c(var_type,"overall"),
-                          bm_time=var_at_bm,
+                          bm_time=var_etl_bm,
                           stringsAsFactors = F)
 }
 saveRDS(var_by_yr,file="./data/var_by_yr.rda")
