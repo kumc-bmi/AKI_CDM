@@ -23,7 +23,7 @@ params:
 * developed stage 2 AKI (eGFR <= 15 mL/min per 1.73m^2) initially; 
 * pre-existing chronic renal failure (DX); 
 * received RRT within 48 hours since admission; 
-* burn patients (DRG)
+* burn patients (DX)
 
 ***
 
@@ -458,13 +458,13 @@ kable(vital_summ %>% dplyr::select(-key),
 
 Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes. Here is the list of how *high* and *low* vitals are defined (adopted from CDM EDC report):
 
-  |vital type  |upper bound for low values|lower bound for high values|     
-  |:----------:|:------------------------:|:-------------------------:|   
-  |HT(inches)  |0                         |95                         |   
-  |WT(lbs)     |0                         |350                        |   
-  |BMI         |0                         |50                         |    
-  |BP_DIASTOLIC|40                        |120                        |     
-  |BP_SYSTOLIC |40                        |210                        |     
+                                |vital type  |upper bound for low values  |lower bound for high values  |     
+                                |:----------:|:--------------------------:|:---------------------------:|   
+                                |HT(inches)  |0                           |95                           |   
+                                |WT(lbs)     |0                           |350                          |   
+                                |BMI         |0                           |50                           |    
+                                |BP_DIASTOLIC|40                          |120                          |     
+                                |BP_SYSTOLIC |40                          |210                          |     
 
 
 ```{r vital_out2, echo=F, warning=F, message=F}

@@ -1,5 +1,5 @@
 #### survival-like data format transformation ####
-format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
+format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end){
   if(type=="demo"){
     #demo has to be unqiue for each encounter
     dat_out<-dat%>% dplyr::select(-PATID) %>%
@@ -115,6 +115,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
       group_by(ENCOUNTERID,key,unit,key_unit,dsa) %>%
       dplyr::summarize(value=mean(value,na.rm=T)) %>%
       ungroup
+    
     #calculated new features: BUN/SCr ratio (same-day)
     bun_scr_ratio<-dat_out %>% 
       mutate(key_agg=case_when(key %in% c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
@@ -138,7 +139,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
     #engineer new features: change of lab from last collection
     lab_delta_eligb<-dat_out %>%
       group_by(ENCOUNTERID,key) %>%
-      dplyr::mutate(lab_cnt=length(unique(dsa))) %>%
+      dplyr::mutate(lab_cnt=sum(dsa<=pred_end)) %>%
       ungroup %>%
       group_by(key) %>%
       dplyr::summarize(p5=quantile(lab_cnt,probs=0.05,na.rm=T),
@@ -152,21 +153,27 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
       semi_join(lab_delta_eligb %>% filter(med>=2),
                 by="key")
     
-    dsa_rg<-seq(0,30) #arbitrarily determined based on onset dates
+    dsa_rg<-seq(0,pred_end)
     lab_delta %<>%
-      bind_rows(data.frame(ENCOUNTERID = rep(0,length(dsa_rg)),
+      bind_rows(data.frame(ENCOUNTERID = rep("0",length(dsa_rg)),
                            key=rep("0",length(dsa_rg)),
                            value=NA,
                            dsa=dsa_rg,
-                           stringsAsFactor = F)) %>%
+                           stringsAsFactors = F)) %>%
       spread(dsa,value) %>%
-      gather(dsa,value,-ENCOUNTERID,-key) %>%
+      gather(dsa,value,-ENCOUNTERID,-key) 
+    
+    lab_delta %<>%
+      filter(ENCOUNTERID!="0") %>%
       group_by(ENCOUNTERID,key) %>%
+      dplyr::mutate(dsa_max=max(dsa)) %>%
+      filter(dsa<=dsa_max) %>%
       arrange(dsa) %>%
-      dplyr::mutate(value=fill(value,.direction="down")) %>%
-      dplyr::mutate(value=fill(value,.direction="up")) %>%
-      dplyr::mutate(value_lag=lag(value,n=1L,default=value[1])) %>%
+      fill(value,.direction="down") %>%
+      fill(value,.direction="up") %>%
+      dplyr::mutate(value_lag=lag(value,n=1L,default=NA)) %>%
       ungroup %>%
+      filter(!is.na(value_lab)) %>%
       mutate(value=value-value_lag,
              key=paste0(key,"_change")) %>%
       dplyr::select(ENCOUNTERID,key,value,dsa) %>%
@@ -208,5 +215,52 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
                   dplyr::select(ENCOUNTERID,key,value,dsa) %>%
                   unique)
   }
+
   return(dat_out)
+}
+
+#tw should be the same time unit as dsa
+get_dsurv_temporal<-function(dat,censor,tw){
+  y_surv<-c()
+  X_surv<-c()
+  for(t in tw){
+    #stack y
+    censor %<>%
+      mutate(pred_pt=case_when(dsa_y >= t ~ t,
+                               dsa_y <  t ~ NA),
+             y=case_when(dsa_y == t ~ y,
+                         dsa_y >  t ~ y-1,
+                         dsa_y <  t ~ NA)) %>%
+      filter(!is.na(pred_pt)) %>%
+      group_by(ENCOUNTERID) %>%
+      arrange(desc(dsa_y),desc(y)) %>%
+      slice(1:1) %>%
+      ungroup %>%
+      dplyr::rename(dsa_y=pred_pt)
+    
+    y_surv %<>% 
+      bind_rows(censor %>%
+                  dplyr::select(ENCOUNTERID,dsa_y,y))
+    
+    #stack x
+    X_surv %<>% 
+      bind_rows(dat %>% left_join(censor,by="ENCOUNTERID") %>%
+                  filter(dsa < dsa_y) %>%
+                  group_by(ENCOUNTERID,key) %>%
+                  top_n(n=1,wt=-dsa) %>%
+                  ungroup %>%
+                  dplyr::select(ENCOUNTERID,dsa_y,dsa,key,val))
+  }
+  
+  #alignment check
+  align_row<-all((X_surv$ENCOUNTERID==y_surv$ENCOUNTERID)) # yes
+  
+  if(!align_row) {
+    stop("rows for convariate matrix and target don't align!")
+  }
+  
+  Xy_surv<-list(X_surv = X_surv,
+                y_surv = y_surv)
+  
+  return(Xy_surv)
 }

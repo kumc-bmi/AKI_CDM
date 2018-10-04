@@ -17,14 +17,14 @@ Share and Enjoy according to the terms of the MIT Open Source License.
 
 Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affecting 10-15% of all hospitalized patients and >50% of the intensive care unit (ICU) patients. In this application, we propose to build predictive models to identify patients at risk for hospital-acquired AKI and externally validate the models using the PCORnet (Patient Centered Outcomes Research Network)13 common data model (CDM) infrastructure ([GPC#711]). The project will be carried out with the following aims:
 
-* **Aim 1**: Building predictive models on single-site data. We will develop and internally cross-validate machine learning based predictive models for in-hospital AKI using electronic medical record (EMR) data from the University of Kansas Medical Center’s (KUMC) PCORnet CDM. As co-I of the PCORnet network Greater Plains Collaborative (GPC), PI of this project has direct access to the KUMC CDM for model development.    
+* **Aim 1 - KUMC**: Building predictive models on single-site data. We will develop and internally cross-validate machine learning based predictive models for in-hospital AKI using electronic medical record (EMR) data from the University of Kansas Medical Center’s (KUMC) PCORnet CDM. As co-I of the PCORnet network Greater Plains Collaborative (GPC), PI of this project has direct access to the KUMC CDM for model development.    
       * Task 1.1: developing R implementation for data extraction and quality check  -- (due at 09/07/2018)   
       * **Task 1.2: exploratory data analysis (e.g. strategies for data cleaning and representation, feature engineering) -- current (due at 10/31/2018)**    
       * Task 1.3: benchmarking with replication of current state-of-art prediction model    
       * Task 1.4: developing new models   
  
-* **Aim 2**: Validating predictive models on multi-site data. We will implement an automated analytic package with built in data extraction and predictive modeling from Aim 1 for distributed execution within two PCORnet clinical data research networks (CDRNs), namely GPC led by Dr. Waitman and Veterans Health Administration (VHA) site led by Dr. Matheny in pSCANNER. All prototyping will be done on the KUMC CDM.    
-      * **Task 2.1: deploying R codes for data extraction and quanlity check, and reporting results to KUMC -- (due at 10/31/2018)**        
+* **Aim 2 -  GPC**: Validating predictive models on multi-site data. We will implement an automated analytic package with built in data extraction and predictive modeling from Aim 1 for distributed execution within two PCORnet clinical data research networks (CDRNs), namely GPC led by Dr. Waitman and Veterans Health Administration (VHA) site led by Dr. Matheny in pSCANNER. All prototyping will be done on the KUMC CDM.    
+      * **Task 2.1: deploying R codes for data extraction and quanlity check, and reporting results to KUMC -- current (due at 10/31/2018)**        
       * Task 2.2: deploying R codes for external validations of predictive models      
       
 [GPC#711]: https://informatics.gpcnetwork.org/trac/Project/ticket/711
@@ -73,6 +73,7 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 [ggrepel]: https://github.com/slowkow/ggrepel
 [openxlsx]: https://cran.r-project.org/web/packages/openxlsx/openxlsx.pdf
 [digest]: https://cran.r-project.org/web/packages/digest/digest.pdf
+[htmltools]:  https://cran.r-project.org/web/packages/htmltools/htmltools.pdf
 [RCurl]: https://cran.r-project.org/web/packages/RCurl/RCurl.pdf
 [XML]: https://cran.r-project.org/web/packages/XML/XML.pdf
 
@@ -114,13 +115,13 @@ The following instructions are for extracting cohort and generating final report
         *OR*    
         - In *plain r* environment, **set working directory** to where `AKI_CDM` locates by runing `setwd("path-to-dir/AKI_CDM")`
             
-      ii) **edit** r script `render_report.R` by specifying the following two parameters:   
+      ii) **edit** r script `render_report.R` by specifying the following parameters:   
         - `which_report`: which report you want to render (default is `./report/AKI_CDM_EXT_VALID_p1_QA.Rmd`, but there will be more options in the future)   
         - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`)        
         - `remote_CDM`: if CDM is on a different server from the default schema (default `remote_CDM = F`),          
-                  -- 1. make sure there is a valid remote database connection for sending back CDM data           
-                  -- 2. set `remote_CDM = T`                   
-                  -- 3. add a column `cdm_db_link` to `config.csv` and specify the link       
+                  ---- 1. make sure there is a valid remote database connection for sending back CDM data           
+                  ---- 2. set `remote_CDM = T`                   
+                  ---- 3. add a column `cdm_db_link` to `config.csv` and specify the link       
       
       iii) **run** r script `render_report.R` after assigning correct values to the parameters in ii)        
       
@@ -138,4 +139,4 @@ It takes about **2 ~ 3 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd).
 
 
 ***
-*updated 09/26/2018*
+*updated 10/03/2018*
