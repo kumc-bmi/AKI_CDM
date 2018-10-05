@@ -51,27 +51,48 @@ med<-execute_single_sql(conn,
 batch<-20
 expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch),na.rm=T))
 med2<-med %>% filter(RX_EXPOS<=1) %>% 
-  dplyr::mutate(dsa=as.character(sdsa),edsa=sdsa,value=RX_QUANTITY_DAILY) %>%
-  dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
+  dplyr::mutate(dsa=as.character(sdsa),value=RX_QUANTITY_DAILY) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,dsa)
 
 for(i in seq_len(length(expos_quant)-1)){
   med_sub<-med %>% filter(RX_EXPOS > expos_quant[i] & RX_EXPOS <= expos_quant[i+1])
   med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
     group_by(PATID,ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
     dplyr::mutate(expos_daily=1:n()-1) %>% 
-    dplyr::summarize(edsa=max(sdsa+expos_daily),
-                     dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
+    dplyr::summarize(dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
     ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
-    dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
-  med2 %<>% bind_rows(med_expand)
+    dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,dsa)
+  
+  med2 %<>% bind_rows(med_expand) %>%
+    mutate(dsa=strsplit(dsa,",")) %>%
+    unnest(dsa) %>%
+    mutate(dsa=as.numeric(dsa)) %>%
+    group_by(PATID,ENCOUNTERID,key,dsa) %>%
+    dplyr::summarize(value=max(value)) %>%
+    ungroup %>%
+    group_by(PATID,ENCOUNTERID,key) %>%
+    arrange(dsa) %>%
+    dplyr::summarize(dsa=paste0(dsa,collapse=","),
+                     value=paste0(value,collapse=","))
+  
   gc()
 }
 
 #merge overlapped precribing intervals
 med2 %<>% 
-  group_by(PATID,ENCOUNTERID,key,sdsa,edsa,dsa) %>%
-  dplyr::summarize(value=value[1]) %>%
-  ungroup
+  group_by(PATID,ENCOUNTERID,key,value,dsa) %>%
+  transform(value=strsplit(value,","),
+            dsa=strsplit(dsa,",")) %>%
+  unnest(value,dsa) %>%
+  group_by(PATID,ENCOUNTERID,key) %>%
+  dplyr::mutate(dsa_lag=lag(dsa,n=1L)) %>%
+  ungroup %>%
+  mutate(sdsa=ifelse(is.na(dsa_lag)|dsa==dsa_lag+1,dsa,NA)) %>%
+  fill(sdsa,.direction="down") %>%
+  group_by(PATID,ENCOUNTERID,key,sdsa) %>%
+  dplyr::summarize(dsa=paste0(dsa,collapse=","),
+                   value=paste0(value,collapse=","),
+                   RX_EXPOS=pmax(1,sum(value,na.rm=T)))
 
 med<-med2 %>%
   group_by(PATID,ENCOUNTERID,key,sdsa) %>%

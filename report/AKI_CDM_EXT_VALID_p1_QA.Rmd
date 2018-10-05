@@ -811,52 +811,68 @@ med<-execute_single_sql(conn,
 #save intermediate table for debugging
 saveRDS(med,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
 
-#converted to daily exposure
+#re-calculate medication exposure
 batch<-20
-expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch,na.rm=T)))
+expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch),na.rm=T))
 med2<-med %>% filter(RX_EXPOS<=1) %>% 
-  dplyr::mutate(dsa=as.character(sdsa),edsa=sdsa,value=RX_QUANTITY_DAILY) %>%
-  dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
+  dplyr::mutate(dsa=as.character(sdsa),value=RX_QUANTITY_DAILY) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,dsa)
 
 for(i in seq_len(length(expos_quant)-1)){
   med_sub<-med %>% filter(RX_EXPOS > expos_quant[i] & RX_EXPOS <= expos_quant[i+1])
+  
+  #--converted to daily exposure
   med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
     group_by(PATID,ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
     dplyr::mutate(expos_daily=1:n()-1) %>% 
-    dplyr::summarize(edsa=max(sdsa+expos_daily),
-                     dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
+    dplyr::summarize(dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
     ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
-    dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,edsa,dsa)
-  med2 %<>% bind_rows(med_expand)
+    dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,dsa)
+  
+  #--merge overlapped precribing intervals (pick the higher exposure)
+  med2 %<>% bind_rows(med_expand) %>%
+    mutate(dsa=strsplit(dsa,",")) %>%
+    unnest(dsa) %>%
+    mutate(dsa=as.numeric(dsa)) %>%
+    group_by(PATID,ENCOUNTERID,key,dsa) %>%
+    dplyr::summarize(value=max(value)) %>%
+    ungroup %>%
+    group_by(PATID,ENCOUNTERID,key) %>%
+    arrange(dsa) %>%
+    dplyr::summarize(dsa=paste0(dsa,collapse=","),
+                     value=paste0(value,collapse=","))
+  
   gc()
 }
-
-#merge overlapped precribing intervals
+#--identify non-overlapped exposure episodes
 med2 %<>% 
-  mutate(dsa=strsplit(dsa,",")) %>%
-  unnest(dsa) %>%
-  mutate(dsa=as.numeric(dsa)) %>%
-  group_by(PATID,ENCOUNTERID,key,sdsa,edsa,dsa) %>%
-  dplyr::summarize(value=value[1]) %>%
-  ungroup
-
-med<-med2 %>%
+  group_by(PATID,ENCOUNTERID,key,value,dsa) %>%
+  transform(value=strsplit(value,","),
+            dsa=strsplit(dsa,",")) %>%
+  unnest(value,dsa) %>%
+  group_by(PATID,ENCOUNTERID,key) %>%
+  dplyr::mutate(dsa_lag=lag(dsa,n=1L)) %>%
+  ungroup %>%
+  mutate(sdsa=ifelse(is.na(dsa_lag)|dsa==dsa_lag+1,dsa,NA)) %>%
+  fill(sdsa,.direction="down") %>%
   group_by(PATID,ENCOUNTERID,key,sdsa) %>%
-  dplyr::summarize(RX_EXPOS=pmax(1,sum(value,na.rm=T))) %>%
-  ungroup
+  dplyr::summarize(dsa=paste0(dsa,collapse=","),
+                   value=paste0(value,collapse=","),
+                   RX_EXPOS=pmax(1,sum(value,na.rm=T)))
 
 
 #collect summaries
-med_summ<- med %>%
+med_summ<- med2 %>%
+  dplyr::select(PATID,ENCOUNTERID,key,sdsa,RX_EXPOS) %>%
   mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
-                             sdsa >=0 & sdsa < 1 ~ "1",
-                             sdsa >=1 & sdsa < 2 ~ "2",
-                             sdsa >=2 & sdsa < 3 ~ "3",
-                             sdsa >=3 & sdsa < 4 ~ "4",
-                             sdsa >=4 & sdsa < 5 ~ "5",
-                             sdsa >=5 & sdsa < 6 ~ "6",
-                             sdsa >=6 & sdsa < 7 ~ "7",
-                             sdsa >=7 ~ "7<")) %>%
+                           sdsa >=0 & sdsa < 1 ~ "1",
+                           sdsa >=1 & sdsa < 2 ~ "2",
+                           sdsa >=2 & sdsa < 3 ~ "3",
+                           sdsa >=3 & sdsa < 4 ~ "4",
+                           sdsa >=4 & sdsa < 5 ~ "5",
+                           sdsa >=5 & sdsa < 6 ~ "6",
+                           sdsa >=6 & sdsa < 7 ~ "7",
+                           sdsa >=7 ~ "7<")) %>%
   group_by(key,dsa_grp) %>%
   dplyr::summarize(record_cnt=n(),
                    enc_cnt=length(unique(ENCOUNTERID)),
