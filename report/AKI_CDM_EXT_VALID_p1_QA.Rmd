@@ -816,8 +816,8 @@ saveRDS(med,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
 batch<-20
 expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch),na.rm=T))
 med2<-med %>% filter(RX_EXPOS<=1) %>% 
-  dplyr::mutate(dsa=as.character(sdsa),value=RX_QUANTITY_DAILY) %>%
-  dplyr::select(ENCOUNTERID,key,value,sdsa,dsa)
+  dplyr::mutate(dsa=sdsa,value=RX_QUANTITY_DAILY) %>%
+  dplyr::select(ENCOUNTERID,key,value,dsa)
 
 for(i in seq_len(length(expos_quant)-1)){
   med_sub<-med %>% filter(RX_EXPOS > expos_quant[i] & RX_EXPOS <= expos_quant[i+1])
@@ -836,7 +836,7 @@ for(i in seq_len(length(expos_quant)-1)){
     unnest(dsa) %>%
     mutate(dsa=as.numeric(dsa)) %>%
     group_by(ENCOUNTERID,key,dsa) %>%
-    dplyr::summarize(value=max(value)) %>%
+    dplyr::summarize(value=max(value,na.rm=T)) %>%
     ungroup
   
   gc()
