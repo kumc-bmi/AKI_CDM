@@ -139,4 +139,4 @@ It takes about **2 ~ 3 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd).
 
 
 ***
-*updated 10/03/2018*
+*updated 10/05/2018*

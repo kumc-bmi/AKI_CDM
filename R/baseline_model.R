@@ -9,7 +9,9 @@ require_libraries(c("tidyr",
                     "stringr",
                     "broom",
                     "xgboost",
-                    "lightgbm",
+                    # "CMake",
+                    # "LightGBM",
+                    # "catboost",
                     "ROCR"))
 
 
@@ -118,7 +120,7 @@ saveRDS(var_bm,file="./data/var_bm.rda")
 
 
 ############################ baseline GBM model ######################################
-#--prepare training
+#--prepare training set
 X_tr<-c()
 X_ts<-c()
 y_tr<-c()
@@ -413,6 +415,6 @@ p2<-ggplot(calib_equal_bin,aes(x=episode,y=pred_bin,fill=color))+
 
 
 #--feature importance
-feat_imp<-xgb.importance(colnames(X_tr),model=xgb_tune);
+feat_imp<-xgb.importance(colnames(X_tr),model=xgb_tune)
 
 
