@@ -276,6 +276,28 @@ render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
 }
 
 
+## convert long mastrix to wide sparse matrix
+long_to_sparse_matrix<-function(df,id,variable,val,binary=FALSE){
+  if(binary){
+    x_sparse<-with(df,
+                   sparseMatrix(i=as.numeric(as.factor(get(id))),
+                                j=as.numeric(as.factor(get(variable))),
+                                x=1,
+                                dimnames=list(levels(as.factor(get(id))),
+                                              levels(as.factor(get(variable))))))
+  }else{
+    x_sparse<-with(df,
+                   sparseMatrix(i=as.numeric(as.factor(get(id))),
+                                j=as.numeric(as.factor(get(variable))),
+                                x=ifelse(is.na(get(val)),1,as.numeric(get(val))),
+                                dimnames=list(levels(as.factor(get(id))),
+                                              levels(as.factor(get(variable))))))
+  }
+  
+  return(x_sparse)
+}
+
+
 ## compress dataframe into a condensed format
 compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save=F){
   if(tbl=="demo"){

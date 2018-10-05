@@ -841,7 +841,7 @@ for(i in seq_len(length(expos_quant)-1)){
   
   gc()
 }
-#--identify non-overlapped exposure episodes
+#--identify non-overlapped exposure episodes and merge adjacent episodes
 med2 %<>%
   group_by(ENCOUNTERID,key) %>%
   dplyr::mutate(dsa_lag=lag(dsa,n=1L)) %>%
@@ -888,7 +888,7 @@ med_density<-length(unique(med$ENCOUNTERID))
 
 #save
 saveRDS(med2,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
-saveRDS(med_summ,file="./data/med_summ.rda")
+# saveRDS(med_summ,file="./data/med_summ.rda")
 
 #clean up
 rm(med,med2); gc()
