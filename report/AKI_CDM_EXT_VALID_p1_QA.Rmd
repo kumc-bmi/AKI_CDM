@@ -816,7 +816,7 @@ saveRDS(med,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
 batch<-20
 expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch),na.rm=T))
 med2<-med %>% filter(RX_EXPOS<=1) %>% 
-  dplyr::mutate(dsa=as.character(sdsa),value=as.character(RX_QUANTITY_DAILY)) %>%
+  dplyr::mutate(dsa=as.character(sdsa),value=RX_QUANTITY_DAILY) %>%
   dplyr::select(ENCOUNTERID,key,value,sdsa,dsa)
 
 for(i in seq_len(length(expos_quant)-1)){
@@ -837,20 +837,12 @@ for(i in seq_len(length(expos_quant)-1)){
     mutate(dsa=as.numeric(dsa)) %>%
     group_by(ENCOUNTERID,key,dsa) %>%
     dplyr::summarize(value=max(value)) %>%
-    ungroup %>%
-    group_by(ENCOUNTERID,key) %>%
-    arrange(dsa) %>%
-    dplyr::summarize(dsa=paste0(dsa,collapse=","),
-                     value=paste0(value,collapse=","))
+    ungroup
   
   gc()
 }
 #--identify non-overlapped exposure episodes
-med2 %<>% 
-  group_by(ENCOUNTERID,key,value,dsa) %>%
-  transform(value=strsplit(value,","),
-            dsa=strsplit(dsa,",")) %>%
-  unnest(value,dsa) %>%
+med2 %<>%
   group_by(ENCOUNTERID,key) %>%
   dplyr::mutate(dsa_lag=lag(dsa,n=1L)) %>%
   ungroup %>%
@@ -859,8 +851,8 @@ med2 %<>%
   group_by(ENCOUNTERID,key,sdsa) %>%
   dplyr::summarize(dsa=paste0(dsa,collapse=","),
                    value=paste0(value,collapse=","),
-                   RX_EXPOS=pmax(1,sum(value,na.rm=T)))
-
+                   RX_EXPOS=pmax(1,sum(value,na.rm=T))) %>%
+  ungroup
 
 #collect summaries
 med_summ<- med2 %>%

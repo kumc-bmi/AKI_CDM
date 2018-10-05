@@ -47,60 +47,52 @@ med<-execute_single_sql(conn,
   dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
   unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
 
-#converted to daily exposure
+#re-calculate medication exposure
 batch<-20
 expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch),na.rm=T))
 med2<-med %>% filter(RX_EXPOS<=1) %>% 
-  dplyr::mutate(dsa=as.character(sdsa),value=as.character(RX_QUANTITY_DAILY)) %>%
-  dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,dsa)
+  dplyr::mutate(dsa=as.character(sdsa),value=RX_QUANTITY_DAILY) %>%
+  dplyr::select(ENCOUNTERID,key,value,sdsa,dsa)
 
 for(i in seq_len(length(expos_quant)-1)){
   med_sub<-med %>% filter(RX_EXPOS > expos_quant[i] & RX_EXPOS <= expos_quant[i+1])
+  
+  #--converted to daily exposure
   med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
-    group_by(PATID,ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
+    group_by(ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
     dplyr::mutate(expos_daily=1:n()-1) %>% 
     dplyr::summarize(dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
     ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
-    dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,dsa)
+    dplyr::select(ENCOUNTERID,key,value,sdsa,dsa)
   
+  #--merge overlapped precribing intervals (pick the higher exposure)
   med2 %<>% bind_rows(med_expand) %>%
     mutate(dsa=strsplit(dsa,",")) %>%
     unnest(dsa) %>%
     mutate(dsa=as.numeric(dsa)) %>%
-    group_by(PATID,ENCOUNTERID,key,dsa) %>%
+    group_by(ENCOUNTERID,key,dsa) %>%
     dplyr::summarize(value=max(value)) %>%
-    ungroup %>%
-    group_by(PATID,ENCOUNTERID,key) %>%
-    arrange(dsa) %>%
-    dplyr::summarize(dsa=paste0(dsa,collapse=","),
-                     value=paste0(value,collapse=","))
+    ungroup
   
   gc()
 }
-
-#merge overlapped precribing intervals
-med2 %<>% 
-  group_by(PATID,ENCOUNTERID,key,value,dsa) %>%
-  transform(value=strsplit(value,","),
-            dsa=strsplit(dsa,",")) %>%
-  unnest(value,dsa) %>%
-  group_by(PATID,ENCOUNTERID,key) %>%
+#--identify non-overlapped exposure episodes
+med2 %<>%
+  group_by(ENCOUNTERID,key) %>%
   dplyr::mutate(dsa_lag=lag(dsa,n=1L)) %>%
   ungroup %>%
   mutate(sdsa=ifelse(is.na(dsa_lag)|dsa==dsa_lag+1,dsa,NA)) %>%
   fill(sdsa,.direction="down") %>%
-  group_by(PATID,ENCOUNTERID,key,sdsa) %>%
+  group_by(ENCOUNTERID,key,sdsa) %>%
   dplyr::summarize(dsa=paste0(dsa,collapse=","),
                    value=paste0(value,collapse=","),
-                   RX_EXPOS=pmax(1,sum(value,na.rm=T)))
-
-med<-med2 %>%
-  group_by(PATID,ENCOUNTERID,key,sdsa) %>%
-  dplyr::summarize(RX_EXPOS=pmax(1,sum(value,na.rm=T))) %>%
+                   RX_EXPOS=pmax(1,sum(value,na.rm=T))) %>%
   ungroup
 
+
 #collect summaries
-med_summ<-med %>% 
+med_summ<-med2 %>% 
+  dplyr::select(ENCOUNTERID,key,sdsa,RX_EXPOS) %>%
   mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
                            sdsa >=0 & sdsa < 1 ~ "1",
                            sdsa >=1 & sdsa < 2 ~ "2",
