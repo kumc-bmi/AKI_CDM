@@ -10,7 +10,7 @@ require_libraries(c("tidyr",
                     "broom"))
 
 
-######collect and format variables on daily basis#######
+#################### collect and format variables on daily basis ######################
 tbl1<-readRDS("./data/Table1.rda") %>%
   mutate(yr=as.numeric(format(ADMIT_DATE,"%Y")))
 
@@ -39,9 +39,10 @@ for(i in seq_along(enc_yr)){
   
   #--collect end_points
   dat_i<-tbl1 %>% filter(yr==enc_yr[i]) %>%
-    dplyr::select(ENCOUNTERID,NONAKI_SINCE_ADMIT,
+    dplyr::select(ENCOUNTERID,yr,NONAKI_SINCE_ADMIT,
                   AKI1_SINCE_ADMIT,AKI2_SINCE_ADMIT,AKI3_SINCE_ADMIT) %>%
-    gather(y,dsa_y,-ENCOUNTERID) %>%
+    gather(y,dsa_y,-ENCOUNTERID,-yr) %>%
+    filter(!is.na(dsa_y)) %>%
     mutate(y=recode(y,
                     "NONAKI_SINCE_ADMIT"=0,
                     "AKI1_SINCE_ADMIT"=1,
@@ -67,42 +68,51 @@ for(i in seq_along(enc_yr)){
     var_v<-readRDS(paste0("./data/AKI_",toupper(var_type[v]),".rda")) %>%
       semi_join(dat_i,by="ENCOUNTERID")
     
+    if(var_type[v] != "demo"){
+      if(var_type[v] == "med"){
+        var_v %<>% 
+          mutate(dsa=strsplit(dsa,",")) %>%
+          unnest(dsa) %>%
+          mutate(dsa=as.numeric(dsa))
+      }
+      var_v %<>% filter(dsa <= pred_end)
+    }
+    
     #transform
-    var_v<-format_data(var_v,type=var_type[v],pred_end)
-    Xy_surv<-get_dsurv_temporal(dat_i,var_v,tw)
+    var_v<-format_data(dat=var_v,
+                       type=var_type[v],
+                       pred_end=pred_end)
+    
+    Xy_surv<-get_dsurv_temporal(dat=var_v,
+                                censor=dat_i,
+                                tw=tw)
     
     #load
-    X_surv %<>% bind_rows(var_xy$X_surv)
-    y_surv %<>% bind_rows(var_xy$y_surv)
+    X_surv %<>% bind_rows(Xy_surv$X_surv)
+    y_surv %<>% bind_rows(Xy_surv$y_surv)
     
     lapse_v<-Sys.time()-start_v
     var_etl_bm<-c(var_etl_bm,paste0(lapse_v,units(lapse_v)))
-    cat("\n...collect and transform",var_type[v],"for year",enc_yr[i],"in",lapse_v,units(lapse_v),".\n")
+    cat("\n...finished ETL",var_type[v],"for year",enc_yr[i],"in",lapse_v,units(lapse_v),".\n")
   }
   var_by_yr[[i]]<-list(X_surv=X_surv,
                        y_surv=y_surv)
   
   lapse_i<-Sys.time()-start_i
   var_etl_bm<-paste0(lapse_i,units(lapse_i))
-  cat("\nfinish variabl collection for year",enc_yr[i],"in",lapse_i,units(lapse_i),".\n")
+  cat("\nfinished variabl collection for year",enc_yr[i],"in",lapse_i,units(lapse_i),".\n")
   
   var_bm[[i]]<-data.frame(bm_nm=c(var_type,"overall"),
                           bm_time=var_etl_bm,
                           stringsAsFactors = F)
 }
+#--save preprocessed data
+saveRDS(rsample_idx,file="./data/rsample_idx.rda")
 saveRDS(var_by_yr,file="./data/var_by_yr.rda")
-saveRDS(var_bm,file="./data/var_dm.rda")
-
-##### sampling #####
-#leave out encounters after 2017-01-01 as temporal holdout
-#-- random sampling
+saveRDS(var_bm,file="./data/var_bm.rda")
 
 
-
-#-- balance case and control
-
-
-
-#-- balance case and control based on pathway matching
+############################ build GBM model ######################################
+#if data not loaded
 
 

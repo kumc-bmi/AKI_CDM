@@ -833,6 +833,9 @@ for(i in seq_len(length(expos_quant)-1)){
 
 #merge overlapped precribing intervals
 med2 %<>% 
+  mutate(dsa=strsplit(dsa,",")) %>%
+  unnest(dsa) %>%
+  mutate(dsa=as.numeric(dsa)) %>%
   group_by(PATID,ENCOUNTERID,key,sdsa,edsa,dsa) %>%
   dplyr::summarize(value=value[1]) %>%
   ungroup

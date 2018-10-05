@@ -150,36 +150,25 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
     
     #--collect changes of lab only for those are regularly repeated
     lab_delta<-dat_out %>%
-      semi_join(lab_delta_eligb %>% filter(med>=2),
+      semi_join(lab_delta_eligb %>% filter(med>=(pred_end-1)),
                 by="key")
     
     dsa_rg<-seq(0,pred_end)
+
     lab_delta %<>%
-      bind_rows(data.frame(ENCOUNTERID = rep("0",length(dsa_rg)),
-                           key=rep("0",length(dsa_rg)),
-                           value=NA,
-                           dsa=dsa_rg,
-                           stringsAsFactors = F)) %>%
-      spread(dsa,value) %>%
-      gather(dsa,value,-ENCOUNTERID,-key) 
-    
-    lab_delta %<>%
-      filter(ENCOUNTERID!="0") %>%
       group_by(ENCOUNTERID,key) %>%
       dplyr::mutate(dsa_max=max(dsa)) %>%
       filter(dsa<=dsa_max) %>%
       arrange(dsa) %>%
-      fill(value,.direction="down") %>%
-      fill(value,.direction="up") %>%
       dplyr::mutate(value_lag=lag(value,n=1L,default=NA)) %>%
       ungroup %>%
-      filter(!is.na(value_lab)) %>%
+      filter(!is.na(value_lag)) %>%
       mutate(value=value-value_lag,
              key=paste0(key,"_change")) %>%
       dplyr::select(ENCOUNTERID,key,value,dsa) %>%
       unique
     
-    dat_out %>%
+    dat_out %<>%
       bind_rows(bun_scr_ratio) %>%
       bind_rows(lab_delta)
     
@@ -192,6 +181,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
       group_by(ENCOUNTERID,key) %>%
       top_n(n=1L,wt=dsa) %>%
       ungroup %>% 
+      mutate(key=as.character(key)) %>%
       dplyr::select(ENCOUNTERID,key,value,dsa)
     
   }else if(type == "px"){
@@ -227,16 +217,17 @@ get_dsurv_temporal<-function(dat,censor,tw){
     #stack y
     censor %<>%
       mutate(pred_pt=case_when(dsa_y >= t ~ t,
-                               dsa_y <  t ~ NA),
-             y=case_when(dsa_y == t ~ y,
-                         dsa_y >  t ~ y-1,
-                         dsa_y <  t ~ NA)) %>%
+                               dsa_y <  t ~ NA_integer_),
+             y_ep=case_when(dsa_y == t ~ y,
+                            dsa_y >  t ~ pmax(0,y-1),
+                            dsa_y <  t ~ NA_real_)) %>%
       filter(!is.na(pred_pt)) %>%
       group_by(ENCOUNTERID) %>%
-      arrange(desc(dsa_y),desc(y)) %>%
+      arrange(desc(pred_pt),desc(y_ep)) %>%
       slice(1:1) %>%
       ungroup %>%
-      dplyr::rename(dsa_y=pred_pt)
+      mutate(dsa_y=pred_pt,y=y_ep) %>%
+      dplyr::select(-pred_pt,-y_ep)
     
     y_surv %<>% 
       bind_rows(censor %>%
@@ -249,16 +240,9 @@ get_dsurv_temporal<-function(dat,censor,tw){
                   group_by(ENCOUNTERID,key) %>%
                   top_n(n=1,wt=-dsa) %>%
                   ungroup %>%
-                  dplyr::select(ENCOUNTERID,dsa_y,dsa,key,val))
+                  dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value))
   }
-  
-  #alignment check
-  align_row<-all((X_surv$ENCOUNTERID==y_surv$ENCOUNTERID)) # yes
-  
-  if(!align_row) {
-    stop("rows for convariate matrix and target don't align!")
-  }
-  
+
   Xy_surv<-list(X_surv = X_surv,
                 y_surv = y_surv)
   
