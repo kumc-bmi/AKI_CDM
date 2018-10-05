@@ -1,7 +1,7 @@
 ---
 title: "Building and Validating Predictive Models for Acute Kidney Injury (AKI) using PCORnet CDM (Part I)"
 author: "xing song"
-date: "August 23, 2018"
+date: "October 5, 2018"
 output: html_document
 params:
   DBMS_type: Oracle
@@ -72,24 +72,21 @@ conn<-connect_to_db(params$DBMS_type,config_file)
 ```{r cohort,message=F}
 #extract cohort --Table1
 # by default, we assume cdm schema is on the same server as current schema,
-# cohort<-extract_cohort(conn,
-#                        remote_CDM=params$remote_CDM,
-#                        cdm_db_name=config_file$cdm_db_name,
-#                        cdm_db_schema=config_file$cdm_db_schema,
-#                        start_date="2010-01-01",
-#                        end_date="2018-12-31",
-#                        verb=F)
+cohort<-extract_cohort(conn,
+                       remote_CDM=params$remote_CDM,
+                       cdm_db_name=config_file$cdm_db_name,
+                       cdm_db_schema=config_file$cdm_db_schema,
+                       start_date="2010-01-01",
+                       end_date="2018-12-31",
+                       verb=F)
 
 ```
 
 The above codes extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output will be automatically saved in the current working directory `r getwd()` as "Table1.rda". More details are included in the following consort diagram.  
 
 ```{r tbl1, include=F}
-# Table1<-cohort$aki_enc
-# consort_tbl<-cohort$attrition
-#temporary
-Table1<-readRDS("./data/Table1.rda")
-consort_tbl<-readRDS("./data/consort_tbl.rda")
+Table1<-cohort$aki_enc
+consort_tbl<-cohort$attrition
 
 # collect summaries
 enc_tot<-length(unique(Table1$ENCOUNTERID))
@@ -120,24 +117,9 @@ tbl1_summ<-tbl1_dsa %>%
   mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",as.character(pat_cnt)),
          enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt)))
 
-# tbl1_summ2<-tbl1_dsa %>%
-#   mutate(dsa_bin=case_when(days_since_admit <10 ~ paste0("0",days_since_admit," days"),
-#                            days_since_admit >=10 & days_since_admit < 31 ~ paste(days_since_admit,"days"),
-#                            days_since_admit >=31 ~ '31 days(1mth) <')) %>%
-#   group_by(stage,dsa_bin) %>%
-#   dplyr::summarize(enc_cnt=length(unique(ENCOUNTERID))) %>%
-#   spread(stage,enc_cnt,fill=0) %>%
-#   mutate(AKI1_cum=cumsum(AKI1),
-#          AKI2_cum=cumsum(AKI2),
-#          AKI3_cum=cumsum(AKI3),
-#          NONAKI_cum=cumsum(NONAKI)) %>%
-#   arrange(desc(dsa_bin)) %>%
-#   mutate(NONAKI=cumsum(NONAKI)) %>%
-#   arrange(dsa_bin)
-
 #save results
 saveRDS(Table1,file="./data/Table1.rda")
-saveRDS(consort_tbl,file="./data/consort_tbl.rda")
+# saveRDS(consort_tbl,file="./data/consort_tbl.rda")
 
 #clean up
 rm(cohort); gc()
@@ -176,32 +158,29 @@ Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*,
 
 ```{r demo, include=F}
 ## demographic
-# sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_demo.sql"),
-#                            cdm_db_link=config_file$cdm_db_link,
-#                            cdm_db_name=config_file$cdm_db_name,
-#                            cdm_db_schema=config_file$cdm_db_schema)
-# 
-# demo<-execute_single_sql(conn,
-#                          statement=sql$statement,
-#                          write=(sql$action=="write")) %>%
-#   mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
-#                            AGE >= 26 & AGE <= 35 ~ "26-35",
-#                            AGE >= 36 & AGE <= 45 ~ "36-45",
-#                            AGE >= 46 & AGE <= 55 ~ "46-55",
-#                            AGE >= 56 & AGE <= 65 ~ "56-65",
-#                            AGE >= 66 ~ "66<=")) %>%
-#   dplyr::select(ENCOUNTERID,
-#                 AGE,AGE_GRP,SEX,RACE,HISPANIC,DDAYS_SINCE_ENC) %>%
-#   replace_na(list(AGE="NI",
-#                   AGE_GRP="NI",
-#                   SEX="NI",
-#                   RACE="NI",
-#                   HISPANIC="NI")) %>%
-#   gather(key,value,-ENCOUNTERID) %>%
-#   unique
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_demo.sql"),
+                           cdm_db_link=config_file$cdm_db_link,
+                           cdm_db_name=config_file$cdm_db_name,
+                           cdm_db_schema=config_file$cdm_db_schema)
 
-#temp
-demo<-readRDS("./data/AKI_DEMO.rda")
+demo<-execute_single_sql(conn,
+                         statement=sql$statement,
+                         write=(sql$action=="write")) %>%
+  mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
+                           AGE >= 26 & AGE <= 35 ~ "26-35",
+                           AGE >= 36 & AGE <= 45 ~ "36-45",
+                           AGE >= 46 & AGE <= 55 ~ "46-55",
+                           AGE >= 56 & AGE <= 65 ~ "56-65",
+                           AGE >= 66 ~ "66<=")) %>%
+  dplyr::select(ENCOUNTERID,
+                AGE,AGE_GRP,SEX,RACE,HISPANIC,DDAYS_SINCE_ENC) %>%
+  replace_na(list(AGE="NI",
+                  AGE_GRP="NI",
+                  SEX="NI",
+                  RACE="NI",
+                  HISPANIC="NI")) %>%
+  gather(key,value,-ENCOUNTERID) %>%
+  unique
 
 
 #collect summaries
@@ -218,13 +197,6 @@ demo_summ<-aki_stage_ind %>%
   ungroup %>%
   dplyr::select(-stg_tot_cnt) %>%
   gather(summ,summ_val,-chk_pt,-key,-value) %>%
-  # # decode demo_val
-  # left_join(meta %>% dplyr::select(COLUMN_NAME,VAR_CODE,VAR_NAME),
-  #           by=c("demo_type"="COLUMN_NAME","demo_val"="VAR_CODE")) %>%
-  # dplyr::mutate(demo_val = ifelse(!is.na(VAR_NAME),VAR_NAME,demo_val)) %>%
-  # dplyr::select(-VAR_NAME) %>%
-  # unite("demo_type_cat",c("demo_type","demo_val")) %>%
-  # attach totals at bottom
   bind_rows(aki_stage_ind %>%
               filter(!chk_pt %in% c("DISCHARGE")) %>%
               dplyr::select(chk_pt,stg_tot_cnt) %>% 
@@ -293,29 +265,26 @@ Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, D
 
 ```{r vital, include=F}
 ## vital
-# sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_vital.sql"),
-#                cdm_db_link=config_file$cdm_db_link,
-#                cdm_db_name=config_file$cdm_db_name,
-#                cdm_db_schema=config_file$cdm_db_schema)
-# 
-# vital<-execute_single_sql(conn,
-#                           statement=sql$statement,
-#                           write=(sql$action=="write")) %>%
-#   mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
-#                              ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
-#                              ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
-#   dplyr::rename(dsa=DAYS_SINCE_ADMIT,
-#                 timestamp=MEASURE_DATE_TIME) %>%
-#   gather(key,value,-PATID,-ENCOUNTERID,-dsa,-timestamp) %>%
-#   filter(!is.na(key) & !is.na(value)) %>%
-#   mutate(key=recode(key,
-#                     ORIGINAL_BMI="BMI",
-#                     SYSTOLIC="BP_SYSTOLIC",
-#                     DIASTOLIC="BP_DIASTOLIC")) %>%
-#   unique
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_vital.sql"),
+               cdm_db_link=config_file$cdm_db_link,
+               cdm_db_name=config_file$cdm_db_name,
+               cdm_db_schema=config_file$cdm_db_schema)
 
-#temp
-vital<-readRDS("./data/AKI_VITAL.rda")
+vital<-execute_single_sql(conn,
+                          statement=sql$statement,
+                          write=(sql$action=="write")) %>%
+  mutate(BMI_GRP = case_when(ORIGINAL_BMI <= 25 ~ "BMI <= 25",
+                             ORIGINAL_BMI > 25 &  ORIGINAL_BMI <= 30 ~ "BMI 26-30",
+                             ORIGINAL_BMI >=31  ~ "BMI >= 31")) %>%
+  dplyr::rename(dsa=DAYS_SINCE_ADMIT,
+                timestamp=MEASURE_DATE_TIME) %>%
+  gather(key,value,-PATID,-ENCOUNTERID,-dsa,-timestamp) %>%
+  filter(!is.na(key) & !is.na(value)) %>%
+  mutate(key=recode(key,
+                    ORIGINAL_BMI="BMI",
+                    SYSTOLIC="BP_SYSTOLIC",
+                    DIASTOLIC="BP_DIASTOLIC")) %>%
+  unique
 
 
 vital1<-vital %>%
@@ -470,13 +439,13 @@ kable(vital_summ %>% dplyr::select(-key),
 
 Table 2a identifies extreme values of vitals for height, weight, BMI, and blood pressure, which may suggest systemic errors such as typos, and conversion mistakes. Here is the list of how *high* and *low* vitals are defined (adopted from CDM EDC report):
 
-                                |vital type  |upper bound for low values  |lower bound for high values  |     
-                                |:----------:|:--------------------------:|:---------------------------:|   
-                                |HT(inches)  |0                           |95                           |   
-                                |WT(lbs)     |0                           |350                          |   
-                                |BMI         |0                           |50                           |    
-                                |BP_DIASTOLIC|40                          |120                          |     
-                                |BP_SYSTOLIC |40                          |210                          |     
+|vital type  |upper bound for low values  |lower bound for high values  |     
+|:----------:|:--------------------------:|:---------------------------:|   
+|HT(inches)  |0                           |95                           |   
+|WT(lbs)     |0                           |350                          |   
+|BMI         |0                           |50                           |    
+|BP_DIASTOLIC|40                          |120                          |     
+|BP_SYSTOLIC |40                          |210                          |     
 
 
 ```{r vital_out2, echo=F, warning=F, message=F}
@@ -508,31 +477,28 @@ Table 2b identifies unreliable reporting of smoking status. A significant number
 ##### Labs
 ```{r lab, include=F}
 ## labs
-# sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
-#                cdm_db_link=config_file$cdm_db_link,
-#                cdm_db_name=config_file$cdm_db_name,
-#                cdm_db_schema=config_file$cdm_db_schema)
-# 
-# lab<-execute_single_sql(conn,
-#                         statement=sql$statement,
-#                         write=(sql$action=="write")) %>%
-#   dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT,
-#                 dsa=DAYS_SINCE_ADMIT,timestamp=SPECIMEN_DATE_TIME) %>%
-#   dplyr::select(ENCOUNTERID,key,value,unit,dsa,timestamp) %>%
-#   filter(!is.na(key) & !is.na(value)) %>%
-#   unique %>%
-#   mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
-#                            dsa >=0 & dsa < 1 ~ "1",
-#                            dsa >=1 & dsa < 2 ~ "2",
-#                            dsa >=2 & dsa < 3 ~ "3",
-#                            dsa >=3 & dsa < 4 ~ "4",
-#                            dsa >=4 & dsa < 5 ~ "5",
-#                            dsa >=5 & dsa < 6 ~ "6",
-#                            dsa >=6 & dsa < 7 ~ "7",
-#                            dsa >=7 ~ "7<")) 
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
+               cdm_db_link=config_file$cdm_db_link,
+               cdm_db_name=config_file$cdm_db_name,
+               cdm_db_schema=config_file$cdm_db_schema)
 
-#temp
-lab<-readRDS("./data/AKI_LAB.rda")
+lab<-execute_single_sql(conn,
+                        statement=sql$statement,
+                        write=(sql$action=="write")) %>%
+  dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT,
+                dsa=DAYS_SINCE_ADMIT,timestamp=SPECIMEN_DATE_TIME) %>%
+  dplyr::select(ENCOUNTERID,key,value,unit,dsa,timestamp) %>%
+  filter(!is.na(key) & !is.na(value)) %>%
+  unique %>%
+  mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
+                           dsa >=0 & dsa < 1 ~ "1",
+                           dsa >=1 & dsa < 2 ~ "2",
+                           dsa >=2 & dsa < 3 ~ "3",
+                           dsa >=3 & dsa < 4 ~ "4",
+                           dsa >=4 & dsa < 5 ~ "5",
+                           dsa >=5 & dsa < 6 ~ "6",
+                           dsa >=6 & dsa < 7 ~ "7",
+                           dsa >=7 ~ "7<"))
 
 #collect summaries
 lab_summ<-lab %>% 
@@ -621,7 +587,9 @@ lab_report<-lab_temp %>%
 
 ```
 
-A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible (NI may present), among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. the common labs for this study cohort are [`r lab_report$key[1]`], [`r lab_report$key[2]`],[`r lab_report$key[3]`],[`r lab_report$key[4]`],[`r lab_report$key[5]`],...), and labs with very high recording intensity (e.g. [`r lab_report$key[6]`], [`r lab_report$key[7]`]). Note that only labs with coverage above 1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file. 
+A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible (NI may present), among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. the common labs for this study cohort are [`r lab_report$key[1]`], [`r lab_report$key[2]`],[`r lab_report$key[3]`],[`r lab_report$key[4]`],[`r lab_report$key[5]`],...), and labs with very high recording intensity (e.g. [`r lab_report$key[6]`], [`r lab_report$key[7]`]). 
+
+*Note that only labs with coverage above 1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file.* 
 
 [`r lab_report$key[1]`]: `r lab_report$link[1]`
 [`r lab_report$key[2]`]: `r lab_report$link[2]` 
@@ -639,24 +607,21 @@ A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible
 ```{r dx, include=F}
 load("./data/ccs_icd_cw.Rdata")
 ## historical diagnosis
-# sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_dx.sql"),
-#                cdm_db_link=config_file$cdm_db_link,
-#                cdm_db_name=config_file$cdm_db_name,
-#                cdm_db_schema=config_file$cdm_db_schema)
-# 
-# dx<-execute_single_sql(conn,
-#                        statement=sql$statement,
-#                        write=(sql$action=="write")) %>%
-#   #attach CCS diagnosis grouping
-#   dplyr::mutate(DX_ICD=paste0("ICD",DX_TYPE,":",DX)) %>%
-#   left_join(ccs_icd %>% select(-ccs_name),by=c("DX_ICD"="icd_w_type")) %>%
-#   unique %>% filter(!is.na(ccs_code)) %>%
-#   dplyr::rename(key=ccs_code, dsa=DAYS_SINCE_ADMIT) %>%
-#   dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
-#   unique
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_dx.sql"),
+               cdm_db_link=config_file$cdm_db_link,
+               cdm_db_name=config_file$cdm_db_name,
+               cdm_db_schema=config_file$cdm_db_schema)
 
-#temp
-dx<-readRDS("./data/AKI_DX.rda")
+dx<-execute_single_sql(conn,
+                       statement=sql$statement,
+                       write=(sql$action=="write")) %>%
+  #attach CCS diagnosis grouping
+  dplyr::mutate(DX_ICD=paste0("ICD",DX_TYPE,":",DX)) %>%
+  left_join(ccs_icd %>% select(-ccs_name),by=c("DX_ICD"="icd_w_type")) %>%
+  unique %>% filter(!is.na(ccs_code)) %>%
+  dplyr::rename(key=ccs_code, dsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
+  unique
 
 #collect summaries
 dx_summ<-dx %>%
@@ -716,7 +681,9 @@ dx_report<-dx_temp %>%
 ```
 
 
-A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnoses has been assigned to patients before the encounter of interest. Figure 2 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses(e.g. `r dx_report$key[1]`(`r dx_report$ccs_name[1]`), `r dx_report$key[2]`(`r dx_report$ccs_name[2]`), `r dx_report$key[3]`(`r dx_report$ccs_name[3]`), `r dx_report$key[4]`(`r dx_report$ccs_name[4]`), `r dx_report$key[5]`(`r dx_report$ccs_name[5]`), `r dx_report$key[6]`(`r dx_report$ccs_name[6]`)). Note that only ccs diagnosis codes with coverage above 1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file.
+A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnoses has been assigned to patients before the encounter of interest. Figure 2 gives an overview of average history of patients' diagnosis prior to tne encounter of interest as well as the highly frequent historical diagnoses(e.g. `r dx_report$key[1]`(`r dx_report$ccs_name[1]`), `r dx_report$key[2]`(`r dx_report$ccs_name[2]`), `r dx_report$key[3]`(`r dx_report$ccs_name[3]`), `r dx_report$key[4]`(`r dx_report$ccs_name[4]`), `r dx_report$key[5]`(`r dx_report$ccs_name[5]`), `r dx_report$key[6]`(`r dx_report$ccs_name[6]`)). 
+
+*Note that only ccs diagnosis codes with coverage above 1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file.*
 
 
 ***
@@ -725,30 +692,27 @@ A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnoses has be
 ##### Procedure
 ```{r px, include=F}
 ## procedure
-# sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_px.sql"),
-#                cdm_db_link=config_file$cdm_db_link,
-#                cdm_db_name=config_file$cdm_db_name,
-#                cdm_db_schema=config_file$cdm_db_schema)
-# 
-# px<-execute_single_sql(conn,
-#                        statement=sql$statement,
-#                        write=(sql$action=="write")) %>%
-#   dplyr::mutate(PX=paste0(PX_TYPE,":",PX)) %>%
-#   dplyr::rename(key=PX,dsa=DAYS_SINCE_ADMIT) %>%
-#   dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
-#   unique %>%
-#   mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
-#                            dsa >=0 & dsa < 1 ~ "1",
-#                            dsa >=1 & dsa < 2 ~ "2",
-#                            dsa >=2 & dsa < 3 ~ "3",
-#                            dsa >=3 & dsa < 4 ~ "4",
-#                            dsa >=4 & dsa < 5 ~ "5",
-#                            dsa >=5 & dsa < 6 ~ "6",
-#                            dsa >=6 & dsa < 7 ~ "7",
-#                            dsa >=7 ~ "7<"))
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_px.sql"),
+               cdm_db_link=config_file$cdm_db_link,
+               cdm_db_name=config_file$cdm_db_name,
+               cdm_db_schema=config_file$cdm_db_schema)
 
-#temp
-px<-readRDS("./data/AKI_PX.rda")
+px<-execute_single_sql(conn,
+                       statement=sql$statement,
+                       write=(sql$action=="write")) %>%
+  dplyr::mutate(PX=paste0(PX_TYPE,":",PX)) %>%
+  dplyr::rename(key=PX,dsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,key,dsa) %>%
+  unique %>%
+  mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
+                           dsa >=0 & dsa < 1 ~ "1",
+                           dsa >=1 & dsa < 2 ~ "2",
+                           dsa >=2 & dsa < 3 ~ "3",
+                           dsa >=3 & dsa < 4 ~ "4",
+                           dsa >=4 & dsa < 5 ~ "5",
+                           dsa >=5 & dsa < 6 ~ "6",
+                           dsa >=6 & dsa < 7 ~ "7",
+                           dsa >=7 ~ "7<"))
 
 px_summ<-px %>%
   group_by(key,dsa_grp) %>%
@@ -792,13 +756,15 @@ px_report<-px_temp %>%
   arrange(desc(enc_cnt)) %>%
   dplyr::select(key) %>%
   unique %>% slice(1:5) %>%
-  # mutate(link=lapply(key,google_code)) %>%
-  mutate(link="https://coder.aapc.com/cpt-codes/")
+  # mutate(link=lapply(key,google_code)) #uncomment it if google_code doesn't cause error
+  mutate(link="https://coder.aapc.com/cpt-codes/") #comment it if google_code doesn't cause error
   
 ```
 
 
-A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before or at the encounter of interest. Figure3 gives an overview of procedures that patients had recieved before or at the encounters of interest. It can help identify the common procedures or typical occuring times of precedures (e.g. [`r px_report$key[1]`], [`r px_report$key[2]`],[`r px_report$key[3]`],[`r px_report$key[4]`],[`r px_report$key[5]`],...). Note that Figure2 and Figure3 may display similar distributions as a result of corrlations between diagnoses and procedures. Note that only procedure codess with coverage above 0.1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file.
+A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before or at the encounter of interest. Figure3 gives an overview of procedures that patients had recieved before or at the encounters of interest. It can help identify the common procedures or typical occuring times of precedures (e.g. [`r px_report$key[1]`], [`r px_report$key[2]`],[`r px_report$key[3]`],[`r px_report$key[4]`],[`r px_report$key[5]`],...). Note that Figure2 and Figure3 may display similar distributions as a result of corrlations between diagnoses and procedures. 
+
+*Note that only procedure codess with coverage above 0.1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file.*
 
 [`r px_report$key[1]`]: `r px_report$link[1]`
 [`r px_report$key[2]`]: `r px_report$link[2]` 
@@ -806,7 +772,6 @@ A Total of `r length(unique(px_summ$key))` distinct total procedures codes have 
 [`r px_report$key[4]`]: `r px_report$link[4]`
 [`r px_report$key[5]`]: `r px_report$link[5]`
 
-*note: links for cpt codes may lead to invalid page* 
 
 ***
 
@@ -814,78 +779,75 @@ A Total of `r length(unique(px_summ$key))` distinct total procedures codes have 
 ##### Medications
 ```{r med, include=F}
 ## medication
-# sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
-#                cdm_db_link=config_file$cdm_db_link,
-#                cdm_db_name=config_file$cdm_db_name,
-#                cdm_db_schema=config_file$cdm_db_schema)
-# 
-# med<-execute_single_sql(conn,
-#                         statement=sql$statement,
-#                         write=(sql$action=="write")) %>%
-#   dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
-#                                     pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
-#   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
-#   dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
-#   dplyr::select(ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
-#   unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
+sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
+               cdm_db_link=config_file$cdm_db_link,
+               cdm_db_name=config_file$cdm_db_name,
+               cdm_db_schema=config_file$cdm_db_schema)
+
+med<-execute_single_sql(conn,
+                        statement=sql$statement,
+                        write=(sql$action=="write")) %>%
+  dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
+                                    pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
+  replace_na(list(RX_QUANTITY_DAILY=1)) %>%
+  dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::select(ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
+  unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
 
 
-# #re-calculate medication exposure
-# chunk_num<-20
-# enc_chunk<-med %>% dplyr::select(ENCOUNTERID) %>% unique %>%
-#   mutate(chunk_id=sample(1:chunk_num,n(),replace=T))
-# 
-# med2<-c()
-# for(i in 1:chunk_num){
-#   start_i<-Sys.time()
-#   
-#   #--subset ith chunk
-#   med_sub<-med %>% 
-#     semi_join(enc_chunk %>% filter(chunk_id==i),by="ENCOUNTERID")
-#   
-#   #--collect single-day exposure
-#   med_sub2<-med_sub %>% filter(RX_EXPOS<=1) %>% 
-#     dplyr::mutate(dsa=sdsa,value=RX_QUANTITY_DAILY) %>%
-#     dplyr::select(ENCOUNTERID,key,value,dsa)
-#   
-#   #--for multi-day exposed med, converted to daily exposure
-#   med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
-#     group_by(ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
-#     dplyr::mutate(expos_daily=1:n()-1) %>% 
-#     dplyr::summarize(dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
-#     ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
-#     dplyr::select(ENCOUNTERID,key,value,dsa) %>%
-#     mutate(dsa=strsplit(dsa,",")) %>%
-#     unnest(dsa) %>%
-#     mutate(dsa=as.numeric(dsa))
-#   
-#   #--merge overlapped precribing intervals (pick the higher exposure)
-#   med_sub2 %<>% bind_rows(med_expand) %>%
-#     group_by(ENCOUNTERID,key,dsa) %>%
-#     dplyr::summarize(value=max(value)) %>%
-#     ungroup
-#   
-#   #--identify non-overlapped exposure episodes and determines the real sdsa
-#   med_sub2 %<>%
-#     group_by(ENCOUNTERID,key) %>%
-#     dplyr::mutate(dsa_lag=lag(dsa,n=1L)) %>%
-#     ungroup %>%
-#     mutate(sdsa=ifelse(is.na(dsa_lag)|dsa > dsa_lag+1,dsa,NA)) %>%
-#     fill(sdsa,.direction="down") 
-#   
-#   med_sub2 %<>%
-#     group_by(ENCOUNTERID,key,sdsa) %>%
-#     dplyr::summarize(RX_EXPOS=pmax(1,sum(value,na.rm=T)),
-#                      value=paste0(value,collapse=","), #expanded daily exposure
-#                      dsa=paste0(dsa,collapse=",")) %>%  #expanded dsa for daily exposure
-#     ungroup
-#   
-#   med2 %<>% bind_rows(med_sub2)
-# }
-# med<-med2
+#re-calculate medication exposure
+chunk_num<-20
+enc_chunk<-med %>% dplyr::select(ENCOUNTERID) %>% unique %>%
+  mutate(chunk_id=sample(1:chunk_num,n(),replace=T))
 
-#temp
-med<-readRDS("./data/AKI_MED.rda")
+med2<-c()
+for(i in 1:chunk_num){
+  start_i<-Sys.time()
+
+  #--subset ith chunk
+  med_sub<-med %>%
+    semi_join(enc_chunk %>% filter(chunk_id==i),by="ENCOUNTERID")
+
+  #--collect single-day exposure
+  med_sub2<-med_sub %>% filter(RX_EXPOS<=1) %>%
+    dplyr::mutate(dsa=sdsa,value=RX_QUANTITY_DAILY) %>%
+    dplyr::select(ENCOUNTERID,key,value,dsa)
+
+  #--for multi-day exposed med, converted to daily exposure
+  med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
+    group_by(ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
+    dplyr::mutate(expos_daily=1:n()-1) %>%
+    dplyr::summarize(dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
+    ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
+    dplyr::select(ENCOUNTERID,key,value,dsa) %>%
+    mutate(dsa=strsplit(dsa,",")) %>%
+    unnest(dsa) %>%
+    mutate(dsa=as.numeric(dsa))
+
+  #--merge overlapped precribing intervals (pick the higher exposure)
+  med_sub2 %<>% bind_rows(med_expand) %>%
+    group_by(ENCOUNTERID,key,dsa) %>%
+    dplyr::summarize(value=max(value)) %>%
+    ungroup
+
+  #--identify non-overlapped exposure episodes and determines the real sdsa
+  med_sub2 %<>%
+    group_by(ENCOUNTERID,key) %>%
+    dplyr::mutate(dsa_lag=lag(dsa,n=1L)) %>%
+    ungroup %>%
+    mutate(sdsa=ifelse(is.na(dsa_lag)|dsa > dsa_lag+1,dsa,NA)) %>%
+    fill(sdsa,.direction="down")
+
+  med_sub2 %<>%
+    group_by(ENCOUNTERID,key,sdsa) %>%
+    dplyr::summarize(RX_EXPOS=pmax(1,sum(value,na.rm=T)),
+                     value=paste0(value,collapse=","), #expanded daily exposure
+                     dsa=paste0(dsa,collapse=",")) %>%  #expanded dsa for daily exposure
+    ungroup
+
+  med2 %<>% bind_rows(med_sub2)
+}
+med<-med2
 
 #collect summaries
 med_summ<- med %>%
@@ -945,12 +907,13 @@ med_temp<-med_summ %>%
 
 
 if(nrow(med_temp)>0){
+  overall_medexpos<-median(med_temp$median_expos,na.rm=T)
   p1<-ggplot(med_temp,aes(x=dsa_grp,y=enc_cnt,color=median_expos,label=label)) +
     geom_point() + geom_text_repel()+
     scale_y_continuous(sec.axis = sec_axis(trans= ~./enc_tot,
                                            name = 'Percentage'))+
     scale_color_gradient2(low = "green",mid="blue",high ="red",
-                          midpoint = 2)+
+                          midpoint = overall_medexpos)+
     labs(x="Start Date",y="Encounter Counts",color="Median Exposure (days)",
          title="Figure 4 - Medication Exposure Summaries")
   
@@ -991,7 +954,9 @@ if(nrow(med_temp)>0){
 
 ```
 
-A Total of `r length(unique(med_summ$key))` distinct `r ifelse(params$incl_NDC,"NDC","RXNORM")` medication concepts are discovered for the cohort and the overall medication (any) exposure for this cohort is `r paste0(round(med_density/enc_tot,2)*100,"%")`. `r description`. Note that only rxnorms with coverage above 0.1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file.
+A Total of `r length(unique(med_summ$key))` distinct `r ifelse(params$incl_NDC,"NDC","RXNORM")` medication concepts are discovered for the cohort and the overall medication (any) exposure for this cohort is `r paste0(round(med_density/enc_tot,2)*100,"%")`. `r description` 
+
+*Note that only rxnorms with coverage above 0.1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file.*
 
 
 ```{r final, include=F}
