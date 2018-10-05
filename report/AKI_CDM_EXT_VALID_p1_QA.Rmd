@@ -829,62 +829,66 @@ A Total of `r length(unique(px_summ$key))` distinct total procedures codes have 
 #   dplyr::select(ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
 #   unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
 
+
+# #re-calculate medication exposure
+# chunk_num<-20
+# enc_chunk<-med %>% dplyr::select(ENCOUNTERID) %>% unique %>%
+#   mutate(chunk_id=sample(1:chunk_num,n(),replace=T))
+# 
+# med2<-c()
+# for(i in 1:chunk_num){
+#   start_i<-Sys.time()
+#   
+#   #--subset ith chunk
+#   med_sub<-med %>% 
+#     semi_join(enc_chunk %>% filter(chunk_id==i),by="ENCOUNTERID")
+#   
+#   #--collect single-day exposure
+#   med_sub2<-med_sub %>% filter(RX_EXPOS<=1) %>% 
+#     dplyr::mutate(dsa=sdsa,value=RX_QUANTITY_DAILY) %>%
+#     dplyr::select(ENCOUNTERID,key,value,dsa)
+#   
+#   #--for multi-day exposed med, converted to daily exposure
+#   med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
+#     group_by(ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
+#     dplyr::mutate(expos_daily=1:n()-1) %>% 
+#     dplyr::summarize(dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
+#     ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
+#     dplyr::select(ENCOUNTERID,key,value,dsa) %>%
+#     mutate(dsa=strsplit(dsa,",")) %>%
+#     unnest(dsa) %>%
+#     mutate(dsa=as.numeric(dsa))
+#   
+#   #--merge overlapped precribing intervals (pick the higher exposure)
+#   med_sub2 %<>% bind_rows(med_expand) %>%
+#     group_by(ENCOUNTERID,key,dsa) %>%
+#     dplyr::summarize(value=max(value)) %>%
+#     ungroup
+#   
+#   #--identify non-overlapped exposure episodes and determines the real sdsa
+#   med_sub2 %<>%
+#     group_by(ENCOUNTERID,key) %>%
+#     dplyr::mutate(dsa_lag=lag(dsa,n=1L)) %>%
+#     ungroup %>%
+#     mutate(sdsa=ifelse(is.na(dsa_lag)|dsa > dsa_lag+1,dsa,NA)) %>%
+#     fill(sdsa,.direction="down") 
+#   
+#   med_sub2 %<>%
+#     group_by(ENCOUNTERID,key,sdsa) %>%
+#     dplyr::summarize(RX_EXPOS=pmax(1,sum(value,na.rm=T)),
+#                      value=paste0(value,collapse=","), #expanded daily exposure
+#                      dsa=paste0(dsa,collapse=",")) %>%  #expanded dsa for daily exposure
+#     ungroup
+#   
+#   med2 %<>% bind_rows(med_sub2)
+# }
+# med<-med2
+
 #temp
 med<-readRDS("./data/AKI_MED.rda")
 
-#re-calculate medication exposure
-chunk_num<-20
-enc_chunk<-med %>% dplyr::select(ENCOUNTERID) %>% unique %>%
-  mutate(chunk_id=sample(1:chunk_num,n(),replace=T))
-
-med2<-c()
-for(i in 1:chunk_num){
-  #--subset ith chunk
-  med_sub<-med %>% 
-    semi_join(enc_chunk %>% filter(chunk_id==i),by="ENCOUNTERID")
-  
-  #--collect single-day exposure
-  med_sub2<-med_sub %>% filter(RX_EXPOS<=1) %>% 
-    dplyr::mutate(dsa=sdsa,value=RX_QUANTITY_DAILY) %>%
-    dplyr::select(ENCOUNTERID,key,value,dsa)
-  
-  #--for multi-day exposed med, converted to daily exposure
-  med_expand<-med_sub[rep(row.names(med_sub),(med_sub$RX_EXPOS+1)),] %>%
-    group_by(ENCOUNTERID,key,RX_QUANTITY_DAILY,sdsa) %>%
-    dplyr::mutate(expos_daily=1:n()-1) %>% 
-    dplyr::summarize(dsa=paste0(sdsa+expos_daily,collapse=",")) %>%
-    ungroup %>% dplyr::rename(value=RX_QUANTITY_DAILY) %>%
-    dplyr::select(ENCOUNTERID,key,value,dsa) %>%
-    mutate(dsa=strsplit(dsa,",")) %>%
-    unnest(dsa) %>%
-    mutate(dsa=as.numeric(dsa))
-  
-  #--merge overlapped precribing intervals (pick the higher exposure)
-  med_sub2 %<>% bind_rows(med_expand) %>%
-    group_by(ENCOUNTERID,key,dsa) %>%
-    dplyr::summarize(value=max(value)) %>%
-    ungroup
-  
-  #--identify non-overlapped exposure episodes and determines the real sdsa
-  med_sub2 %<>%
-    group_by(ENCOUNTERID,key) %>%
-    dplyr::mutate(dsa_lag=lag(dsa,n=1L)) %>%
-    ungroup %>%
-    mutate(sdsa=ifelse(is.na(dsa_lag)|dsa > dsa_lag+1,dsa,NA)) %>%
-    fill(sdsa,.direction="down") 
-  
-  med_sub2 %<>%
-    group_by(ENCOUNTERID,key,sdsa) %>%
-    dplyr::summarize(RX_EXPOS=pmax(1,sum(value,na.rm=T)),
-                     value=paste0(value,collapse=","), #expanded daily exposure
-                     dsa=paste0(dsa,collapse=",")) %>%  #expanded dsa for daily exposure
-    ungroup
-  
-  med2 %<>% bind_rows(med_sub2)
-}
-
 #collect summaries
-med_summ<- med2 %>%
+med_summ<- med %>%
   dplyr::select(ENCOUNTERID,key,sdsa,RX_EXPOS) %>%
   mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
                            sdsa >=0 & sdsa < 1 ~ "1",
@@ -916,11 +920,11 @@ med_summ<- med2 %>%
 med_density<-length(unique(med$ENCOUNTERID))
 
 #save
-saveRDS(med2,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
-saveRDS(med_summ,file="./data/med_summ.rda")
+saveRDS(med,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
+# saveRDS(med_summ,file="./data/med_summ.rda")
 
 #clean up
-rm(med,med2); gc()
+rm(med); gc()
 ```
 
 

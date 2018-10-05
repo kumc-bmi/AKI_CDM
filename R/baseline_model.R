@@ -7,7 +7,10 @@ require_libraries(c("tidyr",
                     "dplyr",
                     "magrittr",
                     "stringr",
-                    "broom"))
+                    "broom",
+                    "xgboost",
+                    "lightgbm",
+                    "ROCR"))
 
 
 #################### collect and format variables on daily basis ######################
@@ -382,6 +385,7 @@ p1<-ggplot(perf_overall,
        y="Prediction Performance",
        linetype="Temporal Handler",
        shape="Temporal Handler")
+
 
 # plot calibration
 calib_equal_bin %<>%

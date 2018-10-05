@@ -103,7 +103,7 @@ for(i in 1:chunk_num){
   cat("finish chunk",i,"in",lapse_i,units(lapse_i),".\n")
 }
 
-
+saveRDS(med2,file="./data/AKI_MED.rda")
 #collect summaries
 med_summ<-med2 %>% 
   dplyr::select(ENCOUNTERID,key,sdsa,RX_EXPOS) %>%
