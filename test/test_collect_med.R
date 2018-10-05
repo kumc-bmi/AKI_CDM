@@ -51,7 +51,7 @@ med<-execute_single_sql(conn,
 batch<-20
 expos_quant<-c(1,unique(quantile(med[med$RX_EXPOS>1,]$RX_EXPOS,probs=0:batch/batch),na.rm=T))
 med2<-med %>% filter(RX_EXPOS<=1) %>% 
-  dplyr::mutate(dsa=as.character(sdsa),value=RX_QUANTITY_DAILY) %>%
+  dplyr::mutate(dsa=as.character(sdsa),value=as.character(RX_QUANTITY_DAILY)) %>%
   dplyr::select(PATID,ENCOUNTERID,key,value,sdsa,dsa)
 
 for(i in seq_len(length(expos_quant)-1)){
