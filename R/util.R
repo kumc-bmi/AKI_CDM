@@ -298,6 +298,7 @@ long_to_sparse_matrix<-function(df,id,variable,val,binary=FALSE){
 }
 
 
+
 ## compress dataframe into a condensed format
 compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save=F){
   if(tbl=="demo"){

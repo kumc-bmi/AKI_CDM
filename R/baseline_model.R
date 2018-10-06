@@ -139,26 +139,44 @@ for(i in seq_along(seq(2010,2016))){
     semi_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
               by="ENCOUNTERID")
   y_ts %<>% bind_rows(var_by_yr[["y_surv"]]) %>%
-    left_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
+    semi_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
               by="ENCOUNTERID")
 }
 
 X_tr %<>%
   arrange(ENCOUNTERID,dsa_y) %>%
   unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
-  long_to_sparse(df=.,
-                 id="ROW_ID",
-                 variable="key",
-                 val="value")
-
+  long_to_sparse_matrix(df=.,
+                        id="ROW_ID",
+                        variable="key",
+                        val="value")
 y_tr %<>%
   arrange(ENCOUNTERID,dsa_y) %>%
   unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
-  arrange(ROW_ID)
+  arrange(ROW_ID) %>%
+  unique %>%
+  mutate(y=(y>0)*1) # any AKI
+
+
+X_ts %<>%
+  arrange(ENCOUNTERID,dsa_y) %>%
+  unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+  long_to_sparse_matrix(df=.,
+                        id="ROW_ID",
+                        variable="key",
+                        val="value")
+y_ts %<>%
+  arrange(ENCOUNTERID,dsa_y) %>%
+  unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+  arrange(ROW_ID) %>%
+  unique %>%
+  mutate(y=(y>0)*1) # any AKI
+
 
 #check alignment
 all(row.names(X_tr)==y_tr$ROW_ID)
 all(row.names(X_ts)==y_ts$ROW_ID)
+
 
 #covert to xgb data frame
 dtrain<-xgb.DMatrix(data=X_tr,label=y_tr$y)
@@ -198,8 +216,7 @@ for(i in seq_len(dim(grid_params)[1])){
                 metrics = eval_metric,
                 maximize = TRUE,
                 nrounds=2000,
-                # nfold = 5,
-                folds = folds,
+                nfold = 5,
                 early_stopping_rounds = 100,
                 print_every_n = 100,
                 prediction = T) #keep cv results
