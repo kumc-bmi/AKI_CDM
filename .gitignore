@@ -2,18 +2,16 @@
 .Rhistory
 .RData
 .Ruserdata
-meta.R
 extract_cohort_spark.R
 AKI_CDM_EXT_VALID_p1_QA.R
 AKI_CDM_EXT_VALID_p1_QA_full.Rmd
-qAKI_CDM_EXT_VALID_p1_QA.Rmd
-derby.log
+report_local/
 logs/
 feature_dict.csv
 *config.csv
 *.xlsx
 *.rda
 *.txt
-
+*.log
 
 

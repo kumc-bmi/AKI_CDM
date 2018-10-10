@@ -2,7 +2,7 @@
 format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end){
   if(type=="demo"){
     #demo has to be unqiue for each encounter
-    dat_out<-dat%>% dplyr::select(-PATID) %>%
+    dat_out<-dat %>%
       filter(key %in% c("AGE","SEX","RACE","HISPANIC")) %>%
       group_by(ENCOUNTERID,key) %>%
       top_n(n=1L,wt=value) %>% #randomly pick one if multiple entries exist
@@ -22,7 +22,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
       bind_rows(dat %>% dplyr::select(-PATID) %>%
                   filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
                   group_by(ENCOUNTERID,key) %>%
-                  arrange(value) %>% slice(1:1) %>%
+                  arrange(value) %>% dplyr::slice(1:1) %>%
                   ungroup %>%
                   mutate(cat=value,dsa=-1,key_cp=key,value=1) %>%
                   unite("key",c("key_cp","cat"),sep="_") %>%
@@ -64,8 +64,8 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
     
     #--trend of bp
     bp_slp_eligb<-bp %>%
-      mutate(add_hour=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="hours")) %>%
-      mutate(timestamp=sign(dsa)*round(as.numeric(add_hour),2)) %>%
+      mutate(add_time=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="mins")) %>%
+      mutate(timestamp=round(as.numeric(add_time)/(24*60),2)) %>%
       dplyr::select(-add_hour) %>%
       group_by(ENCOUNTERID,key,dsa) %>%
       dplyr::mutate(df=length(unique(timestamp))-1) %>%
@@ -108,7 +108,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
     
   }else if(type=="lab"){
     #multiple same lab on the same day will be resolved by taking the average
-    dat_out<-dat %>% dplyr::select(-PATID) %>%
+    dat_out<-dat %>%
       filter(key != "NI") %>%
       mutate(key_cp=key,unit_cp=unit) %>%
       unite("key_unit",c("key_cp","unit_cp"),sep="@") %>%
@@ -194,14 +194,14 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
       
   }else if(type=="med"){
     #multiple records accumulated
-    dat_out<-dat %>% dplyr::select(-PATID) %>%
+    dat_out<-dat %>%
       group_by(ENCOUNTERID,key) %>%
       arrange(dsa) %>%
       dplyr::mutate(value=cumsum(value)) %>%
       ungroup %>%
       mutate(key=paste0(key,"_cum")) %>%
       dplyr::select(ENCOUNTERID,key,value,dsa) %>%
-      bind_rows(dat %>% dplyr::select(-PATID) %>%
+      bind_rows(dat %>%
                   dplyr::select(ENCOUNTERID,key,value,dsa) %>%
                   unique)
   }
@@ -224,7 +224,7 @@ get_dsurv_temporal<-function(dat,censor,tw){
       filter(!is.na(pred_pt)) %>%
       group_by(ENCOUNTERID) %>%
       arrange(desc(pred_pt),desc(y_ep)) %>%
-      slice(1:1) %>%
+      dplyr::slice(1:1) %>%
       ungroup %>%
       mutate(dsa_y=pred_pt,y=y_ep) %>%
       dplyr::select(-pred_pt,-y_ep)

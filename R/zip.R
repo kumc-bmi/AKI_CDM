@@ -26,7 +26,7 @@ require_libraries(c("DBI",
 #source utility functions
 meta<-readRDS("./data/ft_metadata.rda")
 
-type_vec<-c("demo","vital","lab","dx","px","med")
+type_vec<-c("DEMO","VITAL","LAB","DX","PX","MED")
 ft_zip<-c()
 ft_idx<-c()
 for(i in seq_along(type_vec)){
@@ -38,13 +38,17 @@ for(i in seq_along(type_vec)){
   #stack data
   ft_zip %<>% bind_rows(dat_zip$tbl_zip %>% mutate(pos=i))
   
-  #stak metadata
+  #stack metadata
   idx_map<-dat_zip$idx_map %>% mutate(pos=i)
-  if(type_vec[i] == "demo"){
-    idx_map %<>% inner_join(meta %>% mutate(key=VAR_TYPE),
+  if(type_vec[i] == "DEMO"){
+    idx_map %<>% left_join(meta %>% mutate(key=VAR_TYPE),
                             by="key") %>%
-      arrange(idx,VAR_CD)
-  }else if(type_vec[i] == "vital"){
+      arrange(idx,VAR_CD) %>%
+      mutate(TABLE_NAME=ifelse(key=="AGE","DEMOGRAPHIC",TABLE_NAME),
+             VAR_TYPE=ifelse(key=="AGE",key,VAR_TYPE),
+             VAR_CD=ifelse(key=="AGE",key,VAR_CD),
+             VAR_NAME=ifelse(key=="AGE","Age at admission",VAR_NAME))
+  }else if(type_vec[i] == "VITAL"){
     idx_map %<>% mutate(key=ifelse(grepl("BMI+",key),
                                    "ORIGINAL_BMI",
                                    substr(key,2,99))) %>%
@@ -52,14 +56,14 @@ for(i in seq_along(type_vec)){
                    mutate(key=ifelse(VAR_TYPE=="BP",VAR_CD,VAR_TYPE)),
                  by="key") %>%
       group_by(key,idx,pos,TABLE_NAME,VAR_CD) %>%
-      arrange(desc(VAR_NAME)) %>% slice(1:1) %>%
+      arrange(desc(VAR_NAME)) %>% dplyr::slice(1:1) %>%
       ungroup
-  }else if(type_vec[i] == "lab"){
+  }else if(type_vec[i] == "LAB"){
     idx_map %<>% mutate(VAR_CD=key) %>%
       inner_join(meta %>% filter(TABLE_NAME=="LAB_RESULT_CM"),
                  by="VAR_CD") %>%
       group_by(key,idx,pos,TABLE_NAME,VAR_TYPE) %>%
-      arrange(desc(VAR_NAME)) %>% slice(1:1) %>%
+      arrange(desc(VAR_NAME)) %>% dplyr::slice(1:1) %>%
       ungroup
   }else if(type_vec[i] == "DRG"){
     idx_map %<>% mutate(VAR_CD=key) %>%
@@ -67,9 +71,9 @@ for(i in seq_along(type_vec)){
                    mutate(VAR_CD=gsub("CMSDRG:","",VAR_CD)),
                  by="VAR_CD") %>%
       group_by(key,idx,pos,TABLE_NAME,VAR_TYPE) %>%
-      arrange(desc(VAR_NAME)) %>% slice(1:1) %>%
+      arrange(desc(VAR_NAME)) %>% dplyr::slice(1:1) %>%
       ungroup
-  }else if(type_vec[i] == "dx"){
+  }else if(type_vec[i] == "DX"){
     load("./data/ccs_icd_cw.Rdata")
     idx_map %<>% mutate(VAR_CD=key) %>%
       inner_join(ccs_icd %>% dplyr::rename(VAR_NAME=ccs_name) %>%
@@ -78,11 +82,12 @@ for(i in seq_along(type_vec)){
                           VAR_TYPE="DX_CCS") %>%
                    dplyr::select(TABLE_NAME,VAR_TYPE,VAR_CD,VAR_NAME),
                  by="VAR_CD") %>%
-      unique %>% mutate(key=as.character(key)) %>%
+      unique %>% 
+      mutate(key=as.character(key),VAR_CD=as.character(VAR_CD)) %>%
       group_by(key,idx,pos,TABLE_NAME,VAR_TYPE) %>%
-      arrange(desc(VAR_NAME)) %>% slice(1:1) %>%
+      arrange(desc(VAR_NAME)) %>% dplyr::slice(1:1) %>%
       ungroup
-  }else if(type_vec[i] == "px"){
+  }else if(type_vec[i] == "PX"){
     idx_map %<>% mutate(VAR_CD=case_when(grepl("^09",key) ~ gsub("09","ICD9",key),
                                          grepl("^10",key) ~ gsub("10","ICD10",key),
                                          grepl("^CH",key) ~ gsub("CH:","",key))) 
@@ -94,9 +99,9 @@ for(i in seq_along(type_vec)){
                  by="VAR_CD") %>%
       unique %>%
       group_by(key,idx,pos,TABLE_NAME,VAR_TYPE) %>%
-      arrange(desc(VAR_NAME)) %>% slice(1:1) %>%
+      arrange(desc(VAR_NAME)) %>% dplyr::slice(1:1) %>%
       ungroup
-  }else if(type_vec[i] == "med"){
+  }else if(type_vec[i] == "MED"){
     idx_map %<>% mutate(VAR_CD=gsub("\\:.*","",key)) %>%
       inner_join(meta %>% filter(TABLE_NAME=="PRESCRIBING" & VAR_CD != "NI"),
                  by="VAR_CD") %>%
@@ -112,10 +117,10 @@ for(i in seq_along(type_vec)){
 }
 
 dat<-readRDS("./data/Table1.rda") %>%
-  dplyr::select(PATID,ENCOUNTERID,
+  dplyr::select(ENCOUNTERID,
                 AKI1_SINCE_ADMIT,AKI2_SINCE_ADMIT,AKI3_SINCE_ADMIT,
                 NONAKI_SINCE_ADMIT) %>%
-  gather(label, date,-PATID,-ENCOUNTERID) %>%
+  gather(label, date,-ENCOUNTERID) %>%
   filter(!is.na(date)) %>%
   mutate(label=gsub("_.*","",label)) %>%
   mutate(label=recode(label,
@@ -125,7 +130,7 @@ dat<-readRDS("./data/Table1.rda") %>%
                       NONAKI=0)) %>%
   arrange(label) %>%
   unite("lable_dt",c("label","date"),sep=",") %>%
-  group_by(PATID,ENCOUNTERID) %>%
+  group_by(ENCOUNTERID) %>%
   dplyr::summarize(fstr=paste(lable_dt,collapse="_")) %>%
   ungroup %>%  mutate(pos=length(type_vec)+1)
   
@@ -136,7 +141,8 @@ ft_zip %<>%
   unite("feature_string",c("1","2","3","4","5","6","7"),sep="|") %>%
   unique
 
-ft_idx %<>% mutate(VAR_CD=paste0("'",VAR_CD,"'")) %>%
+ft_idx %<>% 
+  mutate(VAR_CD=paste0("'",VAR_CD,"'")) %>%
   dplyr::rename(VAR_IDX=idx,VAR_POS=pos) %>%
   dplyr::select(-key)
 
@@ -147,7 +153,7 @@ write.csv(ft_idx,file="./data/feature_dict.csv",row.names = F)
 
 # #example inspection
 ft_zip_ex<-readRDS("./data/ft_zip.rda") %>%
-  slice(1:10)
+  dplyr::slice(1:10)
 
 #break down into calendar years
 #if break, reload
@@ -162,7 +168,7 @@ yr_vec<-yr_vec[order(yr_vec)][-1]
 for(i in yr_vec){
   ft_zip_yr<-ft_zip %>% 
     semi_join(enc_yr %>% filter(yr==i),
-              by=c("PATID","ENCOUNTERID"))
+              by="ENCOUNTERID")
   
   write.table(ft_zip_yr,file=paste0("./data/ft_zip",i,".txt"),
               col.names=F,quote=T,row.names = F)

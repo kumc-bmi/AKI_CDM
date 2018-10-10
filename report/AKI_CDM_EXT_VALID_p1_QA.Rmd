@@ -945,7 +945,7 @@ if(nrow(med_temp)>0){
   
   description<-paste0("Figure4 demonstrates average exposures for drug starting at X days since admission. 
                       It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay. 
-                      (e.g. the typical medications identified are",paste(freq_med,collapse=","),
+                      (e.g. the typical medications identified are ",paste(freq_med,collapse=","),
                       "; while drugs such as ",paste(intens_med,collapse=","), 
                       "are used with a relative longer exposure than the others).")
 }else{
@@ -954,7 +954,7 @@ if(nrow(med_temp)>0){
 
 ```
 
-A Total of `r length(unique(med_summ$key))` distinct `r ifelse(params$incl_NDC,"NDC","RXNORM")` medication concepts are discovered for the cohort and the overall medication (any) exposure for this cohort is `r paste0(round(med_density/enc_tot,2)*100,"%")`. `r description` 
+A Total of `r length(unique(med_summ$key))` distinct RXNORM medication concepts are discovered for the cohort and the overall medication (any) exposure for this cohort is `r paste0(round(med_density/enc_tot,2)*100,"%")`. `r description` 
 
 *Note that only rxnorms with coverage above 0.1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file.*
 

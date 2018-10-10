@@ -8,12 +8,15 @@ require_libraries(c("tidyr",
                     "magrittr",
                     "stringr",
                     "broom",
+                    "Matrix",
                     "xgboost",
-                    "lightgbm",
+                    # "CMake",
+                    # "LightGBM",
+                    # "catboost",
                     "ROCR"))
 
 
-#################### collect and format variables on daily basis ######################
+############################## collect and format variables on daily basis ######################
 tbl1<-readRDS("./data/Table1.rda") %>%
   mutate(yr=as.numeric(format(ADMIT_DATE,"%Y")))
 
@@ -117,50 +120,83 @@ saveRDS(var_by_yr,file="./data/var_by_yr.rda")
 saveRDS(var_bm,file="./data/var_bm.rda")
 
 
-############################ baseline GBM model ######################################
-#--prepare training
+############################## baseline GBM model ######################################
+#--prepare training set
 X_tr<-c()
 X_ts<-c()
 y_tr<-c()
 y_ts<-c()
+rsample_idx<-readRDS("./data/rsample_idx.rda")
 for(i in seq_along(seq(2010,2016))){
   var_by_yr<-readRDS("./data/var_by_yr.rda")[[i]]
   
   X_tr %<>% bind_rows(var_by_yr[["X_surv"]]) %>%
     semi_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
               by="ENCOUNTERID")
+  
   X_ts %<>% bind_rows(var_by_yr[["X_surv"]]) %>%
     semi_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
               by="ENCOUNTERID")
   
-  y_tr %<>% bind_rows(var_by_yr[["y_surv"]]) %>%
-    semi_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
-              by="ENCOUNTERID")
-  y_ts %<>% bind_rows(var_by_yr[["y_surv"]]) %>%
-    left_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
-              by="ENCOUNTERID")
+  y_tr %<>% bind_rows(var_by_yr[["y_surv"]] %>%
+                        left_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
+                                  by="ENCOUNTERID"))
+  
+  y_ts %<>% bind_rows(var_by_yr[["y_surv"]] %>%
+                        left_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
+                                  by="ENCOUNTERID"))
 }
 
 X_tr %<>%
   arrange(ENCOUNTERID,dsa_y) %>%
   unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
-  long_to_sparse(df=.,
-                 id="ROW_ID",
-                 variable="key",
-                 val="value")
-
+  long_to_sparse_matrix(df=.,
+                        id="ROW_ID",
+                        variable="key",
+                        val="value")
 y_tr %<>%
+  filter(!is.na(cv10_idx)) %>%
   arrange(ENCOUNTERID,dsa_y) %>%
   unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
-  arrange(ROW_ID)
+  arrange(ROW_ID) %>%
+  unique %>%
+  mutate(y=(y>0)*1) # any AKI
+
+
+X_ts %<>%
+  arrange(ENCOUNTERID,dsa_y) %>%
+  unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+  long_to_sparse_matrix(df=.,
+                        id="ROW_ID",
+                        variable="key",
+                        val="value")
+y_ts %<>%
+  filter(!is.na(cv10_idx)) %>%
+  arrange(ENCOUNTERID,dsa_y) %>%
+  unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+  arrange(ROW_ID) %>%
+  unique %>%
+  mutate(y=(y>0)*1) # any AKI
+
 
 #check alignment
 all(row.names(X_tr)==y_tr$ROW_ID)
 all(row.names(X_ts)==y_ts$ROW_ID)
 
+
 #covert to xgb data frame
 dtrain<-xgb.DMatrix(data=X_tr,label=y_tr$y)
 dtest<-xgb.DMatrix(data=X_ts,label=y_ts$y)
+
+#get indices for k folds
+y_tr %<>% dplyr::mutate(row_idx = 1:n())
+folds<-list()
+for(fd in seq_len(max(y_tr$cv10_idx))){
+  fd_df<-y_tr %>% 
+    filter(cv10_idx==fd) %>%
+    dplyr::select(row_idx)
+  folds[[fd]]<-fd_df$row_idx
+}
 
 
 #--tune hyperparameter
@@ -170,10 +206,9 @@ objective<-"binary:logistic"
 grid_params<-expand.grid(
   max_depth=c(4,6,8,10),
   eta=c(0.05,0.02,0.01,0.005),
-  eta=0.02,
-  min_child_weight=1,
-  subsample=0.8,
-  colsample_bytree=0.8, 
+  min_child_weight=c(1,3,6),
+  subsample=c(0.5,0.8,1),
+  colsample_bytree=c(0.5,0.8,1), 
   gamma=1
 )
 
@@ -231,11 +266,21 @@ valid<-data.frame(y_ts,
                   pred = predict(xgb_tune,dtest),
                   stringsAsFactors = F)
 
+#--feature importance
+feat_imp<-xgb.importance(colnames(X_tr),model=xgb_tune)
 
-#--evaluation prediction performance
+
+#--save model and other results
+saveRDS(xgb_tune,file="./data/model_ref/model_gbm_no_fs.rda")
+saveRDS(bst_grid,file="./data/model_red/hyperpar_gbm_no_fs.rda")
+saveRDS(valid,file="./data/model_red/valid_gbm_no_fs.rda")
+saveRDS(feat_imp,file="./data/model_red/varimp_gbm_no_fs.rda")
+
+
+
+############################## evaluation prediction performance ###################################
 # various performace table
-pred<-ROCR::prediction(valid$pred,
-                       valid$y)
+pred<-ROCR::prediction(valid$pred,valid$y)
 
 prc<-performance(pred,"prec","rec")
 roc<-performance(pred,"sens","spec")
@@ -410,9 +455,4 @@ p2<-ggplot(calib_equal_bin,aes(x=episode,y=pred_bin,fill=color))+
   scale_size_continuous(guide=F)+
   labs(x="# of Year since DM onset",fill="Calibration Bias")+
   facet_wrap(~temporal)
-
-
-#--feature importance
-feat_imp<-xgb.importance(colnames(X_tr),model=xgb_tune);
-
 
