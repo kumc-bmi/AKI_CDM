@@ -64,8 +64,8 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
     
     #--trend of bp
     bp_slp_eligb<-bp %>%
-      mutate(add_hour=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="hours")) %>%
-      mutate(timestamp=sign(dsa)*round(as.numeric(add_hour),2)) %>%
+      mutate(add_time=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="mins")) %>%
+      mutate(timestamp=round(as.numeric(add_time)/(24*60),2)) %>%
       dplyr::select(-add_hour) %>%
       group_by(ENCOUNTERID,key,dsa) %>%
       dplyr::mutate(df=length(unique(timestamp))-1) %>%

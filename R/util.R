@@ -2,7 +2,8 @@
 ## install (if needed) and require packages
 require_libraries<-function(package_list){
   #install missing packages
-  new_packages<-package_list[!(package_list %in% installed.packages()[,"Package"])]
+  install_pkg<-as.data.frame(installed.packages())
+  new_packages<-package_list[!(package_list %in% install_pkg[which(install_pkg$LibPath==.libPaths()[1]),"Package"])]
   if(length(new_packages)>0){
     install.packages(new_packages,lib=.libPaths()[1],repos = "http://cran.us.r-project.org")
   }
@@ -300,8 +301,8 @@ long_to_sparse_matrix<-function(df,id,variable,val,binary=FALSE){
 
 
 ## compress dataframe into a condensed format
-compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save=F){
-  if(tbl=="demo"){
+compress_df<-function(dat,tbl=c("DEMO","VITAL","LAB","DX","PX","MED","DRG"),save=F){
+  if(tbl=="DEMO"){
     tbl_zip<-dat %>% 
       filter(key %in% c("AGE","HISPANIC","RACE","SEX")) 
     
@@ -312,7 +313,7 @@ compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save
     tbl_zip %<>%
       spread(key,value,fill=0) %>% #impute 0 for alignment
       unite("fstr",c("AGE","HISPANIC","RACE","SEX"),sep="_")
-  }else if(tbl=="vital"){
+  }else if(tbl=="VITAL"){
     tbl_zip<-dat %>%
       filter(key %in% c("HT","WT","BMI",
                         "BP_SYSTOLIC","BP_DIASTOLIC",
@@ -326,35 +327,38 @@ compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save
                         TOBACCO_TYPE="6TOBACCO_TYPE",
                         BP_SYSTOLIC="7BP_SYSTOLIC",
                         BP_DIASTOLIC="8BP_DIASTOLIC")) %>%
+      mutate(add_time=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="mins")) %>%
+      mutate(dsa=dsa+round(as.numeric(add_time)/(24*60),2)) %>%
       arrange(key,dsa) 
     
     idx_map<-tbl_zip %>% dplyr::select(key) %>%
       mutate(idx=paste0("vital",dense_rank(key))) %>% 
       unique %>% arrange(idx)
     
-    tbl_zip %<>%
+    tbl_zip %<>% unique %>%
       unite("val_date",c("value","dsa"),sep=",") %>%
-      group_by(PATID,ENCOUNTERID,key) %>%
+      group_by(ENCOUNTERID,key) %>%
       dplyr::summarize(fstr=paste(val_date,collapse=";")) %>%
       ungroup %>%
       spread(key,fstr,fill=0) %>% #impute 0 for alignment
       unite("fstr",c("1HT","2WT","3BMI",
                      "4SMOKING","5TOBACCO","6TOBACCO_TYPE",
                      "7BP_SYSTOLIC","8BP_DIASTOLIC"),sep="_")
-  }else if(tbl=="lab"){
+  }else if(tbl=="LAB"){
     tbl_zip<-dat %>%
-      mutate(idx=paste0("lab",dense_rank(key))) 
+      mutate(idx=paste0("lab",dense_rank(key)))
     
     idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
       unique %>% arrange(idx)
     
     tbl_zip %<>%
+      arrange(ENCOUNTERID,idx,dsa) %>%
       unite("val_unit_date",c("value","unit","dsa"),sep=",") %>%
-      group_by(PATID,ENCOUNTERID,idx) %>%
+      group_by(ENCOUNTERID,idx) %>%
       dplyr::summarize(fstr=paste(val_unit_date,collapse=";")) %>%
       ungroup %>%
       unite("fstr2",c("idx","fstr"),sep=":") %>%
-      group_by(PATID,ENCOUNTERID) %>%
+      group_by(ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr2,collapse="_")) %>%
       ungroup
   }else if(tbl=="DRG"){
@@ -365,19 +369,20 @@ compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save
       unique %>% arrange(idx) %>% dplyr::rename(key=key2)
     
     tbl_zip %<>%
-      group_by(PATID,ENCOUNTERID,key1,idx) %>%
+      group_by(ENCOUNTERID,key1,idx) %>%
       dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
       ungroup %>%
       unite("fstr",c("idx","dsa"),sep=":") %>%
-      group_by(PATID,ENCOUNTERID,key1) %>%
+      group_by(ENCOUNTERID,key1) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup %>%
       spread(key1,fstr,fill=0) %>%
       unite("fstr",c("ADMIT_DRG","COMMORB_DRG"),sep="|") %>%
       unique
-  }else if(tbl=="dx"){
+  }else if(tbl=="DX"){
     tbl_zip<-dat %>%
-      group_by(PATID,ENCOUNTERID,key) %>%
+      group_by(ENCOUNTERID,key) %>%
+      arrange(dsa) %>%
       dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
       ungroup %>%
       mutate(idx=paste0("ccs",key))
@@ -387,10 +392,10 @@ compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save
     
     tbl_zip %<>%
       unite("fstr",c("idx","dsa"),sep=":") %>%
-      group_by(PATID,ENCOUNTERID) %>%
+      group_by(ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup %>% unique
-  }else if(tbl=="px"){
+  }else if(tbl=="PX"){
     tbl_zip<-dat %>%
       mutate(idx=paste0("px",dense_rank(key))) 
     
@@ -398,14 +403,15 @@ compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save
       unique %>% arrange(idx)
     
     tbl_zip %<>%
-      group_by(PATID,ENCOUNTERID,idx) %>%
+      group_by(ENCOUNTERID,idx) %>%
+      arrange(dsa) %>%
       dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
       ungroup %>%
       unite("fstr",c("idx","dsa"),sep=":") %>%
-      group_by(PATID,ENCOUNTERID) %>%
+      group_by(ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
       ungroup %>% unique
-  }else if(tbl=="med"){
+  }else if(tbl=="MED"){
     tbl_zip<-dat %>%
       mutate(idx=paste0("med",dense_rank(key))) 
     
@@ -413,12 +419,15 @@ compress_df<-function(dat,tbl=c("demo","vital","lab","DRG","dx","px","med"),save
       unique %>% arrange(idx)
     
     tbl_zip %<>%
+      transform(value=strsplit(value,","),
+                dsa=strsplit(dsa,",")) %>%
+      unnest %>%
       unite("val_date",c("value","dsa"),sep=",") %>%
-      group_by(PATID,ENCOUNTERID,idx) %>%
+      group_by(ENCOUNTERID,idx) %>%
       dplyr::summarize(fstr=paste(val_date,collapse=";")) %>%
       ungroup %>%
       unite("fstr2",c("idx","fstr"),sep=":") %>%
-      group_by(PATID,ENCOUNTERID) %>%
+      group_by(ENCOUNTERID) %>%
       dplyr::summarize(fstr=paste(fstr2,collapse="_")) %>%
       ungroup
   }else{
