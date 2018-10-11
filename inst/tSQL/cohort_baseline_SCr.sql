@@ -67,3 +67,4 @@ from scr_base_dup scrb
 join #AKI_Initial init
 on scrb.ENCOUNTERID = init.ENCOUNTERID
 group by scrb.PATID,scrb.ENCOUNTERID,init.ADMIT_DATE_TIME,scrb.LAB_ORDER_DATE,scrb.SPECIMEN_DATE_TIME,scrb.RESULT_DATE_TIME,scrb.days_prior
+order by scrb.PATID, scrb.ENCOUNTERID

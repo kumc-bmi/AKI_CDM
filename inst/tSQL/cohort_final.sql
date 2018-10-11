@@ -7,11 +7,10 @@
 /*
 /*action: write
 /********************************************************************************/
-create table AKI_onsets as
 with pat_enc as (
 select distinct 
-       PATID 
-      ,ENCOUNTERID 
+       cast(PATID as integer) PATID
+      ,cast(ENCOUNTERID as integer) ENCOUNTERID
       ,CONVERT(DATETIME, CONVERT(DATE, ADMIT_DATE_TIME)) ADMIT_DATE
       ,SERUM_CREAT_BASE
 from #AKI_stages_daily
@@ -84,22 +83,22 @@ pivot
 select pe.PATID
       ,pe.ENCOUNTERID
       ,pe.ADMIT_DATE
-      ,trunc(init.DISCHARGE_DATE_TIME) DISCHARGE_DATE
+      ,CONVERT(DATETIME, CONVERT(DATE,init.DISCHARGE_DATE_TIME)) DISCHARGE_DATE
       ,pe.SERUM_CREAT_BASE
       ,ons.NONAKI_ANCHOR
-      ,(ons.NONAKI_ANCHOR-pe.ADMIT_DATE) NONAKI_SINCE_ADMIT
+      ,datediff(dd,pe.ADMIT_DATE,ons.NONAKI_ANCHOR) NONAKI_SINCE_ADMIT
       ,NON_AKI_SCR
       ,NON_AKI_INC
       ,ons.AKI1_ONSET
-      ,(ons.AKI1_ONSET-pe.ADMIT_DATE) AKI1_SINCE_ADMIT
+      ,datediff(dd,pe.ADMIT_DATE,ons.AKI1_ONSET) AKI1_SINCE_ADMIT
       ,scr.AKI1_SCR
       ,inc.AKI1_INC
       ,ons.AKI2_ONSET
-      ,(ons.AKI2_ONSET-pe.ADMIT_DATE) AKI2_SINCE_ADMIT
+      ,datediff(dd,pe.ADMIT_DATE,ons.AKI2_ONSET) AKI2_SINCE_ADMIT
       ,scr.AKI2_SCR
       ,inc.AKI2_INC
       ,ons.AKI3_ONSET
-      ,(ons.AKI3_ONSET-pe.ADMIT_DATE) AKI3_SINCE_ADMIT
+      ,datediff(dd,pe.ADMIT_DATE,ons.AKI3_ONSET) AKI3_SINCE_ADMIT
       ,scr.AKI3_SCR
       ,inc.AKI3_INC
 from pat_enc pe

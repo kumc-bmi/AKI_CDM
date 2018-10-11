@@ -68,4 +68,3 @@ from #AKI_onsets
 where AKI1_onset is not null and
       AKI2_onset is not null and
       AKI3_onset is not null
-

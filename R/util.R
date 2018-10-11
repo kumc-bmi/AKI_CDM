@@ -158,6 +158,7 @@ execute_single_sql<-function(conn,statement,write,table_name){
     dat<-dbGetQuery(conn,statement)
     return(dat)
   }
+  cat("create temporary table: ", table_name, ".\n")
 }
 
 

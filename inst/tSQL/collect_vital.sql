@@ -30,5 +30,3 @@ on pat.PATID = v.PATID
 where v.MEASURE_DATE between dateadd(day,-7,pat.ADMIT_DATE) and pat.DISCHARGE_DATE and
       coalesce(v.HT, v.WT, v.SYSTOLIC, v.DIASTOLIC, v.ORIGINAL_BMI) is not null
 order by PATID, ENCOUNTERID, MEASURE_DATE_TIME
-
-

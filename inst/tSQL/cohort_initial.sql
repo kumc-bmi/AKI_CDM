@@ -5,7 +5,7 @@
 /*
 /*params: &&dbname, &&PCORNET_CDM, &&start_date, &&end_date
 /*       
-/*out: AKI_Initial
+/*out: #AKI_Initial
 /*
 /*action: write
 /********************************************************************************/
@@ -45,6 +45,3 @@ select ENCOUNTERID
 into #AKI_Initial
 from age_at_admit
 where age_at_admit >= 18
-
-
-
