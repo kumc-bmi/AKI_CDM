@@ -66,7 +66,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
     bp_slp_eligb<-bp %>%
       mutate(add_time=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="mins")) %>%
       mutate(timestamp=round(as.numeric(add_time)/(24*60),2)) %>%
-      dplyr::select(-add_hour) %>%
+      dplyr::select(-add_time) %>%
       group_by(ENCOUNTERID,key,dsa) %>%
       dplyr::mutate(df=length(unique(timestamp))-1) %>%
       dplyr::mutate(sd=ifelse(df>0,sd(value),0))

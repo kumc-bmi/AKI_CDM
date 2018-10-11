@@ -21,11 +21,9 @@ select distinct
       ,datediff(dd,pat.DISCHARGE_DATE,dth.DEATH_DATE) DDAYS_SINCE_ENC
       ,dth.DEATH_DATE_IMPUTE
       ,dth.DEATH_SOURCE
-from AKI_onsets pat
+from #AKI_onsets pat
 left join [&&dbname].[&&PCORNET_CDM].DEMOGRAPHIC demo
 on pat.PATID = demo.PATID
 left join [&&dbname].[&&PCORNET_CDM].DEATH dth
 on pat.PATID = dth.PATID
 order by pat.PATID, pat.ENCOUNTERID
-
-

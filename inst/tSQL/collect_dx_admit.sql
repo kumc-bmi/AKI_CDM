@@ -18,11 +18,9 @@ select pat.PATID
       --,dx.DX_ORIGIN
       ,dx.PDX
       ,dx.ADMIT_DATE DX_DATE
-      ,datediff(dd,pat.ADMIT_DATE,dx.ADMIT_DATE) DAYS_SINCE_ADMIT
+      ,datediff(dd,pat.ADMIT_DATE,dx.ADMIT_DATE) as DAYS_SINCE_ADMIT
 from AKI_onsets pat
 join [&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
 on pat.ENCOUNTERID = dx.ENCOUNTERID
 where dx.DX_SOURCE = 'AD'
 order by pat.PATID, pat.ENCOUNTERID, dx.ADMIT_DATE desc
-
-

@@ -12,4 +12,3 @@ into #AKI_Scr_eGFR
 from #All_Scr_eGFR scr
 where exists (select 1 from #AKI_Initial aki where scr.ENCOUNTERID = aki.ENCOUNTERID)
 
-

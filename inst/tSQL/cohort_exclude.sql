@@ -105,7 +105,7 @@ where exists (select 1 from [&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
                     -- ICD10 for burn patients
                      (dx.DX_TYPE = '10' and
                       (   dx.DX like 'T20.%' 
-                       or dx.DX like 'T21.%%'
+                       or dx.DX like 'T21.%'
                        or dx.DX like 'T22.%'
                        or dx.DX like 'T23.%'
                        or dx.DX like 'T24.%'
@@ -132,4 +132,3 @@ union all
 select ENCOUNTERID, 'Renal_transplant_within_48hr' EXCLUD_TYPE from AKI_EXCLD_RT48_EN
 union all
 select ENCOUNTERID, 'Burn_patients' EXCLUD_TYPE from AKI_EXCLD_BURN_EN) as tmp
-
