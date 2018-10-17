@@ -5,6 +5,7 @@ require_libraries(c("DBI",
                     "dplyr",
                     "magrittr",
                     "stringr"))
+
 params<-list(  DBMS_type="Oracle",
                remote_CDM=FALSE)
 
