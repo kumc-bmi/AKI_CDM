@@ -13,7 +13,8 @@ require_libraries(c("tidyr",
                     # "CMake",
                     # "LightGBM",
                     # "catboost",
-                    "ROCR"))
+                    "ROCR",
+                    "PRROC"))
 
 
 ############################## collect and format variables on daily basis ######################
@@ -383,8 +384,6 @@ calib<-data.frame(pred=valid$pred,
   dplyr::mutate(episode = j,
                 temporal = i)
 
-calib_equal_bin %<>% bind_rows(calib2)
-
 
 perf_summ %<>%
   bind_rows(perf_tbl %>% 
@@ -433,7 +432,7 @@ p1<-ggplot(perf_overall,
 
 
 # plot calibration
-calib_equal_bin %<>%
+calib %<>%
   mutate(temporal=recode(temporal,
                          `non-temporal`="a.Most Recent Value",
                          `stack-temporal`="b.Stack Temporal",
@@ -443,7 +442,7 @@ calib_equal_bin %<>%
                          y_p < binCI_lower ~ round(y_p/binCI_lower,1)-1,
                          y_p >= binCI_lower | y_p <= binCI_upper ~ 0))
 
-p2<-ggplot(calib_equal_bin,aes(x=episode,y=pred_bin,fill=color))+
+p2<-ggplot(calib,aes(x=episode,y=pred_bin,fill=color))+
   geom_tile()+
   scale_y_continuous(name="Cumulative proportion of observations (low risk -> high risk)",
                      breaks=seq_len(n_bin),

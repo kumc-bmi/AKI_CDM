@@ -539,8 +539,7 @@ lab_summ<-lab %>%
   ) %>%
   arrange(freq_rk,summ) %>%
   #additional 
-  mutate(at_admission=ifelse(is.na(`1`),0,1),
-         within_3d=ifelse(is.na(coalesce(`1`,`2`,`3`)),0,1))
+  mutate(at_admission=ifelse(is.na(`1`),0,1))
 
 #save
 saveRDS(lab,file=paste0("./data/",toupper(sql$tbl_out),".rda"))
@@ -587,7 +586,7 @@ lab_report<-lab_temp %>%
 
 ```
 
-A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible (NI may present), among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission, `r nrow(lab_summ %>% filter(within_3d==1) %>% dplyr::select(key) %>% unique)` within 3 days. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. the common labs for this study cohort are [`r lab_report$key[1]`], [`r lab_report$key[2]`],[`r lab_report$key[3]`],[`r lab_report$key[4]`],[`r lab_report$key[5]`],...), and labs with very high recording intensity (e.g. [`r lab_report$key[6]`], [`r lab_report$key[7]`]). 
+A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible (NI may present), among which `r nrow(lab_summ %>% filter(at_admission==1) %>% dplyr::select(key) %>% unique)` are collected at the day of admission. Figure 1 shows the data density and intensity of labs concepts, which can help identify common labs (e.g. the common labs for this study cohort are [`r lab_report$key[1]`], [`r lab_report$key[2]`],[`r lab_report$key[3]`],[`r lab_report$key[4]`],[`r lab_report$key[5]`],...), and labs with very high recording intensity (e.g. [`r lab_report$key[6]`], [`r lab_report$key[7]`]). 
 
 *Note that only labs with coverage above 1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file.* 
 
