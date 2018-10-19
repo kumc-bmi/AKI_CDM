@@ -29,5 +29,5 @@ select distinct
       ,datediff(dd,pat.ADMIT_DATE,l.SPECIMEN_DATE) DAYS_SINCE_ADMIT
 from #AKI_onsets pat
 join [&&dbname].[&&PCORNET_CDM].LAB_RESULT_CM l
-on pat.ENCOUNTERID = l.ENCOUNTERID
+on pat.PATID = l.PATID and l.LAB_ORDER_DATE between pat.ADMIT_DATE and pat.DISCHARGE_DATE
 order by pat.PATID, pat.ENCOUNTERID, SPECIMEN_DATE_TIME

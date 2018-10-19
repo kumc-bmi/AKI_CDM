@@ -33,9 +33,8 @@ select distinct
       ,datediff(dd,pat.ADMIT_DATE,p.RX_START_DATE) DAYS_SINCE_ADMIT
 from #AKI_onsets pat
 join [&&dbname].[&&PCORNET_CDM].PRESCRIBING p
-on pat.ENCOUNTERID = p.ENCOUNTERID
+on pat.PATID = p.PATID
 where p.RXNORM_CUI is not null and p.RX_START_DATE is not null and
       p.RX_ORDER_DATE is not null and p.RX_ORDER_TIME is not null and
-      p.RX_ORDER_DATE between dateadd(day,-30,pat.ADMIT_DATE) and
-                              pat.DISCHARGE_DATE
+      p.RX_ORDER_DATE between dateadd(day,-30,pat.ADMIT_DATE) and pat.DISCHARGE_DATE
 order by PATID, ENCOUNTERID, RXNORM_CUI, RX_START_DATE

@@ -29,7 +29,7 @@ select distinct
       ,round(p.RX_START_DATE-pat.ADMIT_DATE,2) DAYS_SINCE_ADMIT
 from AKI_onsets pat
 join &&PCORNET_CDM.PRESCRIBING@dblink p
-on pat.ENCOUNTERID = p.ENCOUNTERID
+on pat.PATID = p.PATID
 where p.RXNORM_CUI is not null and
       p.RX_START_DATE is not null and
       p.RX_ORDER_DATE is not null and 

@@ -34,8 +34,9 @@ consort_diag<-function(consort_tbl){
                   stringsAsFactors=F) %>%
     left_join(consort_tbl, by="CNT_TYPE") %>%
     replace_na(list(ENC_CNT=0)) %>%
-    mutate(cnt_ref=ifelse(CNT_TYPE %in% c("Initial","Total"),ENC_CNT,NA)) %>%
+    mutate(cnt_ref=ifelse(CNT_TYPE %in% c("Initial","Has_at_least_1_SCr","Total"),ENC_CNT,NA)) %>%
     fill(cnt_ref,.direction="down") %>%
+    mutate(cnt_ref=ifelse(CNT_TYPE=="Has_at_least_1_SCr",lag(cnt_ref,n=1L),cnt_ref)) %>%
     mutate(ENC_PROP=round(ENC_CNT/cnt_ref,4)) %>%
     mutate(label_val=paste0("(",ENC_CNT,",",ENC_PROP*100,"%)")) %>%
     mutate(label=paste(label_txt,"\n",label_val)) %>%
