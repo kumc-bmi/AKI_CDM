@@ -8,8 +8,31 @@
 /*action: write
 /********************************************************************************/
 create table AKI_Scr_eGFR as
-select scr.* from All_Scr_eGFR scr
-where exists (select 1 from AKI_Initial aki where scr.ENCOUNTERID = aki.ENCOUNTERID) or
-      exists (select 1 from AKI_Initial aki where scr.PATID = aki.PATID and scr.LAB_ORDER_DATE between aki.ADMIT_DATE and aki.DISCHARGE_DATE)
+with multi_match as (
+select scr.*
+from All_Scr_eGFR scr
+where exists (select 1 from AKI_Initial aki where scr.ENCOUNTERID = aki.ENCOUNTERID)
+union all
+select aki.PATID
+      ,aki.ENCOUNTERID
+      ,scr.SERUM_CREAT
+      ,scr.eGFR
+      ,scr.LAB_ORDER_DATE
+      ,scr.SPECIMEN_DATE_TIME
+      ,scr.RESULT_DATE_TIME
+from All_Scr_eGFR scr
+join AKI_Initial aki
+on scr.PATID = aki.PATID and scr.ENCOUNTERID <> aki.ENCOUNTERID and
+   scr.LAB_ORDER_DATE between aki.ADMIT_DATE_TIME and aki.DISCHARGE_DATE_TIME
+)   
+select PATID
+      ,ENCOUNTERID
+      ,SERUM_CREAT
+      ,eGFR
+      ,LAB_ORDER_DATE
+      ,SPECIMEN_DATE_TIME
+      ,RESULT_DATE_TIME
+      ,dense_rank() over (partition by ENCOUNTERID order by LAB_ORDER_DATE,SPECIMEN_DATE_TIME) rn      
+from multi_match
 
 
