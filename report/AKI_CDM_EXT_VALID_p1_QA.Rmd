@@ -786,8 +786,8 @@ sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
 med<-execute_single_sql(conn,
                         statement=sql$statement,
                         write=(sql$action=="write")) %>%
-  dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
-                                    pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
+  dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1,na.rm=T),
+                                    pmax(RX_DAYS_SUPPLY,1,na.rm=T),na.rm=T))) %>%
   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
   dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
   dplyr::select(ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
