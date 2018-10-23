@@ -58,7 +58,6 @@ select PATID
       ,convert(datetime, 
                convert(CHAR(8), RESULT_DATE, 112)+ ' ' + CONVERT(CHAR(8), RESULT_TIME, 108)
                ) RESULT_DATE_TIME
-      ,dense_rank() over (partition by ENCOUNTERID order by RESULT_DATE, RESULT_TIME) rn
 into #All_Scr_eGFR
 from Scr_w_age
 where age_at_Scr >= 18

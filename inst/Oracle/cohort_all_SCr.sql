@@ -57,7 +57,6 @@ select distinct
                'YYYY:MM:DD HH24:MI') SPECIMEN_DATE_TIME
       ,to_date(to_char(RESULT_DATE,'YYYY:MM:DD') || ' ' || to_char(RESULT_TIME),
                'YYYY:MM:DD HH24:MI') RESULT_DATE_TIME
-      ,dense_rank() over (partition by ENCOUNTERID order by RESULT_DATE, RESULT_TIME) rn
 from Scr_w_age
 where age_at_Scr >= 18
 
