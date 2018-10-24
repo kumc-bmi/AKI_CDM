@@ -104,18 +104,18 @@ where exists (select 1 from [&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
                       ) or
                     -- ICD10 for burn patients
                      (dx.DX_TYPE = '10' and
-                      (   dx.DX like 'T20.%' 
-                       or dx.DX like 'T21.%'
-                       or dx.DX like 'T22.%'
-                       or dx.DX like 'T23.%'
-                       or dx.DX like 'T24.%'
-                       or dx.DX like 'T25.%'
-                       or dx.DX like 'T26.%'
-                       or dx.DX like 'T27.%'
-                       or dx.DX like 'T28.%'
-                       or dx.DX like 'T30.%'
-                       or dx.DX like 'T31.%'
-                       or dx.DX like 'T32.%')
+                      (   dx.DX like 'T20%' 
+                       or dx.DX like 'T21%'
+                       or dx.DX like 'T22%'
+                       or dx.DX like 'T23%'
+                       or dx.DX like 'T24%'
+                       or dx.DX like 'T25%'
+                       or dx.DX like 'T26%'
+                       or dx.DX like 'T27%'
+                       or dx.DX like 'T28%'
+                       or dx.DX like 'T30%'
+                       or dx.DX like 'T31%'
+                       or dx.DX like 'T32%')
                        )
                       ) and
                     dx.DX_SOURCE = 'AD'

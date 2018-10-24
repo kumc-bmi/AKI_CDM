@@ -34,8 +34,7 @@ where p.RXNORM_CUI is not null and
       p.RX_START_DATE is not null and
       p.RX_ORDER_DATE is not null and 
       p.RX_ORDER_TIME is not null and
-      p.RX_ORDER_DATE between pat.ADMIT_DATE-30 and
-                              pat.DISCHARGE_DATE
+      p.RX_ORDER_DATE between pat.ADMIT_DATE-30 and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE)
 order by PATID, ENCOUNTERID, RXNORM_CUI, RX_START_DATE
 
 
