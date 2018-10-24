@@ -94,8 +94,8 @@ where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS@dblink dx
                       ) or
                     -- ICD10 for burn patients
                      (dx.DX_TYPE = '10' and
-                      (   regexp_like(dx.DX,'^T2[0-8]')
-                       or regexp_like(dx.DX,'^T3[0-2]'))
+                      (   regexp_like(dx.DX,'^T2[0-8]\.')
+                       or regexp_like(dx.DX,'^T3[0-2]\.'))
                        )
                       ) and
                     dx.DX_SOURCE = 'AD'
