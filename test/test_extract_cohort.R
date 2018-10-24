@@ -39,32 +39,6 @@ statements<-paste0(
 )
 
 
-####single snippet
-#write
-sql<-parse_sql(file_path=statements[1],
-               cdm_db_link=cdm_db_link,
-               cdm_db_name=cdm_db_name,
-               cdm_db_schema=cdm_db_schema,
-               start_date=start_date,
-               end_date=end_date)
-
-execute_single_sql(conn,
-                   statement=sql$statement,
-                   write=(sql$action=="write"),
-                   table_name=toupper(sql$tbl_out))
-
-#read
-sql<-parse_sql(file_path="./inst/Oracle/collect_demo.sql",
-               cdm_db_name=cdm_db_name,
-               cdm_db_schema=cdm_db_schema)
-
-dat<-execute_single_sql(conn,
-                        statement=sql$statement,
-                        write=(sql$action=="write"),
-                        table_name=toupper(sql$tbl_out))
-#passed!
-
-
 ####batch snippets
 execute_batch_sql(conn,statements,verb=T,
                   cdm_db_link=cdm_db_link,
