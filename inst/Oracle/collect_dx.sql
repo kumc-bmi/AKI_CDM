@@ -22,8 +22,7 @@ select pat.PATID
 from AKI_onsets pat
 join &&PCORNET_CDM.DIAGNOSIS@dbname dx
 on pat.PATID = dx.PATID
-where dx.ADMIT_DATE between pat.ADMIT_DATE-365 and
-                            pat.ADMIT_DATE-1
+where dx.ADMIT_DATE between pat.ADMIT_DATE-365 and pat.ADMIT_DATE-1
 order by pat.PATID, pat.ENCOUNTERID, dx.ADMIT_DATE desc
 
 

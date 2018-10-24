@@ -26,7 +26,7 @@ select pat.PATID
 from AKI_onsets pat
 left join &&PCORNET_CDM.VITAL@dblink v
 on pat.PATID = v.PATID
-where v.MEASURE_DATE between pat.ADMIT_DATE-7 and pat.DISCHARGE_DATE and
+where v.MEASURE_DATE between pat.ADMIT_DATE-7 and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE) and
       coalesce(v.HT, v.WT, v.SYSTOLIC, v.DIASTOLIC, v.ORIGINAL_BMI) is not null
 order by PATID, ENCOUNTERID, MEASURE_DATE_TIME
 

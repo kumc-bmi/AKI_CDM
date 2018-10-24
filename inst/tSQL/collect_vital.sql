@@ -27,6 +27,6 @@ select pat.PATID
 from #AKI_onsets pat
 left join [&&dbname].[&&PCORNET_CDM].VITAL v
 on pat.PATID = v.PATID
-where v.MEASURE_DATE between dateadd(day,-7,pat.ADMIT_DATE) and pat.DISCHARGE_DATE and
+where v.MEASURE_DATE between dateadd(day,-7,pat.ADMIT_DATE) and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE) and
       coalesce(v.HT, v.WT, v.SYSTOLIC, v.DIASTOLIC, v.ORIGINAL_BMI) is not null
 order by PATID, ENCOUNTERID, MEASURE_DATE_TIME

@@ -34,7 +34,9 @@ select distinct
 from #AKI_onsets pat
 join [&&dbname].[&&PCORNET_CDM].PRESCRIBING p
 on pat.PATID = p.PATID
-where p.RXNORM_CUI is not null and p.RX_START_DATE is not null and
-      p.RX_ORDER_DATE is not null and p.RX_ORDER_TIME is not null and
-      p.RX_ORDER_DATE between dateadd(day,-30,pat.ADMIT_DATE) and pat.DISCHARGE_DATE
+where p.RXNORM_CUI is not null and 
+      p.RX_START_DATE is not null and 
+      p.RX_ORDER_DATE is not null and 
+      p.RX_ORDER_TIME is not null and
+      p.RX_ORDER_DATE between dateadd(day,-30,pat.ADMIT_DATE) and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE)
 order by PATID, ENCOUNTERID, RXNORM_CUI, RX_START_DATE

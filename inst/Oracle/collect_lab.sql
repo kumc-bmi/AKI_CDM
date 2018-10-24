@@ -27,7 +27,7 @@ select distinct
       ,round(l.SPECIMEN_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
 from AKI_onsets pat
 join &&PCORNET_CDM.LAB_RESULT_CM@dblink l
-on pat.PATID = l.PATID and l.LAB_ORDER_DATE between pat.ADMIT_DATE and pat.DISCHARGE_DATE
+on pat.PATID = l.PATID and l.LAB_ORDER_DATE between pat.ADMIT_DATE and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE)
 order by pat.PATID, pat.ENCOUNTERID, SPECIMEN_DATE_TIME
 
 
