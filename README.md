@@ -121,7 +121,8 @@ The following instructions are for extracting cohort and generating final report
         - `remote_CDM`: if CDM is on a different server from the default schema (default `remote_CDM = F`),          
                   ---- 1. make sure there is a valid remote database connection for sending back CDM data           
                   ---- 2. set `remote_CDM = T`                   
-                  ---- 3. add a column `cdm_db_link` to `config.csv` and specify the link       
+                  ---- 3. add a column `cdm_db_link` to `config.csv` and specify the link     
+        - `start_date`, `end_date`: the start and end date of inclusion period, in `"yyyy-mm-dd"` format (e.g. "2010-01-01", with the quotes)             
       
       iii) **run** r script `render_report.R` after assigning correct values to the parameters in ii)        
       
