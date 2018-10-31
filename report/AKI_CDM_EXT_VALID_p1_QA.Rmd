@@ -6,6 +6,8 @@ output: html_document
 params:
   DBMS_type: Oracle
   remote_CDM: FALSE
+  start_date: "2010-01-01"
+  end_date: as.character(Sys.Date())
 ---
 ### Aim 1: Data Feasibility Evaluation over GPC sites.
 #### Objective 1.1: Study cohort extraction and characterization
@@ -76,8 +78,8 @@ cohort<-extract_cohort(conn,
                        remote_CDM=params$remote_CDM,
                        cdm_db_name=config_file$cdm_db_name,
                        cdm_db_schema=config_file$cdm_db_schema,
-                       start_date="2010-01-01",
-                       end_date="2018-12-31",
+                       start_date=params$start_date,
+                       end_date=params$end_date,
                        verb=F)
 
 ```

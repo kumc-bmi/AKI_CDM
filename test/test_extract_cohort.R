@@ -6,7 +6,7 @@ require_libraries(c("DBI",
                     "dplyr",
                     "stringr"))
 
-params<-list(  DBMS_type="tSQl",
+params<-list(  DBMS_type="tSQL",
                remote_CDM=FALSE)
 
 
