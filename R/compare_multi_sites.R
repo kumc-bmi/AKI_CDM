@@ -56,8 +56,8 @@ for (wb in seq_len(length(wb_lst))) {
 
 
 
-#construct final output tables and figures
-# demo comparison table
+####comparison tables
+##==AKI stages & demographics
 demo %<>%
   gather(aki_stg,summ,-key,-value,-site) %>%
   separate(summ,c("cnt","prop"),sep=",") %>%
@@ -83,21 +83,47 @@ demo %<>%
   dplyr::summarize(cnt=sum(cnt)) %>%
   ungroup
 
-demo_denom<-demo %>% filter(key=="TOTAL") %>%
-  dplyr::select(-key,-value)
+#--collect denominator
+demo_denom<-demo %>%
+  filter(stg_bin=="ALL") %>%
+  dplyr::select(site,key,value,cnt) %>%
+  unique
+
+aki_denom<-demo %>% 
+  dplyr::filter(key=="TOTAL") %>%
+  dplyr::select(site,enc_cnt) %>%
+  mutate(enc_cnt=as.numeric(enc_cnt)) %>%
+  unique
+
+
+#--get conditional AKI distributions
+aki<-aki_time %>% 
+  dplyr::select(site,stage,enc_cnt) %>%
+  mutate(enc_cnt=as.numeric(enc_cnt)) %>%
+  left_join(aki_denom,by="site") %>%
+  mutate(prop=round(enc_cnt/cnt_denom,3)) %>%
+  mutate(label=paste0(enc_cnt,",",prop*100,"%")) %>%
+  dplyr::select(stage,site,label) %>%
+  spread(site,label)
 
 demo %<>% 
-  filter(key!="TOTAL") %>%
+  filter(key!="TOTAL" & stg_bin != "ALL") %>%
   left_join(demo_denom %>% rename(cnt_denom=cnt),
-            by=c("site","stg_bin")) %>%
-  mutate(prop=round(cnt/cnt_demo,2))
+            by=c("site","key","value")) %>%
+  spread(stg_bin,cnt) %>%
+  mutate(AKI=cnt_denom-NONAKI) %>%
+  gather(stg_bin,cnt,-site,-key,-value,-cnt_denom) %>%
+  mutate(prop=round(cnt/cnt_denom,3)) %>%
+  mutate(label=paste0(cnt,",",prop*100,"%")) %>%
+  unite("site_aki_bin",c("site","stg_bin"),sep="_") %>%
+  unite("key_val",c("key","value"),sep="_") %>%
+  dplyr::select(key_val,site_aki_bin,label) %>%
+  spread(site_aki_bin,label,fill="0,0%")
+  
 
-tbl_out<-list(demo=demo,
-              aki_time=aki_time)
 
-saveRDS(tbl_out,file="./data/demo_tbl_out.rda")
-
-# ccs distribution
+####comparison figures
+##==ccs distribution
 ccs %<>%
   dplyr::select(key,enc_cnt,site) %>%
   mutate(enc_cnt=ifelse(enc_cnt=="<11",10,enc_cnt)) %>%
