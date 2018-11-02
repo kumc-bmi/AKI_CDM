@@ -24,7 +24,8 @@ require_libraries(c("DBI",
 
 
 #source utility functions
-meta<-readRDS("./data/ft_metadata.rda")
+meta<-read.csv("./data/meta_cdm.csv",stringsAsFactors = F) %>%
+  bind_rows(readRDS("./data/ft_metadata.rda"))
 
 type_vec<-c("DEMO","VITAL","LAB","DX","PX","MED")
 ft_zip<-c()
@@ -41,70 +42,76 @@ for(i in seq_along(type_vec)){
   #stack metadata
   idx_map<-dat_zip$idx_map %>% mutate(pos=i)
   if(type_vec[i] == "DEMO"){
-    idx_map %<>% left_join(meta %>% mutate(key=VAR_TYPE),
-                            by="key") %>%
-      arrange(idx,VAR_CD) %>%
+    idx_map %<>% mutate(FIELD_NAME=key) %>%
+      left_join(meta, by="FIELD_NAME") %>%
+      arrange(idx) %>%
       mutate(TABLE_NAME=ifelse(key=="AGE","DEMOGRAPHIC",TABLE_NAME),
-             VAR_TYPE=ifelse(key=="AGE",key,VAR_TYPE),
-             VAR_CD=ifelse(key=="AGE",key,VAR_CD),
-             VAR_NAME=ifelse(key=="AGE","Age at admission",VAR_NAME))
+             FIELD_NAME=ifelse(key=="AGE",key,FIELD_NAME),
+             VALUESET_ITEM=ifelse(key=="AGE",key,VALUESET_ITEM),
+             VALUESET_ITEM_DESCRIPTOR=ifelse(key=="AGE","Age at admission",VALUESET_ITEM_DESCRIPTOR))
   }else if(type_vec[i] == "VITAL"){
-    idx_map %<>% mutate(key=ifelse(grepl("BMI+",key),
-                                   "ORIGINAL_BMI",
-                                   substr(key,2,99))) %>%
-      inner_join(meta %>% filter(TABLE_NAME=="VITAL") %>%
-                   mutate(key=ifelse(VAR_TYPE=="BP",VAR_CD,VAR_TYPE)),
-                 by="key") %>%
-      group_by(key,idx,pos,TABLE_NAME,VAR_CD) %>%
-      arrange(desc(VAR_NAME)) %>% dplyr::slice(1:1) %>%
-      ungroup
+    idx_map %<>% mutate(key=substr(key,2,99)) %>%
+      left_join(meta, by=c("key"="FIELD_NAME")) %>%
+      mutate(TABLE_NAME=ifelse(is.na(TABLE_NAME),"VITAL",TABLE_NAME),
+             FIELD_NAME=key,
+             VALUESET_ITEM=ifelse(is.na(VALUESET_ITEM),key,VALUESET_ITEM),
+             VALUESET_ITEM_DESCRIPTOR=case_when(key=="HT" ~ "height",
+                                                key=="WT" ~ "weight",
+                                                key=="BMI" ~ "body mass index",
+                                                key=="BP_SYSTOLIC" ~ "systolic blood pressure",
+                                                key=="BP_DIASTOLIC" ~ "diastolic blood pressure",
+                                                key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE") ~ VALUESET_ITEM_DESCRIPTOR))
   }else if(type_vec[i] == "LAB"){
-    idx_map %<>% mutate(VAR_CD=key) %>%
+    idx_map %<>% mutate(VALUESET_ITEM=key) %>%
       inner_join(meta %>% filter(TABLE_NAME=="LAB_RESULT_CM"),
-                 by="VAR_CD") %>%
-      group_by(key,idx,pos,TABLE_NAME,VAR_TYPE) %>%
-      arrange(desc(VAR_NAME)) %>% dplyr::slice(1:1) %>%
-      ungroup
+                 by="VALUESET_ITEM") %>%
+      group_by(key,idx,pos,TABLE_NAME,FIELD_NAME) %>%
+      arrange(desc(VALUESET_ITEM_DESCRIPTOR)) %>% 
+      dplyr::slice(1:1) %>% ungroup %>%
+      filter(key!="NI")
   }else if(type_vec[i] == "DRG"){
-    idx_map %<>% mutate(VAR_CD=key) %>%
+    idx_map %<>% mutate(VALUESET_ITEM=key) %>%
       inner_join(meta %>% filter(TABLE_NAME=="ENCOUNTER" & VAR_TYPE=="DRG") %>%
-                   mutate(VAR_CD=gsub("CMSDRG:","",VAR_CD)),
-                 by="VAR_CD") %>%
-      group_by(key,idx,pos,TABLE_NAME,VAR_TYPE) %>%
-      arrange(desc(VAR_NAME)) %>% dplyr::slice(1:1) %>%
-      ungroup
+                   mutate(VALUESET_ITEM=gsub("CMSDRG:","",VALUESET_ITEM)),
+                 by="VALUESET_ITEM") %>%
+      group_by(key,idx,pos,TABLE_NAME,FIELD_NAME,VALUESET_ITEM) %>%
+      arrange(desc(VALUESET_ITEM_DESCRIPTOR)) %>% 
+      dplyr::slice(1:1) %>% ungroup
   }else if(type_vec[i] == "DX"){
     load("./data/ccs_icd_cw.Rdata")
-    idx_map %<>% mutate(VAR_CD=key) %>%
-      inner_join(ccs_icd %>% dplyr::rename(VAR_NAME=ccs_name) %>%
-                   mutate(VAR_CD=ccs_code,
+    idx_map %<>% mutate(VALUESET_ITEM=key) %>%
+      inner_join(ccs_icd %>% 
+                   dplyr::rename(VALUESET_ITEM_DESCRIPTOR=ccs_name) %>%
+                   mutate(VALUESET_ITEM=ccs_code,
                           TABLE_NAME="DIAGNOSIS",
-                          VAR_TYPE="DX_CCS") %>%
-                   dplyr::select(TABLE_NAME,VAR_TYPE,VAR_CD,VAR_NAME),
-                 by="VAR_CD") %>%
+                          FIELD_NAME="DX_CCS") %>%
+                   dplyr::select(TABLE_NAME,FIELD_NAME,
+                                 VALUESET_ITEM,VALUESET_ITEM_DESCRIPTOR),
+                 by="VALUESET_ITEM") %>%
       unique %>% 
-      mutate(key=as.character(key),VAR_CD=as.character(VAR_CD)) %>%
-      group_by(key,idx,pos,TABLE_NAME,VAR_TYPE) %>%
-      arrange(desc(VAR_NAME)) %>% dplyr::slice(1:1) %>%
-      ungroup
+      mutate(key=as.character(key),
+             VALUESET_ITEM=as.character(VALUESET_ITEM)) %>%
+      group_by(key,idx,pos,TABLE_NAME,FIELD_NAME,VALUESET_ITEM) %>%
+      arrange(desc(VALUESET_ITEM_DESCRIPTOR)) %>% 
+      dplyr::slice(1:1) %>% ungroup
   }else if(type_vec[i] == "PX"){
-    idx_map %<>% mutate(VAR_CD=case_when(grepl("^09",key) ~ gsub("09","ICD9",key),
-                                         grepl("^10",key) ~ gsub("10","ICD10",key),
-                                         grepl("^CH",key) ~ gsub("CH:","",key))) 
+    idx_map %<>% mutate(VALUESET_ITEM=case_when(grepl("^09",key) ~ gsub("^09","ICD9",key),
+                                                grepl("^10",key) ~ gsub("^10","ICD10",key),
+                                                grepl("^CH",key) ~ gsub("CH:","",key))) 
     idx_map %<>%
-      inner_join(meta %>% filter(TABLE_NAME=="PROCEDURE" & VAR_CD != "NI") %>%
-                   mutate(VAR_CD=ifelse(grepl("^(CPT|HCPCS)+",VAR_CD),
-                                        gsub(".*\\:","",VAR_CD),
-                                        VAR_CD)),
-                 by="VAR_CD") %>%
+      left_join(meta %>% filter(TABLE_NAME=="PROCEDURE" & VALUESET_ITEM != "NI") %>%
+                   mutate(VALUESET_ITEM=ifelse(grepl("^(CPT|HCPCS)+",VALUESET_ITEM),
+                                               gsub(".*\\:","",VALUESET_ITEM),
+                                               VALUESET_ITEM)),
+                 by="VALUESET_ITEM") %>%
       unique %>%
-      group_by(key,idx,pos,TABLE_NAME,VAR_TYPE) %>%
-      arrange(desc(VAR_NAME)) %>% dplyr::slice(1:1) %>%
-      ungroup
+      group_by(key,idx,pos,TABLE_NAME,FIELD_NAME,VALUESET_ITEM) %>%
+      arrange(desc(VALUESET_ITEM_DESCRIPTOR)) %>% 
+      dplyr::slice(1:1) %>% ungroup
   }else if(type_vec[i] == "MED"){
-    idx_map %<>% mutate(VAR_CD=gsub("\\:.*","",key)) %>%
-      inner_join(meta %>% filter(TABLE_NAME=="PRESCRIBING" & VAR_CD != "NI"),
-                 by="VAR_CD") %>%
+    idx_map %<>% mutate(VALUESET_ITEM=gsub("\\:.*","",key)) %>%
+      inner_join(meta %>% filter(TABLE_NAME=="PRESCRIBING" & VALUESET_ITEM != "NI"),
+                 by="VALUESET_ITEM") %>%
       unique
   }else{
     warning("features are not mappable!")
@@ -142,9 +149,9 @@ ft_zip %<>%
   unique
 
 ft_idx %<>% 
-  mutate(VAR_CD=paste0("'",VAR_CD,"'")) %>%
+  mutate(VALUESET_ITEM=paste0("'",VALUESET_ITEM,"'")) %>%
   dplyr::rename(VAR_IDX=idx,VAR_POS=pos) %>%
-  dplyr::select(-key)
+  dplyr::select(-key,-I2B2_HLEVEL,-ITEM_TYPE)
 
 #save data
 saveRDS(ft_zip,file="./data/ft_zip.rda")
