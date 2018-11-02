@@ -264,7 +264,8 @@ google_code<-function(code,nlink=1){
 
 ## render report
 render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
-                        DBMS_type,remote_CDM=F){
+                        DBMS_type,remote_CDM=F,
+                        start_date,end_date=as.character(Sys.Date())){
   #to avoid <Error in unlockBinding("params", <environment>) : no binding for "params">
   #a hack to trick r thinking it's in interactive environment
   unlockBinding('interactive',as.environment('package:base'))
@@ -272,7 +273,9 @@ render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
   
   rmarkdown::render(input=which_report,
                     params=list(DBMS_type=DBMS_type,
-                                remote_CDM=remote_CDM),
+                                remote_CDM=remote_CDM,
+                                start_date=start_date,
+                                end_date=end_date),
                     output_dir="./output/",
                     knit_root_dir="../")
 }
