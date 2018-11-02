@@ -1,6 +1,5 @@
 #source utility functions
 source("./R/util.R")
-source("./R/viz.R")
 
 #load libraries
 require_libraries(c("tidyr",
@@ -22,10 +21,6 @@ for (wb in seq_len(length(wb_lst))) {
     bind_rows(read.xlsx(paste0("./output/",wb_lst[wb],".xlsx"),sheet=1) %>%
                 mutate(site=gsub("_.*","",wb_lst[wb])))
 }
-overall<-consort %>% 
-  filter(CNT_TYPE == "Total") %>%
-  dplyr::select(site,ENC_CNT) %>%
-  mutate(ENC_CNT=ifelse(site!="KUMC",round(ENC_CNT*4/3),ENC_CNT))
 
 
 # stack up AKI times
@@ -59,6 +54,7 @@ for (wb in seq_len(length(wb_lst))) {
 ####comparison tables
 ##==AKI stages & demographics
 demo %<>%
+  mutate(value=trimws(value,"both")) %>%
   gather(aki_stg,summ,-key,-value,-site) %>%
   separate(summ,c("cnt","prop"),sep=",") %>%
   mutate(cnt=ifelse(cnt=="<11","10",cnt)) %>%
@@ -89,11 +85,9 @@ demo_denom<-demo %>%
   dplyr::select(site,key,value,cnt) %>%
   unique
 
-aki_denom<-demo %>% 
-  dplyr::filter(key=="TOTAL") %>%
-  dplyr::select(site,enc_cnt) %>%
-  mutate(enc_cnt=as.numeric(enc_cnt)) %>%
-  unique
+aki_denom<-consort %>% 
+  filter(CNT_TYPE == "Total") %>%
+  dplyr::select(site,ENC_CNT)
 
 
 #--get conditional AKI distributions
@@ -101,10 +95,45 @@ aki<-aki_time %>%
   dplyr::select(site,stage,enc_cnt) %>%
   mutate(enc_cnt=as.numeric(enc_cnt)) %>%
   left_join(aki_denom,by="site") %>%
-  mutate(prop=round(enc_cnt/cnt_denom,3)) %>%
+  mutate(prop=round(enc_cnt/ENC_CNT,3)) 
+
+#-------------------test---------------------------#
+test_out<-c()
+
+tbl1<-aki %>%
+  dplyr::select(stage,site,enc_cnt) %>%
+  spread(site,enc_cnt) %>%
+  dplyr::select(-stage)
+Xsq<-chisq.test(tbl1,simulate.p.value = TRUE)
+test_out %<>%
+  bind_rows(data.frame(test="overall",
+                       Chisq=Xsq$statistic,
+                       pval=Xsq$p.value,
+                       stringsAsFactors=F))
+
+test_subj<-c("AKI1","AKI2","AKI3")
+for(s in test_subj){
+  tbl_s<-aki %>%
+    filter(stage %in% c(s,"NONAKI")) %>%
+    dplyr::select(stage,site,enc_cnt) %>%
+    spread(site,enc_cnt) %>%
+    dplyr::select(-stage)
+  
+  Xsq<-chisq.test(tbl_s,simulate.p.value = TRUE)
+  test_out %<>%
+    bind_rows(data.frame(test=s,
+                         Chisq=Xsq$statistic,
+                         pval=Xsq$p.value,
+                         stringsAsFactors=F))
+}
+#----------------------------------------------------
+aki %<>%
   mutate(label=paste0(enc_cnt,",",prop*100,"%")) %>%
   dplyr::select(stage,site,label) %>%
-  spread(site,label)
+  spread(site,label) %>%
+  inner_join(test_out %>% dplyr::select(-Chisq),
+             by=c("stage"="test"))
+
 
 demo %<>% 
   filter(key!="TOTAL" & stg_bin != "ALL") %>%
@@ -119,18 +148,26 @@ demo %<>%
   unite("key_val",c("key","value"),sep="_") %>%
   dplyr::select(key_val,site_aki_bin,label) %>%
   spread(site_aki_bin,label,fill="0,0%")
-  
+
 
 
 ####comparison figures
 ##==ccs distribution
 ccs %<>%
-  dplyr::select(key,enc_cnt,site) %>%
-  mutate(enc_cnt=ifelse(enc_cnt=="<11",10,enc_cnt)) %>%
-  mutate(enc_cnt=as.numeric(enc_cnt)) %>%
+  dplyr::select(key,record_cnt,site) %>%
+  mutate(record_cnt=ifelse(record_cnt=="<11",10,record_cnt)) %>%
+  mutate(record_cnt=as.numeric(record_cnt)) 
+
+overall<-ccs %>% 
+  dplyr::select(key,record_cnt,site) %>%
+  group_by(site) %>%
+  dplyr::summarize(RECORD_CNT=sum(record_cnt)) %>%
+  ungroup
+
+ccs %<>%
   left_join(overall,by="site") %>%
-  mutate(enc_prop=round(enc_cnt/ENC_CNT,3)) %>%
-  dplyr::select(-ENC_CNT)
+  mutate(record_prop=round(record_cnt/RECORD_CNT,3)) %>%
+  dplyr::select(-RECORD_CNT)
 
 
 ccs %<>%
@@ -179,11 +216,38 @@ ccs %<>%
                               `18`="Residual codes; unclassified"))
 
 ccs %<>%
-  mutate(ccs_grp_label=reorder(ccs_grp_label,enc_cnt,function(x) 1/max(x)))
+  mutate(ccs_grp_label=reorder(ccs_grp_label,record_cnt,function(x) 1/max(x)))
 
 
-ggplot(ccs,aes(x=as.factor(key),y=enc_prop,color=site,fill=site))+
+#complete plot
+ggplot(ccs %>% filter(record_prop>0),
+       aes(x=as.factor(key),y=record_prop,color=site,fill=site))+
   geom_bar(stat="identity",position="dodge")+
   theme(axis.text.x = element_text(angle = 90, hjust = 1,size=7,face="bold"))+
-  labs(x="CCS Group",y="Encounter Proportion",fill="GPC sites",color="GPC sites")+
+  labs(x="CCS Group",y="Record Proportion",fill="GPC sites",color="GPC sites")+
   facet_wrap(~ccs_grp_label,scales="free")
+
+#selective plot
+load("./data/ccs_ref.Rdata")
+ccs_sel<-ccs %>% 
+  filter(ccs_grp %in% c(2.2,3,7.1)) %>%
+  mutate(ccs_grp = recode(ccs_grp,
+                          `2.2`="a",
+                          `3`="b",
+                          `7.1`="c")) %>%
+  unite(ccs_grp_label_idx,c("ccs_grp","ccs_grp_label"),sep=".") %>%
+  left_join(ccs_ref %>% filter(type=="dx") %>% 
+              dplyr::select(-type),
+            by=c("key"="ccs_code")) %>%
+  mutate(key2=ifelse(key<100,paste0("0",key),as.character(key))) %>%
+  unite("ccs_label",c("key2","ccs_name"),sep=".") %>%
+  mutate(ccs_label=paste0(substr(ccs_label,1,41),"\n",
+                          substr(ccs_label,42,80),"\n",
+                          substr(ccs_label,81,nchar(ccs_label))))
+
+ggplot(ccs_sel,aes(x=as.factor(key),y=record_prop,color=site,fill=site))+
+  geom_bar(stat="identity",position="dodge")+ ylim(0,0.035)+
+  theme(axis.text.x = element_text(angle = 70, hjust = 1,size=8.5,face="bold"))+
+  labs(x="CCS Group",y="Record Proportion",fill="GPC sites",color="GPC sites")+
+  facet_wrap(~ccs_grp_label_idx,scales="free")
+
