@@ -1,2 +1,2 @@
 username,password,access,sid,cdm_db_schema,temp_db_schema
-[REDACTED],[REDACTED],//[SERVER]:1521,[SID],[SCHEMA NAME],[DEFAULT SCHEMA]
+[REDACTED],[REDACTED],[SERVER]:1521,[SID],[SCHEMA NAME],[DEFAULT SCHEMA]
