@@ -1,4 +1,23 @@
 ############################## evaluation prediction performance ###################################
+rm(list=ls())
+
+source("./R/util.R")
+require_libraries(c("Matrix",
+                    "dplyr",
+                    "tidyr",
+                    "plyr",
+                    "magrittr", 
+                    "stringr",                    
+                    "ResourceSelection"
+))
+
+# load data
+valid<-c()
+for(i in 1:3){
+  dat<-readRDS(paste0("./data/model_ref/valid_gbm_no_fs",i,".rda"))
+}
+
+
 # various performace table
 pred<-ROCR::prediction(valid$pred,valid$y)
 

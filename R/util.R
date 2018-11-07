@@ -14,22 +14,42 @@ require_libraries<-function(package_list){
   }
 }
 
-connect_to_db<-function(DBMS_type,config_file){
+connect_to_db<-function(DBMS_type,driver_type=c("OCI","JDBC"),config_file){
+  if(is.null(driver_type)){
+    stop("must specify type of database connection driver!")
+  }
+  
   if(DBMS_type=="Oracle"){
-    require_libraries("ROracle")
-    conn<-dbConnect(ROracle::Oracle(),
-                    config_file$username,
-                    config_file$password,
-                    file.path(config_file$access,config_file$sid))
-    
+    if(driver_type=="OCI"){
+      require_libraries("ROracle")
+      conn<-dbConnect(ROracle::Oracle(),
+                      config_file$username,
+                      config_file$password,
+                      file.path(config_file$access,config_file$sid))
+    }else if(driver_type=="JDBC"){
+      require_libraries("RJDBC")
+      # make sure ojdbc6.jar is in the AKI_CDM folder
+      # Source: https://www.r-bloggers.com/connecting-r-to-an-oracle-database-with-rjdbc/
+      drv<-JDBC(driverClass="oracle.jdbc.OracleDriver",
+                classPath="./ojdbc6.jar")
+      url <- paste0("jdbc:oracle:thin:@", config_file$access,":",config_file$sid)
+      conn <- RJDBC::dbConnect(drv, url, 
+                               config_file$username, 
+                               config_file$password)
+    }else{
+      stop("The driver type is not currently supported!")
+    }
+
   }else if(DBMS_type=="tSQL"){
     require_libraries("RJDBC")
-    # need to download sqljdbc.jar and put it AKI_CDM folder
-    drv <- JDBC("com.microsoft.sqlserver.jdbc.SQLServerDriver","./sqljdbc.jar", "`")
-    url = paste0("jdbc:sqlserver:", config_file$access,
-                 ";DatabaseName=",config_file$cdm_db_name,
-                 ";username=",config_file$username,
-                 ";password=",config_file$password)
+    # make sure sqljdbc.jar is in the AKI_CDM folder
+    drv <- JDBC(driverClass="com.microsoft.sqlserver.jdbc.SQLServerDriver",
+                classPath="./sqljdbc.jar",
+                identifier.quote="`")
+    url <- paste0("jdbc:sqlserver:", config_file$access,
+                  ";DatabaseName=",config_file$cdm_db_name,
+                  ";username=",config_file$username,
+                  ";password=",config_file$password)
     conn <- dbConnect(drv, url)
     
   }else if(DBMS_type=="PostgreSQL"){
@@ -48,6 +68,7 @@ connect_to_db<-function(DBMS_type,config_file){
     stop("the DBMS type is not currectly supported!")
   }
   attr(conn,"DBMS_type")<-DBMS_type
+  attr(conn,"driver_type")<-driver_type
   return(conn)
 }
 
@@ -141,18 +162,44 @@ parse_sql<-function(file_path,...){
 
 ## execute single sql snippet
 execute_single_sql<-function(conn,statement,write,table_name){
+  DBMS_type<-attr(conn,"DBMS_type")
+  driver_type<-attr(conn,"driver_type")
+  
   if(write){
     #oracle and sql sever uses different connection driver and different functions are expected for sending queries
     #dbSendQuery silently returns an S4 object after execution, which causes error in RJDBC connection (for sql server)
-    if(attr(conn,"DBMS_type")=="Oracle"){
-      if(dbExistsTable(conn,table_name)){
-        dbSendQuery(conn,paste("drop table",table_name)) #clean up residual table left from last run
+    if(DBMS_type=="Oracle"){
+      if(!(driver_type %in% c("OCI","JDBC"))){
+        stop("Driver type not supported for ",DBMS_type,"!\n")
+      }else{
+        try_tbl<-try(dbGetQuery(conn,paste("select * from",table_name,"where 1=0")),silent=T)
+        if(is.null(attr(try_tbl,"condition"))){
+          if(driver_type=="OCI"){
+            dbSendQuery(conn,paste("drop table",table_name)) #in case there exists same table name
+          }else{
+            dbSendUpdate(conn,paste("drop table",table_name)) #in case there exists same table name
+          }
+        }
+        
+        if(driver_type=="OCI"){
+          dbSendQuery(conn,statement) 
+        }else{
+          dbSendUpdate(conn,statement)
+        }
       }
-      dbSendQuery(conn,statement)
-    }else if(attr(conn,"DBMS_type")=="tSQL"){
-      dbSendUpdate(conn,statement)
+      
+    }else if(DBMS_type=="tSQL"){
+      if(driver_type=="JDBC"){
+        try_tbl<-try(dbGetQuery(conn,paste("select * from",table_name,"where 1=0")),silent=T)
+        if(!grepl("(table or view does not exist)+",tolower(attr(try_tbl,"class")))){
+          dbSendUpdate(conn,paste("drop table",table_name)) #in case there exists same table name
+        }
+        dbSendUpdate(conn,statement)
+      }else{
+        stop("Driver type not supported for ",DBMS_type,"!\n")
+      }
     }else{
-      warning("DBMS type not supported!")
+      stop("DBMS type not supported!")
     }
   }else{
     dat<-dbGetQuery(conn,statement)
@@ -175,6 +222,36 @@ execute_batch_sql<-function(conn,statements,verb,...){
       cat(statements[i],"has been executed and table",
           toupper(sql$tbl_out),"was created.\n")
     }
+  }
+}
+
+
+## clean up intermediate tables
+drop_tbl<-function(conn,table_name){
+  DBMS_type<-attr(conn,"DBMS_type")
+  driver_type<-attr(conn,"driver_type")
+  
+  if(DBMS_type=="Oracle"){
+    # purge is only required in Oracle for completely destroying temporary tables
+    drop_temp<-paste("drop table",table_name,"purge") 
+    if(driver_type=="OCI"){
+      dbSendQuery(conn,drop_temp)
+    }else if(driver_type=="JDBC"){
+      dbSendUpdate(conn,drop_temp)
+    }else{
+      stop("Driver type not supported for ",DBMS_type,"!.\n")
+    }
+    
+  }else if(DBMS_type=="tSQL"){
+    drop_temp<-paste("drop table",table_name)
+    if(driver_type=="JDBC"){
+      dbSendUpdate(conn,drop_temp)
+    }else{
+      stop("Driver type not supported for ",DBMS_type,"!.\n")
+    }
+    
+  }else{
+    warning("DBMS type not supported!")
   }
 }
 
@@ -264,15 +341,17 @@ google_code<-function(code,nlink=1){
 
 ## render report
 render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
-                        DBMS_type,remote_CDM=F,
+                        DBMS_type,driver_type,remote_CDM=F,
                         start_date,end_date=as.character(Sys.Date())){
-  #to avoid <Error in unlockBinding("params", <environment>) : no binding for "params">
-  #a hack to trick r thinking it's in interactive environment
-  unlockBinding('interactive',as.environment('package:base'))
-  assign('interactive',function() TRUE,envir=as.environment('package:base'))
+  
+  # to avoid <Error in unlockBinding("params", <environment>) : no binding for "params">
+  # a hack to trick r thinking it's in interactive environment --not work!
+  # unlockBinding('interactive',as.environment('package:base'))
+  # assign('interactive',function() TRUE,envir=as.environment('package:base'))
   
   rmarkdown::render(input=which_report,
                     params=list(DBMS_type=DBMS_type,
+                                driver_type=driver_type,
                                 remote_CDM=remote_CDM,
                                 start_date=start_date,
                                 end_date=end_date),
