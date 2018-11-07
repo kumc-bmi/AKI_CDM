@@ -1,2 +1,2 @@
 username,password,access,cdm_db_name,cdm_db_schema,temp_db_schema
-[REDACTED],[REDACTED],//[SERVER]:[PORT],[DATABASE NAME],[SCHEMA NAME],dbo
+[REDACTED],[REDACTED],[SERVER]:[PORT],[DATABASE NAME],[SCHEMA NAME],dbo
