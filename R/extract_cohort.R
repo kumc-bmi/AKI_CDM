@@ -8,10 +8,10 @@ extract_cohort<-function(conn,
                          start_date="2010-01-01",
                          end_date="2018-12-31",
                          verb=T){
-  #global parameter
-  DBMS_type<-attr(conn,"DBMS_type")
-  if(!(DBMS_type %in% c("Oracle","tSQL","PostgreSQL"))){
-    stop("DBMS_type=",DBMS_type,"is not currently supported \n(should be one of 'Oracle','tSQL','PostgreSQL', case-sensitive)")
+  
+  #check if DBMS type is currently supported
+  if(!(attr(conn,"DBMS_type") %in% c("Oracle","tSQL","PostgreSQL"))){
+    stop("DBMS_type=",attr(conn,"DBMS_type"),"is not currently supported \n(should be one of 'Oracle','tSQL','PostgreSQL', case-sensitive)")
   }
 
   #check if cdm_db_server has been specified when remote_CDM=T
@@ -21,7 +21,7 @@ extract_cohort<-function(conn,
   
   #execute(write) the following sql snippets according to the specified order
   statements<-paste0(
-    paste0("./inst/",DBMS_type),
+    paste0("./inst/",attr(conn,"DBMS_type")),
     c("/cohort_initial.sql",
       "/cohort_all_SCr.sql",
       "/cohort_enc_SCr.sql",
@@ -40,7 +40,7 @@ extract_cohort<-function(conn,
                     end_date=end_date)
   
   #collect attrition info
-  sql<-parse_sql(paste0("./inst/",DBMS_type,"/consort_diagram.sql"))
+  sql<-parse_sql(paste0("./inst/",attr(conn,"DBMS_type"),"/consort_diagram.sql"))
   attrition<-execute_single_sql(conn,
                                 statement=sql$statement,
                                 write=(sql$action=="write"),
@@ -54,15 +54,7 @@ extract_cohort<-function(conn,
   for(i in 1:(length(statements)-1)){
     parse_out<-parse_sql(statements[i])
     if(parse_out$action=="write"){
-      if(DBMS_type=="Oracle"){
-        drop_temp<-paste("drop table",parse_out$tbl_out,"purge") # purge is only required in Oracle for completely destroying temporary tables
-        dbSendQuery(conn,drop_temp)
-      }else if((DBMS_type=="tSQL")){
-        drop_temp<-paste("drop table",parse_out$tbl_out)
-        dbSendUpdate(conn,drop_temp)
-      }else{
-        warning("DBMS type not supported!")
-      }
+      drop_tbl(conn,toupper(sql$tbl_out))
     }else{
       warning("no temporary table was created by this statment!")
     }

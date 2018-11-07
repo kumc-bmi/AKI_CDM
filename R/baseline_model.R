@@ -189,13 +189,37 @@ y_tr %<>%
   # mutate(y=as.numeric(y>2)) # at least stage 3
 
 
+x_add<-data.frame(VARIABLE = colnames(X_tr),
+                  stringsAsFactors = F) %>%
+  anti_join(data.frame(VARIABLE = unique(X_ts$key),
+                       stringsAsFactors = F),
+            by="VARIABLE")
+
+#align with training
+if(nrow(x_add)>0){
+  X_ts %<>%
+    arrange(ENCOUNTERID,dsa_y) %>%
+    bind_rows(data.frame(ENCOUNTERID = rep("0",nrow(x_add)),
+                         dsa_y = -99,
+                         dsa = -99,
+                         key = x_add$VARIABLE,
+                         value = 0,
+                         stringsAsFactors=F))
+}
+
 X_ts %<>%
-  arrange(ENCOUNTERID,dsa_y) %>%
+  semi_join(data.frame(key = colnames(X_tr),
+                       stringsAsFactors = F),
+            by="key") %>%
   unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
   long_to_sparse_matrix(df=.,
                         id="ROW_ID",
                         variable="key",
                         val="value")
+if(nrow(x_add)>0){
+  X_ts<-X_ts[-1,]
+}
+
 y_ts %<>%
   filter(!is.na(cv10_idx)) %>%
   arrange(ENCOUNTERID,dsa_y) %>%
@@ -208,6 +232,7 @@ y_ts %<>%
 #check alignment
 all(row.names(X_tr)==y_tr$ROW_ID)
 all(row.names(X_ts)==y_ts$ROW_ID)
+all(colnames(X_tr)==colnames(X_ts))
 
 
 #covert to xgb data frame
@@ -298,7 +323,7 @@ feat_imp<-xgb.importance(colnames(X_tr),model=xgb_tune)
 
 #--save model and other results
 saveRDS(xgb_tune,file=paste0("./data/model_ref/model_gbm_no_fs",pred_task,".rda"))
-saveRDS(bst_grid,file=paste0("./data/model_red/hyperpar_gbm_no_fs",pred_task,".rda"))
-saveRDS(valid,file=paste0("./data/model_red/valid_gbm_no_fs",pred_task,".rda"))
-saveRDS(feat_imp,file=paste0("./data/model_red/varimp_gbm_no_fs",pred_task,".rda"))
+saveRDS(bst_grid,file=paste0("./data/model_ref/hyperpar_gbm_no_fs",pred_task,".rda"))
+saveRDS(valid,file=paste0("./data/model_ref/valid_gbm_no_fs",pred_task,".rda"))
+saveRDS(feat_imp,file=paste0("./data/model_ref/varimp_gbm_no_fs",pred_task,".rda"))
 

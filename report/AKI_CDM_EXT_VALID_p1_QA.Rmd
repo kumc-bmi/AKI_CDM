@@ -5,6 +5,7 @@ date: "October 5, 2018"
 output: html_document
 params:
   DBMS_type: Oracle
+  driver_type: OCI
   remote_CDM: FALSE
   start_date: "2010-01-01"
   end_date: as.character(Sys.Date())
@@ -67,7 +68,7 @@ require_libraries(c("DBI",
 #establish the connection between r-studio and CDM server (Oracle)
 config_file_path<-"./config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-connect_to_db(params$DBMS_type,config_file)
+conn<-connect_to_db(params$DBMS_type,params$driver_type,config_file)
 ```
 
 

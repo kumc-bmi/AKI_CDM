@@ -18,6 +18,7 @@ require_libraries(c("knitr",
 # 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx
 render_report(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
               DBMS_type="Oracle",
+              driver_type="JDBC",
               start_date="2010-01-01")
 
 # The error: 
