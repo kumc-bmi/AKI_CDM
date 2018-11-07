@@ -118,7 +118,7 @@ The following instructions are for extracting cohort and generating final report
       ii) **edit** r script `render_report.R` by specifying the following parameters:   
         - `which_report`: which report you want to render (default is `./report/AKI_CDM_EXT_VALID_p1_QA.Rmd`, but there will be more options in the future)   
         - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`)        
-        - `driver_type`: what type of database connection driver is available (available options are: `OCI` or `JDBC` for oracle; `JDBC` for sql server)
+        - `driver_type`: what type of database connection driver is available (available options are: `OCI` or `JDBC` for oracle; `JDBC` for sql server)      
         - `remote_CDM`: if CDM is on a different server from the default schema (default `remote_CDM = F`),          
                   ---- 1. make sure there is a valid remote database connection for sending back CDM data           
                   ---- 2. set `remote_CDM = T`                   
