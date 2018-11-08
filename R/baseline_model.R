@@ -17,9 +17,9 @@ require_libraries(c("tidyr",
                     "PRROC"))
 
 #choose task
-# pred_task<-"stg1up"
+pred_task<-"stg1up"
 # pred_task<-"stg2up"
-pred_task<-"stg3"
+# pred_task<-"stg3"
 
 
 ############################## collect and format variables on daily basis ######################
@@ -152,7 +152,7 @@ y_tr<-c()
 y_ts<-c()
 rsample_idx<-readRDS("./data/rsample_idx.rda")
 for(i in seq_along(seq(2010,2016))){
-  var_by_yr<-readRDS("./data/var_by_yr.rda")[[i]]
+  var_by_yr<-readRDS(paste0("./data/var_by_yr_",pred_task,".rda"))[[i]]
   
   X_tr %<>% bind_rows(var_by_yr[["X_surv"]]) %>%
     semi_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
@@ -322,8 +322,8 @@ feat_imp<-xgb.importance(colnames(X_tr),model=xgb_tune)
 
 
 #--save model and other results
-saveRDS(xgb_tune,file=paste0("./data/model_ref/model_gbm_no_fs",pred_task,".rda"))
-saveRDS(bst_grid,file=paste0("./data/model_ref/hyperpar_gbm_no_fs",pred_task,".rda"))
-saveRDS(valid,file=paste0("./data/model_ref/valid_gbm_no_fs",pred_task,".rda"))
-saveRDS(feat_imp,file=paste0("./data/model_ref/varimp_gbm_no_fs",pred_task,".rda"))
+saveRDS(xgb_tune,file=paste0("./data/model_ref/model_gbm_no_fs_",pred_task,".rda"))
+saveRDS(bst_grid,file=paste0("./data/model_ref/hyperpar_gbm_no_fs_",pred_task,".rda"))
+saveRDS(valid,file=paste0("./data/model_ref/valid_gbm_no_fs_",pred_task,".rda"))
+saveRDS(feat_imp,file=paste0("./data/model_ref/varimp_gbm_no_fs_",pred_task,".rda"))
 

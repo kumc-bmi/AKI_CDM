@@ -12,9 +12,11 @@ require_libraries(c("Matrix",
 ))
 
 # load data
+pred_task<-c("stg1up","stg2up","stg3")
 valid<-c()
 for(i in 1:3){
-  dat<-readRDS(paste0("./data/model_ref/valid_gbm_no_fs",i,".rda"))
+  valid %<>%
+    bind_rows(readRDS(paste0("./data/model_ref/valid_gbm_no_fs",pred_task[i],".rda")))
 }
 
 

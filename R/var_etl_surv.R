@@ -215,9 +215,9 @@ get_dsurv_temporal<-function(dat,censor,tw){
   X_surv<-c()
   for(t in tw){
     #stack y
-    censor %<>%
+    censor_t<-censor %>%
       mutate(pred_pt=case_when(dsa_y >= t ~ t,
-                               dsa_y <  t ~ NA_integer_),
+                               dsa_y <  t ~ NA_real_),
              y_ep=case_when(dsa_y == t ~ y,
                             dsa_y >  t ~ pmax(0,y-1),
                             dsa_y <  t ~ NA_real_)) %>%
@@ -230,7 +230,7 @@ get_dsurv_temporal<-function(dat,censor,tw){
       dplyr::select(-pred_pt,-y_ep)
     
     y_surv %<>% 
-      bind_rows(censor %>%
+      bind_rows(censor_t %>%
                   dplyr::select(ENCOUNTERID,dsa_y,y))
     
     #stack x
