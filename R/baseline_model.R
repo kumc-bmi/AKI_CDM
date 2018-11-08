@@ -24,12 +24,12 @@ pred_task<-"stg1up"
 
 ############################## collect and format variables on daily basis ######################
 tbl1<-readRDS("./data/Table1.rda") %>%
-  mutate(yr=as.numeric(format(ADMIT_DATE,"%Y")))
+  dplyr::mutate(yr=as.numeric(format(ADMIT_DATE,"%Y")))
 
 onset_dt<-c(tbl1$AKI1_SINCE_ADMIT,tbl1$AKI2_SINCE_ADMIT,tbl1$AKI3_SINCE_ADMIT)
 quantile(onset_dt,probs=0:20/20,na.rm=T)
 pred_end<-quantile(onset_dt,probs=0.5,na.rm=T)
-tw<-seq(0,pred_end) #
+tw<-as.double(seq(0,pred_end)) #
 
 #--by chunks: encounter year
 enc_yr<-tbl1 %>%
@@ -55,26 +55,26 @@ for(i in seq_along(enc_yr)){
                   AKI1_SINCE_ADMIT,AKI2_SINCE_ADMIT,AKI3_SINCE_ADMIT) %>%
     gather(y,dsa_y,-ENCOUNTERID,-yr) %>%
     filter(!is.na(dsa_y)) %>%
-    mutate(y=recode(y,
+    dplyr::mutate(y=recode(y,
                     "NONAKI_SINCE_ADMIT"=0,
                     "AKI1_SINCE_ADMIT"=1,
                     "AKI2_SINCE_ADMIT"=2,
                     "AKI3_SINCE_ADMIT"=3)) %>%
-    mutate(y=as.numeric(y))
+    dplyr::mutate(y=as.numeric(y))
   
   if(pred_task=="stg1up"){
     dat_i %<>%
-      mutate(y=as.numeric(y>0)) %>%
+      dplyr::mutate(y=as.numeric(y>0)) %>%
       group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
   }else if(pred_task=="stg2up"){
     dat_i %<>%
       # filter(y!=1) %>% # remove stage 1
-      mutate(y=as.numeric(y>1)) %>%
+      dplyr::mutate(y=as.numeric(y>1)) %>%
       group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
   }else if(pred_task=="stg3"){
     dat_i %<>%
       # filter(!(y %in% c(1,2))) %>% # remove stage 1,2
-      mutate(y=as.numeric(y>2)) %>%
+      dplyr::mutate(y=as.numeric(y>2)) %>%
       group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
   }else{
     stop("prediction task is not valid!")
@@ -85,7 +85,7 @@ for(i in seq_along(enc_yr)){
     bind_rows(dat_i %>% 
                 dplyr::select(ENCOUNTERID,yr) %>%
                 unique %>%
-                mutate(cv10_idx=sample(1:10,n(),replace=T)))
+                dplyr::mutate(cv10_idx=sample(1:10,n(),replace=T)))
   
   #--ETL variables
   X_surv<-c()
@@ -104,7 +104,7 @@ for(i in seq_along(enc_yr)){
           transform(value=strsplit(value,","),
                     dsa=strsplit(dsa,",")) %>%
           unnest(value,dsa) %>%
-          mutate(value=as.numeric(value),
+          dplyr::mutate(value=as.numeric(value),
                  dsa=as.numeric(dsa))
       }
       var_v %<>% filter(dsa <= pred_end)
@@ -184,9 +184,9 @@ y_tr %<>%
   unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
   arrange(ROW_ID) %>%
   unique %>%
-  mutate(y=as.numeric(y>0)) # %>% # any AKI
-  # mutate(y=as.numeric(y>1)) %>% # at least stage 2
-  # mutate(y=as.numeric(y>2)) # at least stage 3
+  dplyr::mutate(y=as.numeric(y>0)) # %>% # any AKI
+  # dplyr::mutate(y=as.numeric(y>1)) %>% # at least stage 2
+  # dplyr::mutate(y=as.numeric(y>2)) # at least stage 3
 
 
 x_add<-data.frame(VARIABLE = colnames(X_tr),
@@ -226,7 +226,7 @@ y_ts %<>%
   unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
   arrange(ROW_ID) %>%
   unique %>%
-  mutate(y=(y>0)*1) # any AKI
+  dplyr::mutate(y=(y>0)*1) # any AKI
 
 
 #check alignment

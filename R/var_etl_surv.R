@@ -240,7 +240,12 @@ get_dsurv_temporal<-function(dat,censor,tw){
                   group_by(ENCOUNTERID,key) %>%
                   top_n(n=1,wt=-dsa) %>%
                   ungroup %>%
-                  dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value))
+                  dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value) %>%
+                  bind_rows(censor_t %>% 
+                              mutate(dsa=dsa_y-1,
+                                     key=paste0("day",(dsa_y-1)),
+                                     value=1) %>%
+                              dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value)))
   }
 
   Xy_surv<-list(X_surv = X_surv,
