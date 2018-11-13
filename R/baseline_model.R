@@ -145,73 +145,91 @@ saveRDS(var_bm,file=paste0("./data/var_bm",pred_task,".rda"))
 
 
 ############################## baseline GBM model ######################################
-#--prepare training set
+#--prepare training and testing set
+yr_rg<-seq(2010,2018)
 X_tr<-c()
 X_ts<-c()
 y_tr<-c()
 y_ts<-c()
-rsample_idx<-readRDS("./data/rsample_idx.rda")
-for(i in seq_along(seq(2010,2016))){
+rsample_idx<-readRDS(paste0("./data/rsample_idx_",pred_task,".rda"))
+for(i in seq_along(yr_rg)){
   var_by_yr<-readRDS(paste0("./data/var_by_yr_",pred_task,".rda"))[[i]]
   
   X_tr %<>% bind_rows(var_by_yr[["X_surv"]]) %>%
     semi_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
               by="ENCOUNTERID")
+
+  y_tr %<>% bind_rows(var_by_yr[["y_surv"]] %>%
+                        left_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
+                                  by="ENCOUNTERID"))
   
   X_ts %<>% bind_rows(var_by_yr[["X_surv"]]) %>%
     semi_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
               by="ENCOUNTERID")
   
-  y_tr %<>% bind_rows(var_by_yr[["y_surv"]] %>%
-                        left_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
-                                  by="ENCOUNTERID"))
-  
   y_ts %<>% bind_rows(var_by_yr[["y_surv"]] %>%
                         left_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
                                   by="ENCOUNTERID"))
+  
+  cat("finish stack data of encounters from",yr_rg[i],".\n")
 }
 
-X_tr %<>%
-  arrange(ENCOUNTERID,dsa_y) %>%
-  unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
-  long_to_sparse_matrix(df=.,
-                        id="ROW_ID",
-                        variable="key",
-                        val="value")
+#--transform training matrix
 y_tr %<>%
   filter(!is.na(cv10_idx)) %>%
   arrange(ENCOUNTERID,dsa_y) %>%
   unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
   arrange(ROW_ID) %>%
   unique %>%
-  dplyr::mutate(y=as.numeric(y>0)) # %>% # any AKI
-  # dplyr::mutate(y=as.numeric(y>1)) %>% # at least stage 2
-  # dplyr::mutate(y=as.numeric(y>2)) # at least stage 3
+  dplyr::mutate(y=case_when(pred_task=="stg1up" ~ as.numeric(y>0), # any AKI
+                            pred_task=="stg2up" ~ as.numeric(y>1), # at least stage 2
+                            pred_task=="stg3" ~ as.numeric(y>2))) # stage 3
 
+X_tr %<>%
+  arrange(ENCOUNTERID,dsa_y) %>%
+  unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+  semi_join(y_tr,by="ROW_ID") %>%
+  long_to_sparse_matrix(df=.,
+                        id="ROW_ID",
+                        variable="key",
+                        val="value")
 
-x_add<-data.frame(VARIABLE = colnames(X_tr),
-                  stringsAsFactors = F) %>%
-  anti_join(data.frame(VARIABLE = unique(X_ts$key),
+#--collect variables used in training
+tr_key<-data.frame(key = unique(colnames(X_tr)),
+                   stringsAsFactors = F)
+
+#--transform testing matrix
+y_ts %<>%
+  filter(!is.na(cv10_idx)) %>%
+  arrange(ENCOUNTERID,dsa_y) %>%
+  unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+  arrange(ROW_ID) %>%
+  unique %>%
+  dplyr::mutate(y=case_when(pred_task=="stg1up" ~ as.numeric(y>0), # any AKI
+                            pred_task=="stg2up" ~ as.numeric(y>1), # at least stage 2
+                            pred_task=="stg3" ~ as.numeric(y>2))) # stage 3
+
+X_ts %<>% 
+  unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+  semi_join(y_ts,by="ROW_ID") %>%
+  semi_join(tr_key,by="key")
+
+x_add<-tr_key %>%
+  anti_join(data.frame(key = unique(X_ts$key),
                        stringsAsFactors = F),
-            by="VARIABLE")
+            by="key")
 
 #align with training
 if(nrow(x_add)>0){
   X_ts %<>%
-    arrange(ENCOUNTERID,dsa_y) %>%
-    bind_rows(data.frame(ENCOUNTERID = rep("0",nrow(x_add)),
-                         dsa_y = -99,
+    arrange(ROW_ID) %>%
+    bind_rows(data.frame(ROW_ID = rep("0_0",nrow(x_add)),
                          dsa = -99,
-                         key = x_add$VARIABLE,
+                         key = x_add$key,
                          value = 0,
                          stringsAsFactors=F))
 }
-
 X_ts %<>%
-  semi_join(data.frame(key = colnames(X_tr),
-                       stringsAsFactors = F),
-            by="key") %>%
-  unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
   long_to_sparse_matrix(df=.,
                         id="ROW_ID",
                         variable="key",
@@ -220,26 +238,17 @@ if(nrow(x_add)>0){
   X_ts<-X_ts[-1,]
 }
 
-y_ts %<>%
-  filter(!is.na(cv10_idx)) %>%
-  arrange(ENCOUNTERID,dsa_y) %>%
-  unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
-  arrange(ROW_ID) %>%
-  unique %>%
-  dplyr::mutate(y=(y>0)*1) # any AKI
-
-
 #check alignment
 all(row.names(X_tr)==y_tr$ROW_ID)
 all(row.names(X_ts)==y_ts$ROW_ID)
 all(colnames(X_tr)==colnames(X_ts))
 
 
-#covert to xgb data frame
+#--covert to xgb data frame
 dtrain<-xgb.DMatrix(data=X_tr,label=y_tr$y)
 dtest<-xgb.DMatrix(data=X_ts,label=y_ts$y)
 
-#get indices for k folds
+#--get indices for k folds
 y_tr %<>% dplyr::mutate(row_idx = 1:n())
 folds<-list()
 for(fd in seq_len(max(y_tr$cv10_idx))){
@@ -255,14 +264,13 @@ for(fd in seq_len(max(y_tr$cv10_idx))){
 eval_metric<-"auc"
 objective<-"binary:logistic"
 grid_params<-expand.grid(
-  max_depth=c(2,4,6,8,10),
-  eta=c(0.3,0.1,0.05,0.01),
-  min_child_weight=c(1,6),
-  subsample=c(0.8,1),
-  colsample_bytree=c(0.8,1), 
+  max_depth=c(4,6,10),
+  eta=c(0.3,0.1,0.01),
+  min_child_weight=1,
+  subsample=0.8,
+  colsample_bytree=0.8, 
   gamma=1
 )
-
 
 verb<-TRUE
 bst_grid<-c()
