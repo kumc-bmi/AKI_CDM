@@ -34,6 +34,9 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
       bind_rows(dat %>% dplyr::select(-PATID) %>%
                   filter(key %in% c("HT","WT","BMI")) %>%
                   group_by(ENCOUNTERID,key) %>%
+                  mutate(value=ifelse((key=="HT" & (value>95 | value<0))|
+                                      (key=="WT" & (value>1400 | value<0))|
+                                      (key=="BMI" & (value>70 | value<0)),NA,value)) %>%
                   dplyr::summarize(value=median(as.numeric(value),na.rm=T)) %>%
                   ungroup %>% mutate(dsa=-1))
 
@@ -235,8 +238,8 @@ get_dsurv_temporal<-function(dat,censor,tw){
     
     #stack x
     X_surv %<>% 
-      bind_rows(dat %>% left_join(censor,by="ENCOUNTERID") %>%
-                  filter(dsa < dsa_y) %>%
+      bind_rows(dat %>% left_join(censor_t,by="ENCOUNTERID") %>%
+                  filter(dsa < dsa_y) %>% #strictly less than (at least 1 day prior)
                   group_by(ENCOUNTERID,key) %>%
                   top_n(n=1,wt=-dsa) %>%
                   ungroup %>%
