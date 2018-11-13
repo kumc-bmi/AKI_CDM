@@ -12,9 +12,16 @@ require_libraries(c("Matrix",
 ))
 
 # load data
+pred_task<-c(
+            "stg1up"
+             #,"stg2up"
+             #,"stg3"
+             )
 valid<-c()
-for(i in 1:3){
-  dat<-readRDS(paste0("./data/model_ref/valid_gbm_no_fs",i,".rda"))
+for(i in seq_along(pred_task)){
+  valid %<>%
+    bind_rows(readRDS(paste0("./data/model_ref/valid_gbm_no_fs_",pred_task[i],".rda")) %>%
+                mutate(pred_task=pred_task[i]))
 }
 
 
@@ -29,7 +36,7 @@ acc<-performance(pred,"acc")
 fscore<-performance(pred,"f")
 mcc<-performance(pred,"phi")
 
-perf_tbl<-data.frame(cutoff=prc@alpha.values[[1]],
+perf_at<-data.frame(cutoff=prc@alpha.values[[1]],
                      prec=prc@y.values[[1]],
                      rec_sens=prc@x.values[[1]],
                      stringsAsFactors = F) %>% 
@@ -62,8 +69,6 @@ perf_tbl<-data.frame(cutoff=prc@alpha.values[[1]],
                        mcc=mcc@y.values[[1]],
                        stringsAsFactors = F),
             by="cutoff") %>%
-  dplyr::mutate(episode = j,
-                temporal = i) %>%
   filter(prec > 0 & rec_sens > 0 & spec > 0)
 
 
@@ -97,7 +102,7 @@ perf_summ<-data.frame(overall_meas=c("roauc_low",
                                  perf_at$prec[which.min(perf_at$prec_rec_dist)],
                                  perf_at$rec_sens[which.min(perf_at$prec_rec_dist)],
                                  perf_at$fscore[which.min(perf_at$prec_rec_dist)],
-                                 length(unique(valid$PATIENT_NUM))),
+                                 length(unique(valid$ROW_ID))),
                       stringsAsFactors = F)
 
 
@@ -118,10 +123,7 @@ calib<-data.frame(pred=valid$pred,
                    pred_p = mean(pred)) %>%
   dplyr::mutate(y_p=y_agg/expos) %>%
   dplyr::mutate(binCI_lower = pmax(0,pred_p-1.96*sqrt(y_p*(1-y_p)/expos)),
-                binCI_upper = pred_p+1.96*sqrt(y_p*(1-y_p)/expos)) %>%
-  dplyr::mutate(episode = j,
-                temporal = i)
-
+                binCI_upper = pred_p+1.96*sqrt(y_p*(1-y_p)/expos))
 
 perf_summ %<>%
   bind_rows(perf_tbl %>% 

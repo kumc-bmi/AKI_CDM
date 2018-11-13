@@ -34,6 +34,9 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
       bind_rows(dat %>% dplyr::select(-PATID) %>%
                   filter(key %in% c("HT","WT","BMI")) %>%
                   group_by(ENCOUNTERID,key) %>%
+                  mutate(value=ifelse((key=="HT" & (value>95 | value<0))|
+                                      (key=="WT" & (value>1400 | value<0))|
+                                      (key=="BMI" & (value>70 | value<0)),NA,value)) %>%
                   dplyr::summarize(value=median(as.numeric(value),na.rm=T)) %>%
                   ungroup %>% mutate(dsa=-1))
 
@@ -215,9 +218,9 @@ get_dsurv_temporal<-function(dat,censor,tw){
   X_surv<-c()
   for(t in tw){
     #stack y
-    censor %<>%
+    censor_t<-censor %>%
       mutate(pred_pt=case_when(dsa_y >= t ~ t,
-                               dsa_y <  t ~ NA_integer_),
+                               dsa_y <  t ~ NA_real_),
              y_ep=case_when(dsa_y == t ~ y,
                             dsa_y >  t ~ pmax(0,y-1),
                             dsa_y <  t ~ NA_real_)) %>%
@@ -230,17 +233,22 @@ get_dsurv_temporal<-function(dat,censor,tw){
       dplyr::select(-pred_pt,-y_ep)
     
     y_surv %<>% 
-      bind_rows(censor %>%
+      bind_rows(censor_t %>%
                   dplyr::select(ENCOUNTERID,dsa_y,y))
     
     #stack x
     X_surv %<>% 
-      bind_rows(dat %>% left_join(censor,by="ENCOUNTERID") %>%
-                  filter(dsa < dsa_y) %>%
+      bind_rows(dat %>% left_join(censor_t,by="ENCOUNTERID") %>%
+                  filter(dsa < dsa_y) %>% #strictly less than (at least 1 day prior)
                   group_by(ENCOUNTERID,key) %>%
                   top_n(n=1,wt=-dsa) %>%
                   ungroup %>%
-                  dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value))
+                  dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value) %>%
+                  bind_rows(censor_t %>% 
+                              mutate(dsa=dsa_y-1,
+                                     key=paste0("day",(dsa_y-1)),
+                                     value=1) %>%
+                              dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value)))
   }
 
   Xy_surv<-list(X_surv = X_surv,
