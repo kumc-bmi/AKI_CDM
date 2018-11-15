@@ -17,8 +17,8 @@ require_libraries(c("tidyr",
                     "PRROC"))
 
 #choose task
-pred_task<-"stg1up"
-# pred_task<-"stg2up"
+# pred_task<-"stg1up"
+pred_task<-"stg2up"
 # pred_task<-"stg3"
 
 
@@ -180,10 +180,7 @@ y_tr %<>%
   arrange(ENCOUNTERID,dsa_y) %>%
   unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
   arrange(ROW_ID) %>%
-  unique %>%
-  dplyr::mutate(y=case_when(pred_task=="stg1up" ~ as.numeric(y>0), # any AKI
-                            pred_task=="stg2up" ~ as.numeric(y>1), # at least stage 2
-                            pred_task=="stg3" ~ as.numeric(y>2))) # stage 3
+  unique
 
 X_tr %<>%
   arrange(ENCOUNTERID,dsa_y) %>%
@@ -204,10 +201,7 @@ y_ts %<>%
   arrange(ENCOUNTERID,dsa_y) %>%
   unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
   arrange(ROW_ID) %>%
-  unique %>%
-  dplyr::mutate(y=case_when(pred_task=="stg1up" ~ as.numeric(y>0), # any AKI
-                            pred_task=="stg2up" ~ as.numeric(y>1), # at least stage 2
-                            pred_task=="stg3" ~ as.numeric(y>2))) # stage 3
+  unique
 
 X_ts %<>% 
   unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
