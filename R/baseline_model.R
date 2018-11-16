@@ -18,8 +18,8 @@ require_libraries(c("tidyr",
 
 #choose task
 # pred_task<-"stg1up"
-pred_task<-"stg2up"
-# pred_task<-"stg3"
+# pred_task<-"stg2up"
+pred_task<-"stg3"
 
 
 ############################## collect and format variables on daily basis ######################
