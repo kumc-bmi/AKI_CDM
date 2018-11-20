@@ -151,9 +151,9 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
                        p75=quantile(lab_cnt,probs=0.75,na.rm=T),
                        p95=quantile(lab_cnt,probs=0.95,na.rm=T))
     
-    #--collect changes of lab only for those are regularly repeated
+    #--collect changes of lab only for those are regularly repeated (floor(pred_end/2))
     lab_delta<-dat_out %>%
-      semi_join(lab_delta_eligb %>% filter(med>=(pred_end-1)),
+      semi_join(lab_delta_eligb %>% filter(med>=(floor(pred_end/2))),
                 by="key")
     
     dsa_rg<-seq(0,pred_end)
