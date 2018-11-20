@@ -239,7 +239,7 @@ get_dsurv_temporal<-function(dat,censor,tw,pred_in_d=1){
     #stack x
     X_surv %<>% 
       bind_rows(dat %>% left_join(censor_t,by="ENCOUNTERID") %>%
-                  filter(dsa < dsa_y+(pred_in_d-1)) %>% # prediction point is at least "pred_in_d" days before endpoint
+                  filter(dsa < dsa_y-(pred_in_d-1)) %>% # prediction point is at least "pred_in_d" days before endpoint
                   group_by(ENCOUNTERID,key) %>%
                   top_n(n=1,wt=-dsa) %>%
                   ungroup %>%
