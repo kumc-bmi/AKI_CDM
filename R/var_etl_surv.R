@@ -139,6 +139,8 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
       dplyr::rename(value=BUN_SCR) %>%
       dplyr::select(ENCOUNTERID,key,value,dsa)
     
+    dat_out %<>% bind_rows(bun_scr_ratio)
+    
     #engineer new features: change of lab from last collection
     lab_delta_eligb<-dat_out %>%
       group_by(ENCOUNTERID,key) %>%
@@ -151,30 +153,29 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
                        p75=quantile(lab_cnt,probs=0.75,na.rm=T),
                        p95=quantile(lab_cnt,probs=0.95,na.rm=T))
     
-    #--collect changes of lab only for those are regularly repeated
-    lab_delta<-dat_out %>%
-      semi_join(lab_delta_eligb %>% filter(med>=(pred_end-1)),
-                by="key")
-    
-    dsa_rg<-seq(0,pred_end)
-
-    lab_delta %<>%
-      group_by(ENCOUNTERID,key) %>%
-      dplyr::mutate(dsa_max=max(dsa)) %>%
-      filter(dsa<=dsa_max) %>%
-      arrange(dsa) %>%
-      dplyr::mutate(value_lag=lag(value,n=1L,default=NA)) %>%
-      ungroup %>%
-      filter(!is.na(value_lag)) %>%
-      mutate(value=value-value_lag,
-             key=paste0(key,"_change")) %>%
-      dplyr::select(ENCOUNTERID,key,value,dsa) %>%
-      unique
-    
-    dat_out %<>%
-      bind_rows(bun_scr_ratio) %>%
-      bind_rows(lab_delta)
-    
+    #--collect changes of lab only for those are regularly repeated (floor(pred_end/2))
+    freq_lab<-lab_delta_eligb %>% filter(med>=(floor(pred_end/2)))
+    if(nrow(freq_lab)>0){
+      lab_delta<-dat_out %>%
+        semi_join(freq_lab,by="key")
+      
+      dsa_rg<-seq(0,pred_end)
+      
+      lab_delta %<>%
+        group_by(ENCOUNTERID,key) %>%
+        dplyr::mutate(dsa_max=max(dsa)) %>%
+        filter(dsa<=dsa_max) %>%
+        arrange(dsa) %>%
+        dplyr::mutate(value_lag=lag(value,n=1L,default=NA)) %>%
+        ungroup %>%
+        filter(!is.na(value_lag)) %>%
+        mutate(value=value-value_lag,
+               key=paste0(key,"_change")) %>%
+        dplyr::select(ENCOUNTERID,key,value,dsa) %>%
+        unique
+      
+      dat_out %<>% bind_rows(lab_delta)
+    }
   }else if(type == "dx"){
     #multiple records resolved as "present (1) or absent (0)"
     dat_out<-dat %>% dplyr::select(-PATID) %>%
@@ -213,7 +214,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
 }
 
 #tw should be the same time unit as dsa
-get_dsurv_temporal<-function(dat,censor,tw){
+get_dsurv_temporal<-function(dat,censor,tw,pred_in_d=1){
   y_surv<-c()
   X_surv<-c()
   for(t in tw){
@@ -239,7 +240,7 @@ get_dsurv_temporal<-function(dat,censor,tw){
     #stack x
     X_surv %<>% 
       bind_rows(dat %>% left_join(censor_t,by="ENCOUNTERID") %>%
-                  filter(dsa < dsa_y) %>% #strictly less than (at least 1 day prior)
+                  filter(dsa < dsa_y-(pred_in_d-1)) %>% # prediction point is at least "pred_in_d" days before endpoint
                   group_by(ENCOUNTERID,key) %>%
                   top_n(n=1,wt=-dsa) %>%
                   ungroup %>%
