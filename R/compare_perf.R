@@ -8,7 +8,9 @@ require_libraries(c("Matrix",
                     "plyr",
                     "magrittr", 
                     "stringr",                    
-                    "ResourceSelection"
+                    "ResourceSelection",
+                    "ROCR",
+                    "PRROC"
 ))
 
 # load data

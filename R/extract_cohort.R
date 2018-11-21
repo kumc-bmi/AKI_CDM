@@ -54,7 +54,7 @@ extract_cohort<-function(conn,
   for(i in 1:(length(statements)-1)){
     parse_out<-parse_sql(statements[i])
     if(parse_out$action=="write"){
-      drop_tbl(conn,toupper(sql$tbl_out))
+      drop_tbl(conn,toupper(parse_out$tbl_out))
     }else{
       warning("no temporary table was created by this statment!")
     }
