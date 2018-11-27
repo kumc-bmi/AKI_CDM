@@ -17,11 +17,16 @@ require_libraries(c("tidyr",
                     "PRROC"))
 
 #choose task parameters
+#-----prediction point
 # pred_in_d<-1
 pred_in_d<-2
 # pred_in_d<-3
-pred_task_lst<-c("stg1up","stg2up","stg3")
 
+#-----feature selection type
+# fs_type<-"no_fs"
+fs_type<-"rm_scr_bun"
+
+pred_task_lst<-c("stg1up","stg2up","stg3")
 ############################## collect and format variables on daily basis ######################
 tbl1<-readRDS("./data/Table1.rda") %>%
   dplyr::mutate(yr=as.numeric(format(ADMIT_DATE,"%Y")))
@@ -342,10 +347,10 @@ for(pred_task in pred_task_lst){
   
   
   #--save model and other results
-  saveRDS(xgb_tune,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_model_gbm_no_fs_",pred_task,".rda"))
-  saveRDS(bst_grid,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_hyperpar_gbm_no_fs_",pred_task,".rda"))
-  saveRDS(valid,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_no_fs_",pred_task,".rda"))
-  saveRDS(feat_imp,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_varimp_gbm_no_fs_",pred_task,".rda"))
+  saveRDS(xgb_tune,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_model_gbm_",fs_type,"_",pred_task,".rda"))
+  saveRDS(bst_grid,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_hyperpar_gbm_",fs_type,"_",pred_task,".rda"))
+  saveRDS(valid,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda"))
+  saveRDS(feat_imp,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_varimp_gbm_",fs_type,"_",pred_task,".rda"))
   
   #-------------------------------------------------------------------------------------------------------------
   lapse_tsk<-Sys.time()-start_tsk
