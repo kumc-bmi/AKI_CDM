@@ -17,9 +17,22 @@ require_libraries(c("tidyr",
                     "PRROC"))
 
 #choose task parameters
-# pred_in_d<-1
-pred_in_d<-2
+#-----prediction point
+pred_in_d<-1
+# pred_in_d<-2
 # pred_in_d<-3
+
+#-----feature selection type
+# fs_type<-"no_fs"
+fs_type<-"rm_scr_bun"
+rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
+          '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
+          '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9',
+          '12966-8','12965-0','6299-2','59570-2','12964-3','49071-4','72270-2',
+          '11065-0','3094-0','35234-4','14937-7',
+          '3097-3','44734-2','BUN_SCR')
+
+#-----prediction tasks
 pred_task_lst<-c("stg1up","stg2up","stg3")
 
 ############################## collect and format variables on daily basis ######################
@@ -190,7 +203,16 @@ for(pred_task in pred_task_lst){
                           left_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
                                     by="ENCOUNTERID"))
     
-    cat("finish stack data of encounters from",yr_rg[i],".\n")
+    cat("...finish stack data of encounters from",yr_rg[i],".\n")
+  }
+  
+  #--pre-filter
+  if(fs_type=="rm_scr_bun"){
+    X_tr %<>%
+      filter(!(key %in% c(rm_key,paste0(rm_key,"_change"))))
+    
+    X_ts %<>%
+      filter(!(key %in% c(rm_key,paste0(rm_key,"_change"))))
   }
   
   #--transform training matrix
@@ -260,6 +282,8 @@ for(pred_task in pred_task_lst){
   dtrain<-xgb.DMatrix(data=X_tr,label=y_tr$y)
   dtest<-xgb.DMatrix(data=X_ts,label=y_ts$y)
   
+  cat("...finish formatting training and testing sets.\n")
+  
   #--get indices for k folds
   y_tr %<>% dplyr::mutate(row_idx = 1:n())
   folds<-list()
@@ -315,13 +339,14 @@ for(pred_task in pred_task_lst){
     bst_grid_cv<-cbind(bst_grid_cv,bst$pred)
     
     if(verb){
-      cat('finished train case:',paste0(paste0(c(colnames(grid_params),"scale_pos_weight"),"="),param,collapse="; "),
+      cat('...finished train case:',paste0(paste0(c(colnames(grid_params),"scale_pos_weight"),"="),param,collapse="; "),
           'in',Sys.time()-start_i,units(Sys.time()-start_i),"\n")
       start_i<-Sys.time()
     }
   }
   hyper_param<-bst_grid[which.max(bst_grid$metric),]
   
+  cat("...finish model tunning.\n")
   
   #--validation
   xgb_tune<-xgb.train(data=dtrain,
@@ -340,12 +365,13 @@ for(pred_task in pred_task_lst){
   #--feature importance
   feat_imp<-xgb.importance(colnames(X_tr),model=xgb_tune)
   
+  cat("...finish model validating.\n")
   
   #--save model and other results
-  saveRDS(xgb_tune,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_model_gbm_no_fs_",pred_task,".rda"))
-  saveRDS(bst_grid,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_hyperpar_gbm_no_fs_",pred_task,".rda"))
-  saveRDS(valid,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_no_fs_",pred_task,".rda"))
-  saveRDS(feat_imp,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_varimp_gbm_no_fs_",pred_task,".rda"))
+  saveRDS(xgb_tune,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_model_gbm_",fs_type,"_",pred_task,".rda"))
+  saveRDS(bst_grid,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_hyperpar_gbm_",fs_type,"_",pred_task,".rda"))
+  saveRDS(valid,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda"))
+  saveRDS(feat_imp,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_varimp_gbm_",fs_type,"_",pred_task,".rda"))
   
   #-------------------------------------------------------------------------------------------------------------
   lapse_tsk<-Sys.time()-start_tsk
