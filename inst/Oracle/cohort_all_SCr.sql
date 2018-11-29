@@ -23,7 +23,7 @@ select l.PATID
       ,l.RESULT_TIME
 from &&PCORNET_CDM.LAB_RESULT_CM@dblink l
 where l.LAB_LOINC in ('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8') and 
-      (UPPER(l.RESULT_UNIT) = 'MG/DL' or UPPER(l.RESULT_UNIT) = 'MG') and
+      (UPPER(l.RESULT_UNIT) = 'MG/DL' or UPPER(l.RESULT_UNIT) = 'MG') and /*there are variations of common units*/
       l.SPECIMEN_SOURCE <> 'URINE' and  /*only serum creatinine*/
       l.RESULT_NUM > 0 and /*value 0 could exist*/
       exists (select 1 from AKI_Initial init
