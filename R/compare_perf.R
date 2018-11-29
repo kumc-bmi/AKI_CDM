@@ -13,6 +13,15 @@ require_libraries(c("Matrix",
                     "PRROC"
 ))
 
+#-----prediction point
+# pred_in_d<-1
+pred_in_d<-2
+# pred_in_d<-3
+
+#-----feature selection type
+fs_type<-"no_fs"
+# fs_type<-"rm_scr_bun"
+
 # load data
 pred_task<-c(
   "stg1up"
@@ -25,7 +34,7 @@ perf_tbl<-c()
 calib_tbl<-c()
 varimp_tbl<-c()
 for(i in seq_along(pred_task)){
-  valid<-readRDS(paste0("./data/model_ref/valid_gbm_no_fs_",pred_task[i],".rda"))
+  valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda"))
   
   # various performace table
   pred<-ROCR::prediction(valid$pred,valid$y)
@@ -112,14 +121,14 @@ for(i in seq_along(pred_task)){
                                    length(unique(valid$ROW_ID))),
                         stringsAsFactors = F) %>%
     bind_rows(perf_at %>% 
-                dplyr::summarize(prec=mean(prec),
-                                 sens=mean(rec_sens),
-                                 spec=mean(spec),
-                                 ppv=mean(ppv),
-                                 npv=mean(npv),
-                                 acc=mean(acc),
-                                 fscore=mean(fscore),
-                                 mcc=mean(mcc)) %>%
+                dplyr::summarize(prec=mean(prec,na.rm=T),
+                                 sens=mean(rec_sens,na.rm=T),
+                                 spec=mean(spec,na.rm=T),
+                                 ppv=mean(ppv,na.rm=T),
+                                 npv=mean(npv,na.rm=T),
+                                 acc=mean(acc,na.rm=T),
+                                 fscore=mean(fscore,na.rm=T),
+                                 mcc=mean(mcc,na.rm=T)) %>%
                 gather(overall_meas,meas_val))
   
   perf_tbl %<>% bind_rows(perf_summ %>% mutate(pred_task=pred_task[i]))
@@ -147,7 +156,7 @@ for(i in seq_along(pred_task)){
   calib_tbl %<>% bind_rows(calib %>% mutate(pred_task=pred_task[i]))
   
   #variable
-  varimp<-readRDS(paste0("./data/model_ref/varimp_gbm_no_fs_",pred_task[i],".rda")) %>%
+  varimp<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_varimp_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
     dplyr::mutate(rank=1:n(),
                   Gain_rescale=round(Gain/Gain[1]*100)) %>%
     dplyr::select(rank,Feature,Gain_rescale)
@@ -160,15 +169,14 @@ perf_out<-list(perf_tbl_full=perf_tbl_full,
                perf_tbl=perf_tbl,
                calib_tbl=calib_tbl,
                varimp_tbl=varimp_tbl)
-saveRDS(perf_out,file="./data/baseline_model_perf.rda")
-
+saveRDS(perf_out,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))
 
 
 # tabulate and plot overall summary
 require_libraries("ggplot2")
 
 #only print out a selective of measures
-perf_overall<-readRDS("./data/baseline_model_perf.rda")$perf_tbl %>% 
+perf_overall<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>% 
   filter(overall_meas %in% c("roauc",
                              "roauc_low",
                              "roauc_up",
@@ -192,6 +200,7 @@ perf_overall<-readRDS("./data/baseline_model_perf.rda")$perf_tbl %>%
   spread(overall_meas,meas_val) %>%
   unite("1.ROAUC_CI",c("roauc_low","roauc_up"),sep=",") %>%
   unite("1.ROAUC",c("1.ROAUC","1.ROAUC_CI"),sep=" (")
+
 
 #plot out sens, spec, ppv, npv on a scale of cutoff probabilities
 brks<-unique(c(0,seq(0.001,0.01,by=0.001),seq(0.02,0.1,by=0.01),seq(0.2,1,by=0.1)))
@@ -238,7 +247,7 @@ ggplot(perf_cutoff %>% dplyr::filter(cutoff <=0.15),
 
 
 # plot calibration
-calib_tbl<-readRDS("./data/baseline_model_perf.rda")$calib_tbl %>%
+calib_tbl<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$calib_tbl %>%
   mutate(pred_task=recode(pred_task,
                           `stg1up`="a.At least AKI1",
                           `stg2up`="b.At least AKI2",
@@ -266,7 +275,7 @@ data_dict<-read.csv("./data/feature_dict.csv") %>%
                                      paste0("CH:",VALUESET_ITEM),
                                      VALUESET_ITEM)))
 
-varimp<-calib_tbl<-readRDS("./data/baseline_model_perf.rda")$varimp_tbl %>%
+varimp<-calib_tbl<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$varimp_tbl %>%
   mutate(feat=gsub("_change","",Feature)) %>%
   left_join(data_dict,by=c("feat"="VALUESET_ITEM")) %>%
   mutate(feat = ifelse(is.na(VALUESET_ITEM_DESCRIPTOR),Feature,VALUESET_ITEM_DESCRIPTOR)) %>%
