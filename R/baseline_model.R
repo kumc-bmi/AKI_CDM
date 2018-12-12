@@ -33,7 +33,8 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '3097-3','44734-2','BUN_SCR')
 
 #-----prediction tasks
-pred_task_lst<-c("stg1up","stg2up","stg3")
+# pred_task_lst<-c("stg1up","stg2up","stg3")
+pred_task_lst<-c("stg2up","stg3")
 
 ############################## collect and format variables on daily basis ######################
 tbl1<-readRDS("./data/Table1.rda") %>%

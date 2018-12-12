@@ -13,15 +13,17 @@ require_libraries(c("Matrix",
                     "PRROC"
 ))
 
+
 #-----prediction point
-# pred_in_d<-1
-pred_in_d<-2
+pred_in_d<-1
+# pred_in_d<-2
 # pred_in_d<-3
 
 #-----feature selection type
 fs_type<-"no_fs"
 # fs_type<-"rm_scr_bun"
 
+##=================aggregate prediction results=====================
 # load data
 pred_task<-c(
   "stg1up"
@@ -172,7 +174,7 @@ perf_out<-list(perf_tbl_full=perf_tbl_full,
 saveRDS(perf_out,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))
 
 
-# tabulate and plot overall summary
+##=================tabulate and plot overall summary=================
 require_libraries("ggplot2")
 
 #only print out a selective of measures
@@ -299,3 +301,60 @@ ggplot(varimp %>% filter(rank <= 20),
   labs(x="Features",y="Normalized Scale")+
   coord_flip()+scale_y_continuous(trans = "reverse")+
   facet_wrap(~pred_task,scales = "free",ncol=1)
+
+
+##=================subgroup analysis==============================
+tbl1<-readRDS("./data/Table1.rda") %>%
+  dplyr::select(ENCOUNTERID,SERUM_CREAT_BASE) %>%
+  left_join(readRDS("./data/AKI_DEMO.rda") %>%
+              filter(key=="AGE") %>%
+              dplyr::select(ENCOUNTERID,key,value) %>%
+              spread(key,value) %>%
+              mutate(AGE=as.numeric(AGE)),
+            by="ENCOUNTERID")
+  
+pred_task<-c(
+  "stg1up"
+  ,"stg2up"
+  ,"stg3"
+)
+
+subgrp_out<-c()
+for(pred_in_d in c(1,2)){
+  for(i in seq_along(pred_task)){
+    valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
+      mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
+             day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
+      left_join(tbl1,by="ENCOUNTERID")
+    
+    subgrp_out %<>%
+      bind_rows(valid %>%
+                  dplyr::select(ENCOUNTERID,day_at,y,pred,SERUM_CREAT_BASE) %>%
+                  mutate(admit_scr=cut(SERUM_CREAT_BASE,breaks=c(0,1,2,3,Inf),include.lowest=T,right=F)) %>%
+                  group_by(admit_scr) %>%
+                  dplyr::summarise(roauc_low=pROC::ci.auc(y,pred)[[1]],
+                                   roauc=pROC::ci.auc(y,pred)[[2]],
+                                   roauc_up=pROC::ci.auc(y,pred)[[3]]) %>%
+                  ungroup %>%
+                  gather(subgrp_type,subgrp,-roauc_low,-roauc,-roauc_up) %>%
+                  bind_rows(valid %>%
+                              dplyr::select(ENCOUNTERID,day_at,y,pred,AGE) %>%
+                              mutate(age=cut(AGE,breaks=c(0,45,65,Inf),include.lowest=T,right=F)) %>%
+                              group_by(age) %>%
+                              dplyr::summarise(roauc_low=pROC::ci.auc(y,pred)[[1]],
+                                               roauc=pROC::ci.auc(y,pred)[[2]],
+                                               roauc_up=pROC::ci.auc(y,pred)[[3]]) %>%
+                              ungroup %>%
+                              gather(subgrp_type,subgrp,-roauc_low,-roauc,-roauc_up)) %>%
+                  mutate(pred_task=pred_task[i],
+                         pred_at=pred_in_d))
+  }
+}
+subgrp_out2<-subgrp_out %>%
+  mutate(label=paste0(round(roauc,2),"(",round(roauc_low,2),"-",round(roauc_up,2),")")) %>%
+  dplyr::select(-roauc_low,-roauc,-roauc_up) %>%
+  unite("pred_task",c("pred_task","pred_at"),sep="_") %>%
+  unique %>% spread(pred_task,label)
+ 
+  
+  

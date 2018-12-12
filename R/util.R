@@ -135,6 +135,7 @@ parse_sql<-function(file_path,...){
     param_val<-param_val[which(names(param_val) %in% params)]
     param_val<-param_val[order(names(param_val))]
     params_symbol<-params_symbol[order(params)]
+    params<-params[order(params)]
 
     #substitube params_symbol by param_val
     for(i in seq_along(params)){
