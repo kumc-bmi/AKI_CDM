@@ -181,3 +181,55 @@ for(i in yr_vec){
               col.names=F,quote=T,row.names = F)
 }
 
+
+
+##########################
+# save preprocessed data #
+##########################
+
+#choose task parameters
+#-----prediction point
+# pred_in_d<-1
+pred_in_d<-2
+
+pred_task_lst<-c("stg1up","stg2up","stg3")
+yr_rg<-seq(2010,2018)
+for(pred_task in pred_task_lst){
+  var_by_yr<-readRDS(paste0("./data/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
+  
+  Xy_sp<-c()
+  y_mt<-c()
+  for(i in seq_along(yr_rg)){
+    Xy_sp %<>% bind_rows(var_by_yr[[i]][["X_surv"]])
+    y_mt %<>% bind_rows(var_by_yr[[i]][["y_surv"]])
+  }
+  
+  y_mt %<>%
+    arrange(ENCOUNTERID,dsa_y) %>%
+    unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+    unique
+  
+  Xy_sp %<>%
+    arrange(ENCOUNTERID,dsa_y) %>%
+    unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+    semi_join(y_mt,by="ROW_ID") %>%
+    bind_rows(y_mt %>%
+                mutate(key="@label") %>%
+                dplyr::rename(value=y)) %>%
+    long_to_sparse_matrix(df=.,
+                          id="ROW_ID",
+                          variable="key",
+                          val="value")
+  
+  #format check
+  all(row.names(Xy_sp)==y_mt$ROW_ID)
+  colnames(Xy_sp)[1]=="@label"
+  
+  #save data accessible by python
+  saveRDS(Xy_sp,file=paste0("./data/",pred_task,".rds"))
+}
+
+
+
+
+

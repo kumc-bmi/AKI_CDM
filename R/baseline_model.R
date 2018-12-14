@@ -18,13 +18,13 @@ require_libraries(c("tidyr",
 
 #choose task parameters
 #-----prediction point
-pred_in_d<-1
-# pred_in_d<-2
+# pred_in_d<-1
+pred_in_d<-2
 # pred_in_d<-3
 
 #-----feature selection type
-# fs_type<-"no_fs"
-fs_type<-"rm_scr_bun"
+fs_type<-"no_fs"
+# fs_type<-"rm_scr_bun"
 rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
           '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9',
@@ -33,8 +33,7 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '3097-3','44734-2','BUN_SCR')
 
 #-----prediction tasks
-# pred_task_lst<-c("stg1up","stg2up","stg3")
-pred_task_lst<-c("stg2up","stg3")
+pred_task_lst<-c("stg1up","stg2up","stg3")
 
 ############################## collect and format variables on daily basis ######################
 tbl1<-readRDS("./data/Table1.rda") %>%
@@ -73,8 +72,11 @@ for(pred_task in pred_task_lst){
     
     #--collect end_points
     dat_i<-tbl1 %>% filter(yr==enc_yr[i]) %>%
-      dplyr::select(ENCOUNTERID,yr,NONAKI_SINCE_ADMIT,
-                    AKI1_SINCE_ADMIT,AKI2_SINCE_ADMIT,AKI3_SINCE_ADMIT) %>%
+      dplyr::select(ENCOUNTERID,yr,
+                    NONAKI_SINCE_ADMIT,
+                    AKI1_SINCE_ADMIT,
+                    AKI2_SINCE_ADMIT,
+                    AKI3_SINCE_ADMIT) %>%
       gather(y,dsa_y,-ENCOUNTERID,-yr) %>%
       filter(!is.na(dsa_y)) %>%
       dplyr::mutate(y=recode(y,
@@ -143,8 +145,8 @@ for(pred_task in pred_task_lst){
                                   pred_in_d=pred_in_d)
       
       #load
-      X_surv %<>% bind_rows(Xy_surv$X_surv)
-      y_surv %<>% bind_rows(Xy_surv$y_surv)
+      X_surv %<>% bind_rows(Xy_surv$X_surv) %>% unique
+      y_surv %<>% bind_rows(Xy_surv$y_surv) %>% unique
       
       lapse_v<-Sys.time()-start_v
       var_etl_bm<-c(var_etl_bm,paste0(lapse_v,units(lapse_v)))
@@ -174,10 +176,14 @@ for(pred_task in pred_task_lst){
 
 ############################## baseline GBM model ######################################
 for(pred_task in pred_task_lst){
+  bm<-c()
+  bm_nm<-c()
+  
   start_tsk<-Sys.time()
   cat("Start build reference model for task",pred_task,".\n")
   #---------------------------------------------------------------------------------------------
   
+  start_tsk_i<-Sys.time()
   #--prepare training and testing set
   yr_rg<-seq(2010,2018)
   X_tr<-c()
@@ -206,7 +212,11 @@ for(pred_task in pred_task_lst){
     
     cat("...finish stack data of encounters from",yr_rg[i],".\n")
   }
+  lapse_i<-Sys.time()-start_tsk_i
+  bm<-c(bm,paste0(lapse_i,units(lapse_i)))
+  bm_nm<-c(bm_nm,"prepare data")
   
+  start_tsk_i<-Sys.time()
   #--pre-filter
   if(fs_type=="rm_scr_bun"){
     X_tr %<>%
@@ -283,8 +293,13 @@ for(pred_task in pred_task_lst){
   dtrain<-xgb.DMatrix(data=X_tr,label=y_tr$y)
   dtest<-xgb.DMatrix(data=X_ts,label=y_ts$y)
   
+  lapse_i<-Sys.time()-start_tsk_i
+  bm<-c(bm,paste0(lapse_i,units(lapse_i)))
+  bm_nm<-c(bm_nm,"transform data")
+  
   cat("...finish formatting training and testing sets.\n")
   
+  start_tsk_i<-Sys.time()
   #--get indices for k folds
   y_tr %<>% dplyr::mutate(row_idx = 1:n())
   folds<-list()
@@ -294,7 +309,6 @@ for(pred_task in pred_task_lst){
       dplyr::select(row_idx)
     folds[[fd]]<-fd_df$row_idx
   }
-  
   
   #--tune hyperparameter
   #hyper-parameter grid for xgboost
@@ -347,8 +361,13 @@ for(pred_task in pred_task_lst){
   }
   hyper_param<-bst_grid[which.max(bst_grid$metric),]
   
-  cat("...finish model tunning.\n")
+  lapse_i<-Sys.time()-start_tsk_i
+  bm<-c(bm,paste0(lapse_i,units(lapse_i)))
+  bm_nm<-c(bm_nm,"tune model")
   
+  cat("...finish model tunning.\n")
+
+  start_tsk_i<-Sys.time()  
   #--validation
   xgb_tune<-xgb.train(data=dtrain,
                       max_depth=hyper_param$max_depth,
@@ -366,6 +385,10 @@ for(pred_task in pred_task_lst){
   #--feature importance
   feat_imp<-xgb.importance(colnames(X_tr),model=xgb_tune)
   
+  lapse_i<-Sys.time()-start_tsk_i
+  bm<-c(bm,paste0(lapse_i,units(lapse_i)))
+  bm_nm<-c(bm_nm,"validate model")
+  
   cat("...finish model validating.\n")
   
   #--save model and other results
@@ -376,5 +399,13 @@ for(pred_task in pred_task_lst){
   
   #-------------------------------------------------------------------------------------------------------------
   lapse_tsk<-Sys.time()-start_tsk
+  bm<-c(bm,paste0(lapse_tsk,units(lapse_tsk)))
+  bm_nm<-c(bm_nm,"complete task")
+  
   cat("\nFinish building reference models for task",pred_task,"in",lapse_tsk,units(lapse_tsk),".\n")
+  
+  #benchmark
+  bm<-data.frame(bm_for=bm_nm,bm_time=bm,
+                 stringsAsFactors = F)
+  saveRDS(bm,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_bm_gbm_",fs_type,"_",pred_task,".rda"))
 }
