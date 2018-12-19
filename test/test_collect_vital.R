@@ -6,13 +6,15 @@ require_libraries(c("DBI",
                     "magrittr",
                     "stringr"))
 params<-list(  DBMS_type="Oracle",
+               driver_type="OCI",
                remote_CDM=FALSE)
 
 
 config_file_path<-"./config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-connect_to_db(params$DBMS_type,config_file)
+conn<-connect_to_db(params$DBMS_type,params$driver_type,config_file)
 DBMS_type<-attr(conn,"DBMS_type")
+driver_type<-attr(conn,"driver_type")
 
 
 #set up parameters
