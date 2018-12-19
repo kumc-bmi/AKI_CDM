@@ -156,7 +156,7 @@ for(pred_task in pred_task_lst){
                          y_surv=y_surv)
     
     lapse_i<-Sys.time()-start_i
-    var_etl_bm<-paste0(lapse_i,units(lapse_i))
+    var_etl_bm<-c(var_etl_bm,paste0(lapse_i,units(lapse_i)))
     cat("\n...finished variabl collection for year",enc_yr[i],"in",lapse_i,units(lapse_i),".\n")
     
     var_bm[[i]]<-data.frame(bm_nm=c(var_type,"overall"),
@@ -405,7 +405,36 @@ for(pred_task in pred_task_lst){
   cat("\nFinish building reference models for task",pred_task,"in",lapse_tsk,units(lapse_tsk),".\n")
   
   #benchmark
-  bm<-data.frame(bm_for=bm_nm,bm_time=bm,
+  bm<-data.frame(bm_nm=bm_nm,bm_time=bm,
                  stringsAsFactors = F)
   saveRDS(bm,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_bm_gbm_",fs_type,"_",pred_task,".rda"))
 }
+
+############################## benchmark performance ##############################
+#-----prediction point
+# pred_in_d<-1
+pred_in_d<-2
+# pred_in_d<-3
+
+#-----feature selection type
+fs_type<-"no_fs"
+# fs_type<-"rm_scr_bun"
+
+bm<-c()
+for(pred_task in c("stg1up","stg2up","stg3")){
+  proc_bm<-readRDS(paste0("./data/",pred_in_d,"d_var_bm",pred_task,".rda"))
+  bm2<-c()
+  for(i in seq_along(seq(2010,2018))){
+    bm2 %<>%
+      bind_rows(proc_bm[[i]] %>% 
+                  filter(bm_nm=="overall") %>%
+                  dplyr::mutate(bm_nm=paste0(bm_nm,"_",seq(2010,2018)[i])))
+  }
+  
+  bm %<>% 
+    bind_rows(bind_rows(bm2,
+                        readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_bm_gbm_",fs_type,"_",pred_task,".rda"))) %>%
+                dplyr::mutate(outcome=pred_task))
+}
+bm %<>% spread(outcome,bm_time)
+

@@ -15,8 +15,8 @@ require_libraries(c("Matrix",
 
 
 #-----prediction point
-pred_in_d<-1
-# pred_in_d<-2
+# pred_in_d<-1
+pred_in_d<-2
 # pred_in_d<-3
 
 #-----feature selection type
@@ -277,11 +277,12 @@ data_dict<-read.csv("./data/feature_dict.csv") %>%
                                      paste0("CH:",VALUESET_ITEM),
                                      VALUESET_ITEM)))
 
-varimp<-calib_tbl<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$varimp_tbl %>%
-  mutate(feat=gsub("_change","",Feature)) %>%
+varimp<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$varimp_tbl %>%
+  dplyr::mutate(suffix=gsub("_","",str_extract(Feature,"((\\_min)|(\\_slope)|(\\_change)|(\\_cum))+"))) %>%
+  dplyr::mutate(feat=gsub("((\\_min)|(\\_slope)|(\\_change)|(\\_cum))+","",Feature)) %>%
   left_join(data_dict,by=c("feat"="VALUESET_ITEM")) %>%
-  mutate(feat = ifelse(is.na(VALUESET_ITEM_DESCRIPTOR),Feature,VALUESET_ITEM_DESCRIPTOR)) %>%
-  mutate(feat = ifelse(grepl("_change",Feature),paste0(feat,"_change"),feat)) %>%
+  dplyr::mutate(feat = ifelse(is.na(VALUESET_ITEM_DESCRIPTOR),Feature,VALUESET_ITEM_DESCRIPTOR)) %>%
+  dplyr::mutate(feat = ifelse(!is.na(suffix),paste0(feat,"_",suffix),feat)) %>%
   dplyr::mutate(feat_rank=paste0(ifelse(rank<10,
                                         paste0("0",rank),
                                         as.character(rank)),

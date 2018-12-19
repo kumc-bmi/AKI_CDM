@@ -194,6 +194,7 @@ pred_in_d<-2
 
 pred_task_lst<-c("stg1up","stg2up","stg3")
 yr_rg<-seq(2010,2018)
+vari<-c()
 for(pred_task in pred_task_lst){
   var_by_yr<-readRDS(paste0("./data/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
   
@@ -226,10 +227,24 @@ for(pred_task in pred_task_lst){
   colnames(Xy_sp)[1]=="@label"
   
   #save data accessible by python
-  saveRDS(Xy_sp,file=paste0("./data/",pred_task,".rds"))
+  vari<-unique(c(vari,colnames(Xy_sp)))
+  # saveRDS(Xy_sp,file=paste0("./data/data_rds/",pred_task,"_data.rds"))
 }
 
+metadata<-readRDS("./data/meta_data/metadata.rda")
+vari_dict<-data.frame(Feature=vari,Feature2=vari,stringsAsFactors = F) %>%
+  dplyr::mutate(Feature2=case_when(grepl("(^09\\:)+",Feature2) ~ paste0("ICD9:",gsub(".*:","",Feature2)),
+                                   grepl("(^10\\:)+",Feature2) ~ paste0("ICD",Feature2),
+                                  TRUE ~ Feature2)) %>%
+  dplyr::mutate(suffix=gsub("_","",str_extract(Feature2,"((\\_min)|(\\_slope)|(\\_change)|(\\_cum))+"))) %>%
+  dplyr::mutate(Feature2=gsub("((\\_min)|(\\_slope)|(\\_change)|(\\_cum))$","",Feature2)) %>%
+  unique %>% left_join(metadata,by=c("Feature2"="VALUESET_ITEM2")) %>% 
+  dplyr::mutate(VALUESET_ITEM=ifelse(is.na(VALUESET_ITEM),Feature2,VALUESET_ITEM),
+                VALUESET_ITEM_DESCRIPTOR=ifelse(is.na(VALUESET_ITEM_DESCRIPTOR),Feature2,VALUESET_ITEM_DESCRIPTOR)) %>%
+  replace_na(list(TABLE_NAME="additional",FIELD_NAME="additional")) %>%
+  dplyr::select(Feature,TABLE_NAME,VALUESET_ITEM_DESCRIPTOR)
 
+# vari_dict %>% filter(is.na(VALUESET_ITEM_DESCRIPTOR)) %>% View
 
-
+saveRDS(vari_dict,file="./data/data_rds/feature_dict.rds")
 
