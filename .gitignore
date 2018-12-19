@@ -11,7 +11,6 @@ data_local/
 feature_dict.csv
 *config.csv
 *.xlsx
-*.rda
 *.txt
 *.log
 
