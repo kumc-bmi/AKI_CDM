@@ -19,9 +19,9 @@ select pat.PATID
       ,v.SYSTOLIC
       ,v.DIASTOLIC
       ,v.ORIGINAL_BMI
-      ,case when v.SMOKING = 'NI' then null else v.SMOKING end as SMOKING
-      ,case when v.TOBACCO = 'NI' then null else v.TOBACCO end as TOBACCO
-      ,case when v.TOBACCO_TYPE = 'NI' then null else v.TOBACCO_TYPE end as TOBACCO_TYPE
+      ,v.SMOKING
+      ,v.TOBACCO
+      ,v.TOBACCO_TYPE
       ,round(v.MEASURE_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
 from AKI_onsets pat
 left join &&PCORNET_CDM.VITAL@dblink v

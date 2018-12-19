@@ -1,7 +1,7 @@
 /********************************************************************************/
 /*@file consort_diagram.sql
 /*
-/*in: AKI_onsets
+/*in: AKI_Initial,AKI_Scr_eGFR,exclude_all,AKI_onsets
 /*
 /*out: attrition
 /*

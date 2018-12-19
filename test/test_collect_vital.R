@@ -6,13 +6,15 @@ require_libraries(c("DBI",
                     "magrittr",
                     "stringr"))
 params<-list(  DBMS_type="Oracle",
+               driver_type="OCI",
                remote_CDM=FALSE)
 
 
 config_file_path<-"./config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-connect_to_db(params$DBMS_type,config_file)
+conn<-connect_to_db(params$DBMS_type,params$driver_type,config_file)
 DBMS_type<-attr(conn,"DBMS_type")
+driver_type<-attr(conn,"driver_type")
 
 
 #set up parameters
@@ -169,15 +171,15 @@ vital_smoke_summ<-vital %>%
                    enc_prop=length(unique(ENCOUNTERID))/enc_tot) %>%
   arrange(desc(pat_cnt)) %>%
   ungroup %>%
-  #HIPPA, low counts masking
+  #HIPAA, low counts masking
   mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11 & as.numeric(pat_cnt)>0,"<11",as.character(pat_cnt)),
-         enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt)),
-         enc_prop=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",paste0(round(enc_prop,2)*100,"%"))) %>%
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt))) %>%
+  mutate(enc_prop=ifelse(enc_cnt!="<11",paste0(round(enc_prop,3)*100,"%"),"<11")) %>%
   gather(summ,summ_val,-key_cat,-key) %>%
   mutate(summ=recode(summ,
-                     pat_cnt="1.patients#",
-                     enc_cnt="2.encounters#",
-                     enc_prop="3.encounters%")) %>%
+                     pat_cnt2="1.patients#",
+                     enc_cnt2="2.encounters#",
+                     enc_prop2="3.encounters%")) %>%
   spread(summ,summ_val)
 
 

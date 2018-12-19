@@ -81,7 +81,7 @@ where exists (select 1 from &&PCORNET_CDM.PROCEDURES@dblink px
                     px.ADMIT_DATE < scr48.time_bd
               )
 )
--- Burn Patients (admitting diagnosis)
+-- Burn Patients
     ,AKI_EXCLD_BURN_EN as (
 select distinct aki.ENCOUNTERID
 from AKI_Initial aki
@@ -97,8 +97,8 @@ where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS@dblink dx
                       (   regexp_like(dx.DX,'^T2[0-8]\.')
                        or regexp_like(dx.DX,'^T3[0-2]\.'))
                        )
-                      ) and
-                    dx.DX_SOURCE = 'AD'
+                      ) and 
+                      dx.DX_SOURCE = 'AD'
                 )
 )
 -- collect all excluded encounters
