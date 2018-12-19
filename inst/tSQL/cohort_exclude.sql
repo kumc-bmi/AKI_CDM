@@ -117,8 +117,8 @@ where exists (select 1 from [&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
                        or dx.DX like 'T31.%'
                        or dx.DX like 'T32.%')
                        )
-                      ) and
-                    dx.DX_SOURCE = 'AD'
+                      ) and 
+                      dx.DX_SOURCE = 'AD'
                 )
 )
 -- collect all excluded encounters
