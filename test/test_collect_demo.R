@@ -28,7 +28,7 @@ end_date="2018-12-31"
 verb=F
 
 # auxilliary summaries and tables
-Table1<-readRDS("./data/Table1.rda")
+Table1<-readRDS("./data_local/data_raw/Table1.rda")
 enc_tot<-length(unique(Table1$ENCOUNTERID))
 # critical dates of AKI encounters
 aki_stage_ind<-Table1 %>%
@@ -68,6 +68,7 @@ demo<-execute_single_sql(conn,
   gather(key,value,-PATID,-ENCOUNTERID) %>%
   unique
 #passed!
+demo<-readRDS("./data_local/data_raw/AKI_DEMO.rda")
 
 
 #collect summaries
@@ -78,27 +79,20 @@ demo_summ<-aki_stage_ind %>%
               filter(!(key %in% c("AGE","DDAYS_SINCE_ENC"))), 
             by="ENCOUNTERID") %>%
   group_by(chk_pt,stg_tot_cnt,key,value) %>%
-  #HIPPA compliance, low count masking
+  #HIPAA compliance, low count masking
   dplyr::summarize(enc_cnt = ifelse(n()<11,11,n())) %>%
-  mutate(enc_prop = round(enc_cnt/stg_tot_cnt[1],3)) %>%
+  mutate(enc_prop = ifelse(enc_cnt>11,round(enc_cnt/stg_tot_cnt[1],3),11)) %>%
   ungroup %>%
   dplyr::select(-stg_tot_cnt) %>%
   gather(summ,summ_val,-chk_pt,-key,-value) %>%
-  # # decode demo_val
-  # left_join(meta %>% dplyr::select(COLUMN_NAME,VAR_CODE,VAR_NAME),
-  #           by=c("demo_type"="COLUMN_NAME","demo_val"="VAR_CODE")) %>%
-  # dplyr::mutate(demo_val = ifelse(!is.na(VAR_NAME),VAR_NAME,demo_val)) %>%
-  # dplyr::select(-VAR_NAME) %>%
-  # unite("demo_type_cat",c("demo_type","demo_val")) %>%
-  # attach totals at bottom
   bind_rows(aki_stage_ind %>%
               filter(!chk_pt %in% c("DISCHARGE")) %>%
               dplyr::select(chk_pt,stg_tot_cnt) %>% 
               unique %>%
-              #HIPPA compliance, low count masking
+              #HIPAA compliance, low count masking
               dplyr::rename(enc_cnt=stg_tot_cnt) %>%
               mutate(enc_cnt=ifelse(enc_cnt<11,11,enc_cnt)) %>%
-              mutate(enc_prop=round(enc_cnt/enc_tot,3),
+              mutate(enc_prop=ifelse(enc_cnt>11,round(enc_cnt/enc_tot,3),11),
                      key="TOTAL",
                      value="(%/overall)") %>%
               gather(summ,summ_val,-chk_pt,-key,-value) %>%
@@ -114,8 +108,9 @@ demo_nice_tbl<-demo_summ %>%
   gather(summ,summ_val,-key,-value) %>%
   mutate(summ_val=ifelse(grepl("_prop",summ),summ_val*100,summ_val)) %>%
   mutate(summ_val=as.character(summ_val)) %>%
-  mutate(summ_val=ifelse(grepl("_enc",summ) & summ_val==11,"<11",summ_val)) %>%
-  mutate(summ_val=ifelse(grepl("_prop",summ),paste0(summ_val,"%"),summ_val)) %>%
+  mutate(summ_val=ifelse(grepl("_enc",summ) & summ_val=="11","<11",summ_val)) %>%
+  mutate(summ_val=ifelse(grepl("_prop",summ) & summ_val=="1100","<11",
+                         ifelse(grepl("_prop",summ) & summ_val!="1100",paste0(summ_val,"%"),summ_val))) %>%
   spread(summ,summ_val) %>%
   unite("ADMIT",paste0("ADMIT_",c("enc_cnt","enc_prop")),sep=", ") %>%
   unite("AKI1",paste0("AKI1_",c("enc_cnt","enc_prop")),sep=", ") %>%
