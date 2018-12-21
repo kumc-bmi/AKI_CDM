@@ -27,7 +27,7 @@ end_date="2018-12-31"
 verb=F
 
 # auxilliary summaries and tables
-Table1<-readRDS("./data/Table1.rda")
+Table1<-readRDS("./data_local/data_raw/Table1.rda")
 enc_tot<-length(unique(Table1$ENCOUNTERID))
 
 #statements to be tested
@@ -52,6 +52,9 @@ vital<-execute_single_sql(conn,
                     SYSTOLIC="BP_SYSTOLIC",
                     DIASTOLIC="BP_DIASTOLIC")) %>%
   unique
+
+vital<-readRDS("./data_local/data_raw/AKI_VITAL.rda")
+
 
 vital1<-vital %>%
   dplyr::select(ENCOUNTERID, key, value, dsa) %>%
@@ -94,10 +97,10 @@ vital_summ<-vital1 %>%
   ungroup %>%
   mutate(cov=round(sd/mean,1)) %>%
   #HIPPA, low counts masking
-  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",enc_cnt),
-         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",record_cnt),
-         low_cnt=ifelse(as.numeric(low_cnt)<11 & as.numeric(low_cnt)>0,"<11",as.character(low_cnt)),
-         high_cnt=ifelse(as.numeric(high_cnt)<11 & as.numeric(high_cnt)>0,"<11",as.character(high_cnt))) %>%
+  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt),
+         low_cnt=ifelse(as.numeric(low_cnt)<11,"<11",as.character(low_cnt)),
+         high_cnt=ifelse(as.numeric(high_cnt)<11,"<11",as.character(high_cnt))) %>%
   gather(summ,overall,-key) %>%
   mutate(summ=recode(summ,
                      enc_cnt="1.encounters#",
@@ -125,10 +128,10 @@ vital_summ<-vital1 %>%
       ungroup %>%
       mutate(cov=round(sd/mean,1)) %>%
       #HIPPA, low counts masking
-      mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",enc_cnt),
-             record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",record_cnt),
-             low_cnt=ifelse(as.numeric(low_cnt)<11 & as.numeric(low_cnt)>0,"<11",as.character(low_cnt)),
-             high_cnt=ifelse(as.numeric(high_cnt)<11 & as.numeric(high_cnt)>0,"<11",as.character(high_cnt))) %>%
+      mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
+             record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt),
+             low_cnt=ifelse(as.numeric(low_cnt)<11,"<11",as.character(low_cnt)),
+             high_cnt=ifelse(as.numeric(high_cnt)<11,"<11",as.character(high_cnt))) %>%
       gather(summ,summ_val,-key,-dsa_grp) %>%
       spread(dsa_grp,summ_val) %>%
       mutate(summ=recode(summ,
@@ -172,14 +175,14 @@ vital_smoke_summ<-vital %>%
   arrange(desc(pat_cnt)) %>%
   ungroup %>%
   #HIPAA, low counts masking
-  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11 & as.numeric(pat_cnt)>0,"<11",as.character(pat_cnt)),
-         enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt))) %>%
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",as.character(pat_cnt)),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt))) %>%
   mutate(enc_prop=ifelse(enc_cnt!="<11",paste0(round(enc_prop,3)*100,"%"),"<11")) %>%
   gather(summ,summ_val,-key_cat,-key) %>%
   mutate(summ=recode(summ,
-                     pat_cnt2="1.patients#",
-                     enc_cnt2="2.encounters#",
-                     enc_prop2="3.encounters%")) %>%
+                     pat_cnt="1.patients#",
+                     enc_cnt="2.encounters#",
+                     enc_prop="3.encounters%")) %>%
   spread(summ,summ_val)
 
 
