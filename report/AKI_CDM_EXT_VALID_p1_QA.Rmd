@@ -196,7 +196,7 @@ demo_summ<-aki_stage_ind %>%
   group_by(chk_pt,stg_tot_cnt,key,value) %>%
   #HIPAA compliance, low count masking
   dplyr::summarize(enc_cnt = ifelse(n()<11,11,n())) %>%
-  mutate(enc_prop = round(enc_cnt/stg_tot_cnt[1],3)) %>%
+  mutate(enc_prop = ifelse(enc_cnt>11,round(enc_cnt/stg_tot_cnt[1],3),11)) %>%
   ungroup %>%
   dplyr::select(-stg_tot_cnt) %>%
   gather(summ,summ_val,-chk_pt,-key,-value) %>%
@@ -207,7 +207,7 @@ demo_summ<-aki_stage_ind %>%
               #HIPAA compliance, low count masking
               dplyr::rename(enc_cnt=stg_tot_cnt) %>%
               mutate(enc_cnt=ifelse(enc_cnt<11,11,enc_cnt)) %>%
-              mutate(enc_prop=round(enc_cnt/enc_tot,3),
+              mutate(enc_prop=ifelse(enc_cnt>11,round(enc_cnt/enc_tot,3),11),
                      key="TOTAL",
                      value="(%/overall)") %>%
               gather(summ,summ_val,-chk_pt,-key,-value) %>%
@@ -230,8 +230,9 @@ demo_nice_tbl<-demo_summ %>%
   gather(summ,summ_val,-key,-value) %>%
   mutate(summ_val=ifelse(grepl("_prop",summ),summ_val*100,summ_val)) %>%
   mutate(summ_val=as.character(summ_val)) %>%
-  mutate(summ_val=ifelse(grepl("_enc",summ) & summ_val==11,"<11",summ_val)) %>%
-  mutate(summ_val=ifelse(grepl("_prop",summ),paste0(summ_val,"%"),summ_val)) %>%
+  mutate(summ_val=ifelse(grepl("_enc",summ) & summ_val=="11","<11",summ_val)) %>%
+  mutate(summ_val=ifelse(grepl("_prop",summ) & summ_val=="1100","<11",
+                         ifelse(grepl("_prop",summ) & summ_val!="1100",paste0(summ_val,"%"),summ_val))) %>%
   spread(summ,summ_val) %>%
   unite("ADMIT",paste0("ADMIT_",c("enc_cnt","enc_prop")),sep=", ") %>%
   unite("AKI1",paste0("AKI1_",c("enc_cnt","enc_prop")),sep=", ") %>%
@@ -330,10 +331,10 @@ vital_summ<-vital1 %>%
   ungroup %>%
   mutate(cov=round(sd/mean,1)) %>%
   #HIPAA, low counts masking
-  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",enc_cnt),
-         record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",record_cnt),
-         low_cnt=ifelse(as.numeric(low_cnt)<11 & as.numeric(low_cnt)>0,"<11",as.character(low_cnt)),
-         high_cnt=ifelse(as.numeric(high_cnt)<11 & as.numeric(high_cnt)>0,"<11",as.character(high_cnt))) %>%
+  mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
+         record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt),
+         low_cnt=ifelse(as.numeric(low_cnt)<11,"<11",as.character(low_cnt)),
+         high_cnt=ifelse(as.numeric(high_cnt)<11,"<11",as.character(high_cnt))) %>%
   gather(summ,overall,-key) %>%
   mutate(summ=recode(summ,
                      enc_cnt="1.encounters#",
@@ -361,10 +362,10 @@ vital_summ<-vital1 %>%
       ungroup %>%
       mutate(cov=round(sd/mean,1)) %>%
       #HIPAA, low counts masking
-      mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",enc_cnt),
-             record_cnt=ifelse(as.numeric(record_cnt)<11 & as.numeric(record_cnt)>0,"<11",record_cnt),
-             low_cnt=ifelse(as.numeric(low_cnt)<11 & as.numeric(low_cnt)>0,"<11",as.character(low_cnt)),
-             high_cnt=ifelse(as.numeric(high_cnt)<11 & as.numeric(high_cnt)>0,"<11",as.character(high_cnt))) %>%
+      mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",enc_cnt),
+             record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",record_cnt),
+             low_cnt=ifelse(as.numeric(low_cnt)<11,"<11",as.character(low_cnt)),
+             high_cnt=ifelse(as.numeric(high_cnt)<11,"<11",as.character(high_cnt))) %>%
       gather(summ,summ_val,-key,-dsa_grp) %>%
       spread(dsa_grp,summ_val) %>%
       mutate(summ=recode(summ,
@@ -408,8 +409,8 @@ vital_smoke_summ<-vital %>%
   arrange(desc(pat_cnt)) %>%
   ungroup %>%
   #HIPAA, low counts masking
-  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11 & as.numeric(pat_cnt)>0,"<11",as.character(pat_cnt)),
-         enc_cnt=ifelse(as.numeric(enc_cnt)<11 & as.numeric(enc_cnt)>0,"<11",as.character(enc_cnt))) %>%
+  mutate(pat_cnt=ifelse(as.numeric(pat_cnt)<11,"<11",as.character(pat_cnt)),
+         enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt))) %>%
   mutate(enc_prop=ifelse(enc_cnt!="<11",paste0(round(enc_prop,3)*100,"%"),"<11")) %>%
   gather(summ,summ_val,-key_cat,-key) %>%
   mutate(summ=recode(summ,
