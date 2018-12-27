@@ -764,7 +764,7 @@ px_report<-px_temp %>%
 ```
 
 
-A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients before or at the encounter of interest. Figure3 gives an overview of procedures that patients had recieved before or at the encounters of interest. It can help identify the common procedures or typical occuring times of precedures (e.g. [`r px_report$key[1]`], [`r px_report$key[2]`],[`r px_report$key[3]`],[`r px_report$key[4]`],[`r px_report$key[5]`],...). Note that Figure2 and Figure3 may display similar distributions as a result of corrlations between diagnoses and procedures. 
+A Total of `r length(unique(px_summ$key))` distinct total procedures codes have been assigned to patients during the encounter of interest. Figure3 gives an overview of procedures that patients had recieved before or at the encounters of interest. It can help identify the common procedures or typical occuring times of precedures (e.g. [`r px_report$key[1]`], [`r px_report$key[2]`],[`r px_report$key[3]`],[`r px_report$key[4]`],[`r px_report$key[5]`],...). 
 
 *Note that only procedure codess with coverage above 0.1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file.*
 
