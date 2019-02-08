@@ -1,30 +1,47 @@
 ---
 title: "Building and Validating Predictive Models for Acute Kidney Injury (AKI) using PCORnet CDM (Part II)"
 author: "xing song"
-date: "August 23, 2018"
+date: "Feburary 09, 2019"
 output: html_document
 ---
-### Aim 2: Model Development using data at KUMC
+### Stage 2: Predictive Models Validation
 
-* Experiment #1: How accurately can we predict AKI 1 to 3 days before its onset? (Figure 1a)
-
-* Experiment #2: How accurately can we predict at admission if AKI will occur in next 1 to 3 days? (Figure 1b)
-
-* Experiment #3: How accurately can we predict if a patient will develop AKI within the next day? (Figure 1c)
-
-![](../figures/Fig1_Modeling_Plan.png)
+* Experiment: How accurately can we predict if a patient will develop AKI within next 24 hours?
+              How accurately can we predict if a patient will develop AKI within next 48 hours?
 
 ***
 
-#### Objective 2.1: Data cleaning and representation
+```{r setup, include=F}
+#source utility functions
+source("./R/util.R")
+source("./R/var_etl_surv.R")
+
+require_libraries(c("tidyr",
+                    "dplyr",
+                    "magrittr",
+                    "stringr",
+                    "broom",
+                    "Matrix",
+                    "xgboost",
+                    "ROCR",
+                    "PRROC"))
+
+```
+
+
+#### Objective 2.1: Data Cleaning and Representation
+
 
 ***
 
 #### Objective 2.2: Model Benchmarking
 
+We adopted the AKI prediction model 
+
 ***
 
 #### Objective 2.3: Model Development
+
 
 ***
 
