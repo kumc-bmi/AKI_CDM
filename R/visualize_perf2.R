@@ -7,7 +7,8 @@ require_libraries(c("Matrix",
                     "tidyr",
                     "plyr",
                     "magrittr", 
-                    "stringr",                    
+                    "stringr",
+                    "ggplot2",
                     "ResourceSelection",
                     "ROCR",
                     "PRROC"
@@ -25,163 +26,12 @@ fs_type<-"no_fs"
 
 #----keep past predictions
 past<-TRUE
-
-##=================aggregate prediction results=====================
-# load data
-pred_task<-c(
-  "stg1up"
-  ,"stg2up"
-  ,"stg3"
-)
-n_bin<-20
-perf_tbl_full<-c()
-perf_tbl<-c()
-calib_tbl<-c()
-varimp_tbl<-c()
-for(i in seq_along(pred_task)){
-  valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda"))
-
-  # various performace table
-  pred<-ROCR::prediction(valid$pred,valid$y)
-  
-  prc<-performance(pred,"prec","rec")
-  roc<-performance(pred,"sens","spec")
-  nppv<-performance(pred,"ppv","npv")
-  pcfall<-performance(pred,"pcfall")
-  acc<-performance(pred,"acc")
-  fscore<-performance(pred,"f")
-  mcc<-performance(pred,"phi")
-  
-  perf_at<-data.frame(cutoff=prc@alpha.values[[1]],
-                      prec=prc@y.values[[1]],
-                      rec_sens=prc@x.values[[1]],
-                      stringsAsFactors = F) %>% 
-    arrange(cutoff) %>%
-    left_join(data.frame(cutoff=nppv@alpha.values[[1]],
-                         ppv=nppv@y.values[[1]],
-                         npv=nppv@x.values[[1]],
-                         stringsAsFactors = F),
-              by="cutoff") %>%
-    dplyr::mutate(prec_rec_dist=abs(prec-rec_sens)) %>%
-    left_join(data.frame(cutoff=fscore@x.values[[1]],
-                         fscore=fscore@y.values[[1]],
-                         stringsAsFactors = F),
-              by="cutoff") %>%
-    left_join(data.frame(cutoff=roc@alpha.values[[1]],
-                         spec=roc@x.values[[1]],
-                         stringsAsFactors = F),
-              by="cutoff") %>%
-    dplyr::mutate(Euclid_meas=sqrt((1-rec_sens)^2+(0-(1-spec))^2),
-                  Youden_meas=rec_sens+spec-1) %>%
-    left_join(data.frame(cutoff=pcfall@x.values[[1]],
-                         pcfall=pcfall@y.values[[1]],
-                         stringsAsFactors = F),
-              by="cutoff") %>%
-    left_join(data.frame(cutoff=acc@x.values[[1]],
-                         acc=acc@y.values[[1]],
-                         stringsAsFactors = F),
-              by="cutoff") %>%
-    left_join(data.frame(cutoff=mcc@x.values[[1]],
-                         mcc=mcc@y.values[[1]],
-                         stringsAsFactors = F),
-              by="cutoff") %>%
-    filter(prec > 0 & rec_sens > 0 & spec > 0)
-  
-  perf_tbl_full %<>% bind_rows(perf_at %>% mutate(pred_task=pred_task[i]))
-  
-  # performance summary
-  lab1<-valid$pred[valid$y==1]
-  lab0<-valid$pred[valid$y==0]
-  pr<-pr.curve(scores.class0 = lab1,
-               scores.class1 = lab0,curve=F)
-  roc_ci<-pROC::ci.auc(valid$y,valid$pred)
-  
-  perf_summ<-data.frame(overall_meas=c("roauc_low",
-                                       "roauc",
-                                       "roauc_up",
-                                       "opt_thresh",
-                                       "opt_sens",
-                                       "opt_spec",
-                                       "opt_ppv",
-                                       "opt_npv",
-                                       "prauc1",
-                                       "prauc2",
-                                       "opt_prec",
-                                       "opt_rec",
-                                       "opt_fscore",
-                                       "size"),
-                        meas_val=c(roc_ci[[1]],
-                                   roc_ci[[2]],
-                                   roc_ci[[3]],
-                                   perf_at$cutoff[which.min(perf_at$Euclid_meas)],
-                                   perf_at$rec_sens[which.min(perf_at$Euclid_meas)],
-                                   perf_at$spec[which.min(perf_at$Euclid_meas)],
-                                   perf_at$ppv[which.min(perf_at$Euclid_meas)],
-                                   perf_at$npv[which.min(perf_at$Euclid_meas)],
-                                   pr$auc.integral,
-                                   pr$auc.davis.goadrich,
-                                   perf_at$prec[which.min(perf_at$prec_rec_dist)],
-                                   perf_at$rec_sens[which.min(perf_at$prec_rec_dist)],
-                                   perf_at$fscore[which.min(perf_at$prec_rec_dist)],
-                                   length(unique(valid$ROW_ID))),
-                        stringsAsFactors = F) %>%
-    bind_rows(perf_at %>% 
-                dplyr::summarize(prec=mean(prec,na.rm=T),
-                                 sens=mean(rec_sens,na.rm=T),
-                                 spec=mean(spec,na.rm=T),
-                                 ppv=mean(ppv,na.rm=T),
-                                 npv=mean(npv,na.rm=T),
-                                 acc=mean(acc,na.rm=T),
-                                 fscore=mean(fscore,na.rm=T),
-                                 mcc=mean(mcc,na.rm=T)) %>%
-                gather(overall_meas,meas_val))
-  
-  perf_tbl %<>% bind_rows(perf_summ %>% mutate(pred_task=pred_task[i]))
-  
-  
-  #calibration
-  calib<-data.frame(pred=valid$pred,
-                    y=valid$y) %>%
-    arrange(pred) %>%
-    dplyr::mutate(pred_bin = cut(pred,
-                                 breaks=unique(quantile(pred,0:(n_bin)/(n_bin))),
-                                 include.lowest=T,
-                                 labels=F)) %>%
-    ungroup %>% group_by(pred_bin) %>%
-    dplyr::summarize(expos=n(),
-                     bin_lower=min(pred),
-                     bin_upper=max(pred),
-                     bin_mid=median(pred),
-                     y_agg = sum(y),
-                     pred_p = mean(pred)) %>%
-    dplyr::mutate(y_p=y_agg/expos) %>%
-    dplyr::mutate(binCI_lower = pmax(0,pred_p-1.96*sqrt(y_p*(1-y_p)/expos)),
-                  binCI_upper = pred_p+1.96*sqrt(y_p*(1-y_p)/expos))
-  
-  calib_tbl %<>% bind_rows(calib %>% mutate(pred_task=pred_task[i]))
-  
-  #variable
-  varimp<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_varimp_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
-    dplyr::mutate(rank=1:n(),
-                  Gain_rescale=round(Gain/Gain[1]*100)) %>%
-    dplyr::select(rank,Feature,Gain_rescale)
-  
-  varimp_tbl %<>% 
-    bind_rows(varimp %>% mutate(pred_task=pred_task[i],tot_feature=nrow(varimp)))
-}
-
-perf_out<-list(perf_tbl_full=perf_tbl_full,
-               perf_tbl=perf_tbl,
-               calib_tbl=calib_tbl,
-               varimp_tbl=varimp_tbl)
-saveRDS(perf_out,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))
-
+# past<-FALSE
 
 ##=================tabulate and plot overall summary=================
-require_libraries("ggplot2")
-
 #only print out a selective of measures
-perf_overall<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>% 
+perf_overall<-readRDS(paste0("./data_local/LMGBM_ref/",
+                             pred_in_d,"_",fs_type,"_",past,"_perf.rda"))$perf_tbl %>% 
   filter(overall_meas %in% c("roauc",
                              "roauc_low",
                              "roauc_up",
@@ -252,7 +102,8 @@ ggplot(perf_cutoff %>% dplyr::filter(cutoff <=0.15),
 
 
 # plot calibration
-calib_tbl<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$calib_tbl %>%
+calib_tbl<-readRDS(paste0("./data_local/LMGBM_ref/",
+                          pred_in_d,"_",fs_type,"_",past,"_perf.rda"))$calib_tbl %>%
   mutate(pred_task=recode(pred_task,
                           `stg1up`="a.At least AKI1",
                           `stg2up`="b.At least AKI2",
@@ -280,7 +131,8 @@ data_dict<-read.csv("./data/feature_dict.csv") %>%
                                      paste0("CH:",VALUESET_ITEM),
                                      VALUESET_ITEM)))
 
-varimp<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$varimp_tbl %>%
+varimp<-readRDS(paste0("./data_local/LMGBM_ref/",
+                       pred_in_d,"_",fs_type,"_",past,"_perf.rda"))$varimp_tbl %>%
   dplyr::mutate(suffix=gsub("_","",str_extract(Feature,"((\\_min)|(\\_slope)|(\\_change)|(\\_cum))+"))) %>%
   dplyr::mutate(feat=gsub("((\\_min)|(\\_slope)|(\\_change)|(\\_cum))+","",Feature)) %>%
   left_join(data_dict,by=c("feat"="VALUESET_ITEM")) %>%

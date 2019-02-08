@@ -19,13 +19,13 @@ Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affe
 
 * **Aim 1 - KUMC**: Building predictive models on single-site data. We will develop and internally cross-validate machine learning based predictive models for in-hospital AKI using electronic medical record (EMR) data from the University of Kansas Medical Center’s (KUMC) PCORnet CDM. As co-I of the PCORnet network Greater Plains Collaborative (GPC), PI of this project has direct access to the KUMC CDM for model development.    
       * Task 1.1: developing R implementation for data extraction and quality check  -- (due at 09/07/2018)   
-      * **Task 1.2: exploratory data analysis (e.g. strategies for data cleaning and representation, feature engineering) -- current (due at 12/31/2018)**    
+      * Task 1.2: exploratory data analysis (e.g. strategies for data cleaning and representation, feature engineering) -- current (due at 03/31/2019)**    
       * Task 1.3: benchmarking with replication of current state-of-art prediction model    
       * Task 1.4: developing new models   
  
 * **Aim 2 -  GPC**: Validating predictive models on multi-site data. We will implement an automated analytic package with built in data extraction and predictive modeling from Aim 1 for distributed execution within two PCORnet clinical data research networks (CDRNs), namely GPC led by Dr. Waitman and Veterans Health Administration (VHA) site led by Dr. Matheny in pSCANNER. All prototyping will be done on the KUMC CDM.    
-      * **Task 2.1: deploying R codes for data extraction and quanlity check, and reporting results to KUMC -- current (due at 12/31/2018)**        
-      * Task 2.2: deploying R codes for external validations of predictive models      
+      * Task 2.1: deploying R codes for data extraction and quanlity check, and reporting results to KUMC -- current (due at 12/31/2018)        
+      * **Task 2.2: deploying R codes for external validations of predictive models -- current (due at 03/31/2019)**      
       
 [GPC#711]: https://informatics.gpcnetwork.org/trac/Project/ticket/711
 
@@ -82,7 +82,9 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 
 
 ## Site Usage
-The following instructions are for extracting cohort and generating final report from a `DBMS` data source (specified by `DBMS_type`) (available options are: Oracle, tSQL, PostgreSQL(not yet))  
+The following instructions are for extracting cohort and generating final report from a `DBMS` data source (specified by `DBMS_type`) (available options are: Oracle, tSQL, PostgreSQL(not yet)) 
+
+### Part I: Study Cohort and Variable Extraction
 
 1. Get `AKI_CDM` code
   - **download** the [AKI_CDM] repository as a .zip file, unzip and save folder as `path-to-dir/AKI_CDM`    
@@ -134,6 +136,12 @@ The following instructions are for extracting cohort and generating final report
 *Remark*: all the counts (patient, encounter, record) are masked as "<11" if the number is below 11
 
 
+### Part II: Validate Existing Predictive Models and Retrain Predictive Models with Local Data
+
+
+
+
+
 ***
 
 ## Benchmarking
@@ -141,4 +149,4 @@ It takes about **2 ~ 3 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd).
 
 
 ***
-*updated 12/21/2018*
+*updated 02/08/2019*
