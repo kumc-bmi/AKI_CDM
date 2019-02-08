@@ -15,13 +15,16 @@ require_libraries(c("Matrix",
 
 
 #-----prediction point
-# pred_in_d<-1
-pred_in_d<-2
+pred_in_d<-1
+# pred_in_d<-2
 # pred_in_d<-3
 
 #-----feature selection type
 fs_type<-"no_fs"
 # fs_type<-"rm_scr_bun"
+
+#----keep past predictions
+past<-TRUE
 
 ##=================aggregate prediction results=====================
 # load data
@@ -37,7 +40,7 @@ calib_tbl<-c()
 varimp_tbl<-c()
 for(i in seq_along(pred_task)){
   valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda"))
-  
+
   # various performace table
   pred<-ROCR::prediction(valid$pred,valid$y)
   
