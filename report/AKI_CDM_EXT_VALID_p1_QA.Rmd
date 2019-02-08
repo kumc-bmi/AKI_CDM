@@ -10,7 +10,7 @@ params:
   start_date: "2010-01-01"
   end_date: as.character(Sys.Date())
 ---
-### Aim 1: Data Feasibility Evaluation over GPC sites.
+### Stage 1: Data Feasibility Evaluation over GPC sites.
 #### Objective 1.1: Study cohort extraction and characterization
 
 ##### Inclusion criteria:
