@@ -19,7 +19,7 @@ Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affe
 
 * **Aim 1 - KUMC**: Building predictive models on single-site data. We will develop and internally cross-validate machine learning based predictive models for in-hospital AKI using electronic medical record (EMR) data from the University of Kansas Medical Center’s (KUMC) PCORnet CDM. As co-I of the PCORnet network Greater Plains Collaborative (GPC), PI of this project has direct access to the KUMC CDM for model development.    
       * Task 1.1: developing R implementation for data extraction and quality check  -- (due at 09/07/2018)   
-      * Task 1.2: exploratory data analysis (e.g. strategies for data cleaning and representation, feature engineering) -- current (due at 03/31/2019)**    
+      * **Task 1.2: exploratory data analysis (e.g. strategies for data cleaning and representation, feature engineering) -- current (due at 03/31/2019)**    
       * Task 1.3: benchmarking with replication of current state-of-art prediction model    
       * Task 1.4: developing new models   
  
