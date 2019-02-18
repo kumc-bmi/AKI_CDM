@@ -104,7 +104,7 @@ The following instructions are for extracting cohort and generating final report
     |:------------|:-----------|:--------------|:-------------------------------|:------------------|:--------------|    
     |your_username|your_passwd |host:port    |database name(tSQL)/SID(Oracle) |current CDM schema |default schema |   
     
-      iii) **save as** `config.csv` under the parent directory of AKI_CDM (so it would be at the same level as the AKI_CDM folder)      
+      iii) **save as** `config.csv` under the same directory         
       
 
 [AKI_CDM]: https://github.com/kumc-bmi/AKI_CDM
