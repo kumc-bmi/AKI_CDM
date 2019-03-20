@@ -54,6 +54,8 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 * [openxlsx] (>=4.1.0): to save tables into multiple sheets within a single .xlsx file      
 * [RCurl]: for linkable descriptions (when uploading giant mapping tables are not feasible)
 * [XML]: for linkable descriptions (when uploading giant mapping tables are not feasible)
+* [xgboost]: for effectively training the gradient boosting machine   
+* [ggpubr]: for more flexible plots arrangement   
 
 
 
@@ -77,6 +79,8 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 [htmltools]:  https://cran.r-project.org/web/packages/htmltools/htmltools.pdf
 [RCurl]: https://cran.r-project.org/web/packages/RCurl/RCurl.pdf
 [XML]: https://cran.r-project.org/web/packages/XML/XML.pdf
+[xgboost]:https://xgboost.readthedocs.io/en/latest/   
+[ggpubr]: https://cran.r-project.org/web/packages/ggpubr/index.html
 
 
 ***
@@ -128,7 +132,7 @@ The following instructions are for extracting cohort and generating final report
                   ---- 3. add a column `cdm_db_link` to `config.csv` and specify the link     
         - `start_date`, `end_date`: the start and end date of inclusion period, in `"yyyy-mm-dd"` format (e.g. "2010-01-01", with the quotes)             
       
-      iii) **run** r script `render_report.R` after assigning correct values to the parameters in ii)        
+      iii) **run** *Part I* of r script `render_report.R` after assigning correct values to the parameters in ii)        
       
       iv) **collect and report** all output files from `\output` folder   
         -- 1. AKI_CDM_EXT_VALID_p1_QA.html - html report with description, figures and partial tables    
@@ -139,15 +143,16 @@ The following instructions are for extracting cohort and generating final report
 
 ### Part II: Validate Existing Predictive Models and Retrain Predictive Models with Local Data
 
-
-
+After completing Part I, continue to **run** *Part II* of the r script `render_report.R`. *Part II* will only depend on tables already extracted from Part I (saved locally in the folder`./data/...`), no parameter needs to be set up. 
 
 
 ***
 
 ## Benchmarking
-It takes about **2 ~ 3 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of output for Part I is about **6MB**.
+a. It takes about **2 ~ 3 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of output for Part I is about **6MB**.
+
+b. It takes about **X ~ Y hours** to complete Part II.1 (AKI_CDM_EXT_VALID_p2_Benchmark.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of intermediate tables and output for Part II.1 is about **600MB**.
 
 
 ***
-*updated 02/08/2019*
+*updated 03/19/2019*
