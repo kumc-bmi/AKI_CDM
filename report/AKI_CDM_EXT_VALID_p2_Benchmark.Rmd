@@ -30,7 +30,6 @@ require_libraries(c("tidyr",
                     "knitr",
                     "kableExtra",
                     "ggplot2",
-                    "ggpubr",
                     "openxlsx"))
 
 ```
