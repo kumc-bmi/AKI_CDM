@@ -13,21 +13,24 @@ require_libraries(c("knitr",
 
 
 #===============generate report for Part I=========================#
+#================ Cohort Extraction and QA ========================#
 #render the rmarkdown report with the following expected outputs:
 # 1. AKI_CDM_EXT_VALID_p1_QA.html
 # 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx
 render_report(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
-              DBMS_type="Oracle",
+              DBMS_type="tSQL",
               driver_type="JDBC",
-              start_date="2010-01-01")
+              start_date="2017-01-01")
 
 # The error: 
 # Error in unlockBinding("params", <environment>) : no binding for "params"
 # Can be ignored. It's because we need to delete "params" before the script is done.
 
 
-#TODO:
-#===============generate report for Part II=========================#
-# render_report(path_to_input="./report/AKI_CDM_EXT_VALID_p2_ModelDev.Rmd",
-#               DBMS_type="Oracle")
+#===============generate report for Part II.1 =========================#
+#================ Benchmark Model Development =========================#
+#render the rmarkdown report with the following expected outputs:
+# 1. AKI_CDM_EXT_VALID_p2_Benchmark.html
+# 2. AKI_CDM_EXT_VALID_p2_Benchmark_TBL.xlsx
+render_report(which_report="./report/AKI_CDM_EXT_VALID_p2_Benchmark.Rmd")
 

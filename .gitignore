@@ -8,6 +8,7 @@ AKI_CDM_EXT_VALID_p1_QA_full.Rmd
 report_local/
 logs/
 data_local/
+data/model_ref_local/
 feature_dict.csv
 *config.csv
 *.xlsx
