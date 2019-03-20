@@ -915,7 +915,7 @@ for(fs_type_i in seq_along(fs_type_opt)){
   
   final_out[[paste0("pred48_varimp_",fs_type)]]<-varimp
 }
-pinrt(pred48_varimp_plot[[1]])
+print(pred48_varimp_plot[[1]])
 print(pred48_varimp_plot[[2]])
 
 ```

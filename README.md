@@ -133,20 +133,20 @@ The following instructions are for extracting cohort and generating final report
       
       iii) **run** *Part I* of r script `render_report.R` after assigning correct values to the parameters in ii)        
       
-      iv) **collect and report** all output files from `\output` folder   
-        -- 1. AKI_CDM_EXT_VALID_p1_QA.html - html report with description, figures and partial tables    
-        -- 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx - excel with full summary tables    
+      iv) **collect and report** all output files from `/output` folder   
+        -- a. AKI_CDM_EXT_VALID_p1_QA.html - html report with description, figures and partial tables    
+        -- b. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx - excel with full summary tables    
 
 *Remark*: all the counts (patient, encounter, record) are masked as "<11" if the number is below 11
 
 
 ### Part II: Validate Existing Predictive Models and Retrain Predictive Models with Local Data
 
-1. After completing Part I, continue to **run** *Part II* of the r script `render_report.R`. *Part II* will only depend on tables already extracted from Part I (saved locally in the folder`./data/...`), no parameter needs to be set up.     
+1. **continue to run** *Part II* of the r script `render_report.R` after completing *Part I*. *Part II* will only depend on tables already extracted from *Part I* (saved locally in the folder`./data/...`), no parameter needs to be set up.     
 
-2. **collect and report** the two new output files from `\output` folder      
-  -- 1. AKI_CDM_EXT_VALID_p2_Benchmark.html - html report with description, figures and partial tables       
-  -- 2. AKI_CDM_EXT_VALID_p2_Benchmark_TBL.xlsx - excel with full summary tables    
+2. **collect and report** the two new output files from `/output` folder      
+  -- a. AKI_CDM_EXT_VALID_p2_Benchmark.html - html report with description, figures and partial tables       
+  -- b. AKI_CDM_EXT_VALID_p2_Benchmark_TBL.xlsx - excel with full summary tables    
 
 
 ***
