@@ -144,7 +144,7 @@ The following instructions are for extracting cohort and generating final report
 
 1. Validate the given predictive model trained on KUMC's data   
 
-    i) **download** the predictive model package from the securefile link shared by KUMC    
+    i) **download** the predictive model package, "model_kumc.zip", from the securefile link shared by KUMC. Unzip the file and save it under `./data/`   
     
     ii) **continue to run** *Part II.1* of the r script `render_report.R` after completing *Part I*. *Part II.1* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
 
@@ -152,7 +152,7 @@ The following instructions are for extracting cohort and generating final report
       -- a. AKI_CDM_EXT_VALID_p2_Benchmark.html - html report with description, figures and partial tables       
       -- b. AKI_CDM_EXT_VALID_p2_Benchmark_TBL.xlsx - excel with full summary tables          
 
-2. Validate the given predictive model trained on KUMC's data     
+2. Retrain the model using local data and validate on holdout set     
 
     i) **continue to run** *Part II.2* of the r script `render_report.R` after completing *Part I* and **Part II.1**. *Part II.2* will only depend on tables already extracted from *Part I* and complied in *Part II.1* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
 
