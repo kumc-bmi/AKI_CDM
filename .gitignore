@@ -9,6 +9,7 @@ report_local/
 logs/
 data_local/
 data/model_ref_local/
+data/model_kumc_local/
 feature_dict.csv
 *config.csv
 *.xlsx
