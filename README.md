@@ -142,11 +142,24 @@ The following instructions are for extracting cohort and generating final report
 
 ### Part II: Validate Existing Predictive Models and Retrain Predictive Models with Local Data
 
-1. **continue to run** *Part II* of the r script `render_report.R` after completing *Part I*. *Part II* will only depend on tables already extracted from *Part I* (saved locally in the folder`./data/...`), no parameter needs to be set up.     
+1. Validate the given predictive model trained on KUMC's data   
 
-2. **collect and report** the two new output files from `/output` folder      
-  -- a. AKI_CDM_EXT_VALID_p2_Benchmark.html - html report with description, figures and partial tables       
-  -- b. AKI_CDM_EXT_VALID_p2_Benchmark_TBL.xlsx - excel with full summary tables    
+    i) **download** the predictive model package from the securefile link shared by KUMC    
+    
+    ii) **continue to run** *Part II.1* of the r script `render_report.R` after completing *Part I*. *Part II.1* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
+
+    iii) **collect and report** the two new output files from `/output` folder           
+      -- a. AKI_CDM_EXT_VALID_p2_Benchmark.html - html report with description, figures and partial tables       
+      -- b. AKI_CDM_EXT_VALID_p2_Benchmark_TBL.xlsx - excel with full summary tables          
+
+2. Validate the given predictive model trained on KUMC's data     
+
+    i) **continue to run** *Part II.2* of the r script `render_report.R` after completing *Part I* and **Part II.1**. *Part II.2* will only depend on tables already extracted from *Part I* and complied in *Part II.1* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
+
+    ii) **collect and report** the two new output files from `/output` folder           
+      -- a. AKI_CDM_EXT_VALID_p2_Benchmark.html - html report with description, figures and partial tables       
+      -- b. AKI_CDM_EXT_VALID_p2_Benchmark_TBL.xlsx - excel with full summary tables          
+
 
 
 ***
@@ -154,8 +167,9 @@ The following instructions are for extracting cohort and generating final report
 ## Benchmarking
 a. It takes about **2 ~ 3 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of output for Part I is about **6MB**.
 
-b. It takes about **XX ~ XX hours** to complete Part II.1 (AKI_CDM_EXT_VALID_p2_Benchmark.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of intermediate tables and output for Part II.1 is about **600MB**.
+b. It takes about **6 ~ 8 hours** to complete Part II.1 (AKI_CDM_EXT_VALID_p2_Benchmark.Rmd). At peak time, it will use about **40 ~ 50GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of intermediate tables and output for Part II.1 is about **600MB**.
 
+c. It takes about **XX ~ XX hours** to complete Part II.1 (AKI_CDM_EXT_VALID_p2_Benchmark.Rmd). At peak time, it will use about **40 ~ 50GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of intermediate tables and output for Part II.1 is about **600MB**.
 
 ***
-*updated 03/19/2019*
+*updated 03/20/2019*
