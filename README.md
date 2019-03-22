@@ -144,7 +144,7 @@ The following instructions are for extracting cohort and generating final report
 
 1. Validate the given predictive model trained on KUMC's data   
 
-    i) **download** the predictive model package, "AKI_model_kumc.zip", from the securefile link shared by KUMC. Unzip the file and save everything under `./data/model_kumc` (remark: make sure to save the files under the correct directory, as they will be called later using the corresponding path)   
+    i) **download** the predictive model package, "AKI_model_kumc.zip", from the securefile link shared by KUMC. Unzip the file and save everything under `./data/model_kumc` (remark: make sure to save the file under the correct directory, as it will be called later using the corresponding path)   
     
     ii) **continue to run** *Part II.1* of the r script `render_report.R` after completing *Part I*. *Part II.1* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
 
