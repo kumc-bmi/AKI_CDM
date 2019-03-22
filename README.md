@@ -144,23 +144,23 @@ The following instructions are for extracting cohort and generating final report
 
 1. Validate the given predictive model trained on KUMC's data   
 
-    i) **download** the predictive model package, "AKI_model_kumc.zip", from the securefile link shared by KUMC. Unzip the file and save everything under `./data/model_kumc` (remark: make sure to save the file under the correct directory, as it will be called later using the corresponding path)   
+    i) **download** the predictive model package, "AKI_model_kumc.zip", from the securefile link shared by KUMC. Unzip the file and save everything under `./data/model_kumc` (remark: make sure to save the files under the correct directory, as they will be called later using the corresponding path)   
     
     ii) **continue to run** *Part II.1* of the r script `render_report.R` after completing *Part I*. *Part II.1* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
 
     iii) **collect and report** the two new output files from `/output` folder           
-      -- a. AKI_CDM_EXT_VALID_p2_Benchmark.html - html report with description, figures and partial tables       
-      -- b. AKI_CDM_EXT_VALID_p2_Benchmark_TBL.xlsx - excel with full summary tables          
+      -- a. AKI_CDM_EXT_VALID_p2_1_Benchmark.html - html report with description, figures and partial tables       
+      -- b. AKI_CDM_EXT_VALID_p2_1_Benchmark_TBL.xlsx - excel with full summary tables          
 
 2. Retrain the model using local data and validate on holdout set 
 
-    i) **download** the data dictionary, "feature_dict.csv", from the securefile link shared by KUMC and save the file under "./data/" (remark: make sure to save the files under the correct directory, as they will be called later using the corresponding path)   
+    i) **download** the data dictionary, "feature_dict.csv", from the securefile link shared by KUMC and save the file under "./data/" (remark: make sure to save the file under the correct directory, as it will be called later using the corresponding path)   
 
     ii) **continue to run** *Part II.2* of the r script `render_report.R` after completing *Part I* and *Part II.1*. *Part II.2* will only depend on tables already extracted from *Part I* and complied in *Part II.1* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
 
     iii) **collect and report** the two new output files from `/output` folder           
-      -- a. AKI_CDM_EXT_VALID_p2_Benchmark.html - html report with description, figures and partial tables       
-      -- b. AKI_CDM_EXT_VALID_p2_Benchmark_TBL.xlsx - excel with full summary tables          
+      -- a. AKI_CDM_EXT_VALID_p2_2_Retrain.html - html report with description, figures and partial tables       
+      -- b. AKI_CDM_EXT_VALID_p2_2_Retrain_TBL.xlsx - excel with full summary tables          
 
 
 
