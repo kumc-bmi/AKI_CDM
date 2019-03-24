@@ -161,7 +161,7 @@ for(pred_task in pred_task_lst){
       start_v<-Sys.time()
       
       #extract
-      var_v<-readRDS(paste0("./data_local/data_raw/AKI_",toupper(var_type[v]),".rda")) %>%
+      var_v<-readRDS(paste0("./data/AKI_",toupper(var_type[v]),".rda")) %>%
         semi_join(dat_i,by="ENCOUNTERID")
       
       if(var_type[v] != "demo"){
