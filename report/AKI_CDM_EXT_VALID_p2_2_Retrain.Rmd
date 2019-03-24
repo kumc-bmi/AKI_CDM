@@ -33,6 +33,9 @@ require_libraries(c("tidyr",
                     "openxlsx"))
 
 # experimental design parameters
+#----prediction ending point
+pred_end<-7
+
 #-----prediction point
 pred_in_d_opt<-c(1,2)
 
