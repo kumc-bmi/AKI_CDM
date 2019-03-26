@@ -174,7 +174,7 @@ execute_single_sql<-function(conn,statement,write,table_name){
         stop("Driver type not supported for ",DBMS_type,"!\n")
       }else{
         try_tbl<-try(dbGetQuery(conn,paste("select * from",table_name,"where 1=0")),silent=T)
-        if(is.null(attr(try_tbl,"condition"))){
+        if(is.null(attr(try_tbl,"condition"))&!grepl("(Error)+",attr(try_tbl,"condition"))){
           if(driver_type=="OCI"){
             dbSendQuery(conn,paste("drop table",table_name)) #in case there exists same table name
           }else{
