@@ -201,6 +201,7 @@ for(pred_task in pred_task_lst){
     lapse_i<-Sys.time()-start_i
     var_etl_bm<-c(var_etl_bm,paste0(lapse_i,units(lapse_i)))
     cat("\n...finished variabl collection for year",enc_yr[i],"in",lapse_i,units(lapse_i),".\n")
+    flush.console() 
     
     var_bm[[i]]<-data.frame(bm_nm=c(var_type,"overall"),
                             bm_time=var_etl_bm,
@@ -240,90 +241,93 @@ The final preprocessed intermediate tables from this code chunk should be found 
 After receiving the `model_kumc.zip` from KUMC via securefile, unzip the data and save under `.../data/model_kumc`. The model will be validated on the overall cohort from the site by generating a AKI risk score for different AKI stages. The validation progress will be reported as follows:
 
 ```{r benchmark, echo=F}
+rm(list=c("X_surv","y_surv","dat_i")); gc() #release some memory
+
 for(pred_in_d in pred_in_d_opt){
   
   for(pred_task in pred_task_lst){
-  start_tsk<-Sys.time()
-  #---------------------------------------------------------------------------------------------
-
-  for(fs_type in fs_type_opt){
-    #--prepare testing set
-    yr_rg<-seq(2010,2018)
-    X_ts<-c()
-    y_ts<-c()
-    for(i in seq_along(yr_rg)){
-      var_by_yr<-readRDS(paste0("./data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))[[i]]
+    start_tsk<-Sys.time()
+    #---------------------------------------------------------------------------------------------
+    var_by_task<-readRDS(paste0("./data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
     
-      X_ts %<>% bind_rows(var_by_yr[["X_surv"]])
-      y_ts %<>% bind_rows(var_by_yr[["y_surv"]])
+    for(fs_type in fs_type_opt){
+      #--prepare testing set
+      yr_rg<-seq(2010,2018)
+      X_ts<-c()
+      y_ts<-c()
+      for(i in seq_along(yr_rg)){
+        var_by_yr<-var_by_task[[i]]
+        
+        X_ts %<>% bind_rows(var_by_yr[["X_surv"]])
+        y_ts %<>% bind_rows(var_by_yr[["y_surv"]])
+        
+        # cat(pred_in_d,",",pred_in_d,"...finish stack data of encounters from year",yr_rg[i],".\n")
+      }
       
-      # cat(pred_in_d,",",pred_in_d,"...finish stack data of encounters from year",yr_rg[i],".\n")
-    }
-    
-    #--pre-filter
-    if(fs_type=="rm_scr_bun"){
-      X_ts %<>%
-        filter(!(key %in% c(rm_key,paste0(rm_key,"_change"))))
-    }
-    
-    #--collect variables used in training
-    ref_mod<-readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_model_gbm_",fs_type,"_",pred_task,".rda"))
-    tr_key<-data.frame(key = ref_mod$feature_names,
-                       stringsAsFactors = F)
-  
-    #--transform testing matrix
-    y_ts %<>%
-      arrange(ENCOUNTERID,dsa_y) %>%
-      unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
-      arrange(ROW_ID) %>%
-      unique
-  
-    X_ts %<>% 
-      unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
-      semi_join(y_ts,by="ROW_ID") %>%
-      semi_join(tr_key,by="key")
-  
-    x_add<-tr_key %>%
-      anti_join(data.frame(key = unique(X_ts$key),
-                           stringsAsFactors = F),
-                by="key")
-  
-    #align with training
-    if(nrow(x_add)>0){
-      X_ts %<>%
+      #--pre-filter
+      if(fs_type=="rm_scr_bun"){
+        X_ts %<>%
+          filter(!(key %in% c(rm_key,paste0(rm_key,"_change"))))
+      }
+      
+      #--collect variables used in training
+      ref_mod<-readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_model_gbm_",fs_type,"_",pred_task,".rda"))
+      tr_key<-data.frame(key = ref_mod$feature_names,
+                         stringsAsFactors = F)
+      
+      #--transform testing matrix
+      y_ts %<>%
+        arrange(ENCOUNTERID,dsa_y) %>%
+        unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
         arrange(ROW_ID) %>%
-        bind_rows(data.frame(ROW_ID = rep("0_0",nrow(x_add)),
-                             dsa = -99,
-                             key = x_add$key,
-                             value = 0,
-                             stringsAsFactors=F))
-    }
-    X_ts %<>%
-      long_to_sparse_matrix(df=.,
-                            id="ROW_ID",
-                            variable="key",
-                            val="value")
-    if(nrow(x_add)>0){
-      X_ts<-X_ts[-1,]
-    }
-  
-    #check alignment
-    all(row.names(X_ts)==y_ts$ROW_ID)
-    all(ref_mod$feature_names==colnames(X_ts))
-  
-    #--covert to xgb data frame
-    dtest<-xgb.DMatrix(data=X_ts,label=y_ts$y)
-
-    #--validation
-    valid<-data.frame(y_ts,
-                      pred = predict(ref_mod,dtest),
-                      stringsAsFactors = F)
-  
-    #--save model and other results
-    saveRDS(valid,file=paste0("./data/model_kumc/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda"))
-    #-------------------------------------------------------------------------------------------------------------
-    lapse_tsk<-Sys.time()-start_tsk
-    cat("\nFinish validating benchmark models for task:",pred_task,"in",pred_in_d,"with",fs_type,",in",lapse_tsk,units(lapse_tsk),".\n")
+        unique
+      
+      X_ts %<>% 
+        unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+        semi_join(y_ts,by="ROW_ID") %>%
+        semi_join(tr_key,by="key")
+      
+      x_add<-tr_key %>%
+        anti_join(data.frame(key = unique(X_ts$key),
+                             stringsAsFactors = F),
+                  by="key")
+      
+      #align with training
+      if(nrow(x_add)>0){
+        X_ts %<>%
+          arrange(ROW_ID) %>%
+          bind_rows(data.frame(ROW_ID = rep("0_0",nrow(x_add)),
+                               dsa = -99,
+                               key = x_add$key,
+                               value = 0,
+                               stringsAsFactors=F))
+      }
+      X_ts %<>%
+        long_to_sparse_matrix(df=.,
+                              id="ROW_ID",
+                              variable="key",
+                              val="value")
+      if(nrow(x_add)>0){
+        X_ts<-X_ts[-1,]
+      }
+      
+      #check alignment
+      all(row.names(X_ts)==y_ts$ROW_ID)
+      all(ref_mod$feature_names==colnames(X_ts))
+      
+      #--covert to xgb data frame
+      dtest<-xgb.DMatrix(data=X_ts,label=y_ts$y)
+      
+      #--validation
+      valid<-data.frame(y_ts,
+                        pred = predict(ref_mod,dtest),
+                        stringsAsFactors = F)
+      
+      #--save model and other results
+      saveRDS(valid,file=paste0("./data/model_kumc/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda"))
+      #-------------------------------------------------------------------------------------------------------------
+      lapse_tsk<-Sys.time()-start_tsk
+      cat("\nFinish validating benchmark models for task:",pred_task,"in",pred_in_d,"with",fs_type,",in",lapse_tsk,units(lapse_tsk),".\n")
     }
   }
 }
@@ -341,8 +345,8 @@ For each prediction task, defined as "predict AKI stage X in Y days, with/withou
 #### Objective 2.3: Performance Evaluations for Benchmark Model
 
 ```{r perf_summ, include=F}
+rm(list=c("X_ts","y_ts","dtest")); gc() #release some memory
 
-##=================aggregate prediction results=====================
 pred_in_d_opt<-c(1,2)
 fs_type_opt<-c("no_fs","rm_scr_bun")
 pred_task<-c("stg1up","stg2up","stg3")
@@ -379,15 +383,12 @@ for(pred_in_d in pred_in_d_opt){
     
     perf_out<-list(perf_tbl_full=perf_tbl_full,
                    perf_tbl=perf_tbl,
-                   calib_tbl=calib_tbl,
-                   varimp_tbl=varimp_tbl)
+                   calib_tbl=calib_tbl)
     
     #save results as r data.frame
     saveRDS(perf_out,file=paste0("./data/model_kumc/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))
   }
 }
-
-
 ```
 
 
@@ -421,7 +422,7 @@ fs_type_opt<-c("no_fs","rm_scr_bun")
 perf_overall<-c()
 for(fs_type in fs_type_opt){
   perf_overall %<>%
-    bind_rows(readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>%
+    bind_rows(readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>%
                 filter(overall_meas %in% c("roauc",
                                            "roauc_low",
                                            "roauc_up",
@@ -444,7 +445,7 @@ for(fs_type in fs_type_opt){
 fs_type<-"no_fs"
 subgrp_age<-c()
 for(i in seq_along(pred_task)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
+      valid<-readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -482,7 +483,7 @@ for(i in seq_along(pred_task)){
   #subgroup-scr
   subgrp_scr<-c()
   for(i in seq_along(pred_task)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
+      valid<-readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -535,8 +536,10 @@ perf_overall %<>%
                 unite("1.ROAUC",c("1.ROAUC","1.ROAUC_CI"),sep=" (")  
 
 row_grp_pos<-perf_overall %>% 
+  arrange(grp,pred_task) %>%
   mutate(rn=1:n()) %>%
-  group_by(pred_in_d,fs_type,grp) %>%
+  dplyr::mutate(root_grp=gsub(":.*","",grp)) %>%
+  group_by(root_grp,pred_in_d) %>%
   dplyr::summarize(begin=rn[1],
                    end=rn[n()]) %>%
   ungroup
@@ -544,10 +547,9 @@ row_grp_pos<-perf_overall %>%
 kable(perf_overall %>% arrange(grp,pred_task),
       caption="Table1 - 24-Hour Prediction of AKI1, AKI2, AKI3") %>%
   kable_styling("striped", full_width = F) %>%
-  group_rows("Overall-All_feature", row_grp_pos$begin[1],row_grp_pos$end[1]) %>%
-  group_rows("Overall-Scr_and_BUN_removed", row_grp_pos$begin[2],row_grp_pos$end[2]) %>%
-  group_rows("Subgroup-Age", row_grp_pos$begin[3],row_grp_pos$end[3]) %>%
-  group_rows("Subgroup-Scr_Base", row_grp_pos$begin[4],row_grp_pos$end[4])
+  group_rows("Overall", row_grp_pos$begin[1],row_grp_pos$end[1]) %>%
+  group_rows("Subgroup-Age", row_grp_pos$begin[2],row_grp_pos$end[2]) %>%
+  group_rows("Subgroup-Scr_Base", row_grp_pos$begin[3],row_grp_pos$end[3])
 
 final_out[["pred24_summ"]]<-perf_overall
 ```
@@ -563,7 +565,7 @@ pred24_cutoff_plot<-list()
 for(fs_type_i in seq_along(fs_type_opt)){
   fs_type<-fs_type_opt[fs_type_i]
   
-  perf_cutoff<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl_full %>%
+  perf_cutoff<-readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl_full %>%
     dplyr::select(cutoff,rec_sens,spec,ppv,npv,pred_task) %>%
     mutate(bin=cut(cutoff,breaks=brks,include.lowest=T,label=F)) %>%
     group_by(bin,pred_task) %>%
@@ -615,7 +617,7 @@ pred24_calib_plot<-list()
 for(fs_type_i in seq_along(fs_type_opt)){
   fs_type<-fs_type_opt[fs_type_i]
   
-  calib_tbl<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$calib_tbl %>%
+  calib_tbl<-readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$calib_tbl %>%
     mutate(pred_task=recode(pred_task,
                           `stg1up`="a.AKI>=1",
                           `stg2up`="b.AKI>=2",
@@ -653,7 +655,7 @@ fs_type_opt<-c("no_fs","rm_scr_bun")
 perf_overall<-c()
 for(fs_type in fs_type_opt){
   perf_overall %<>%
-    bind_rows(readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>%
+    bind_rows(readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>%
                 filter(overall_meas %in% c("roauc",
                                            "roauc_low",
                                            "roauc_up",
@@ -676,7 +678,7 @@ for(fs_type in fs_type_opt){
 fst_type<-"no_fs"
 subgrp_age<-c()
 for(i in seq_along(pred_task)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
+      valid<-readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -714,7 +716,7 @@ for(i in seq_along(pred_task)){
   #subgroup-scr
   subgrp_scr<-c()
   for(i in seq_along(pred_task)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
+      valid<-readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -767,8 +769,10 @@ perf_overall %<>%
                 unite("1.ROAUC",c("1.ROAUC","1.ROAUC_CI"),sep=" (")  
 
 row_grp_pos<-perf_overall %>% 
+  arrange(grp,pred_task) %>%
   mutate(rn=1:n()) %>%
-  group_by(pred_in_d,fs_type,grp) %>%
+  dplyr::mutate(root_grp=gsub(":.*","",grp)) %>%
+  group_by(root_grp,pred_in_d) %>%
   dplyr::summarize(begin=rn[1],
                    end=rn[n()]) %>%
   ungroup
@@ -776,10 +780,9 @@ row_grp_pos<-perf_overall %>%
 kable(perf_overall %>% arrange(grp,pred_task),
       caption="Table1 - 48-Hour Prediction of AKI1, AKI2, AKI3") %>%
   kable_styling("striped", full_width = F) %>%
-  group_rows("Overall-All_feature", row_grp_pos$begin[1],row_grp_pos$end[1]) %>%
-  group_rows("Overall-Scr_and_BUN_removed", row_grp_pos$begin[2],row_grp_pos$end[2]) %>%
-  group_rows("Subgroup-Age", row_grp_pos$begin[3],row_grp_pos$end[3]) %>%
-  group_rows("Subgroup-Scr_Base", row_grp_pos$begin[4],row_grp_pos$end[4])
+  group_rows("Overall", row_grp_pos$begin[1],row_grp_pos$end[1]) %>%
+  group_rows("Subgroup-Age", row_grp_pos$begin[2],row_grp_pos$end[2]) %>%
+  group_rows("Subgroup-Scr_Base", row_grp_pos$begin[3],row_grp_pos$end[3])
 
 final_out[["pred48_summ"]]<-perf_overall
 ```
@@ -795,7 +798,7 @@ brks<-unique(c(0,seq(0.001,0.01,by=0.001),seq(0.02,0.1,by=0.01),seq(0.2,1,by=0.1
 for(fs_type_i in seq_along(fs_type_opt)){
   fs_type<-fs_type_opt[fs_type_i]
   
-  perf_cutoff<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl_full %>%
+  perf_cutoff<-readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl_full %>%
   dplyr::select(cutoff,size,rec_sens,spec,ppv,npv,pred_task) %>%
   mutate(bin=cut(cutoff,breaks=brks,include.lowest=T,label=F)) %>%
   group_by(bin,pred_task) %>%
@@ -853,7 +856,7 @@ pred48_calib_plot<-list()
 for(fs_type_i in seq_along(fs_type_opt)){
   fs_type<-fs_type_opt[fs_type_i]
   
-  calib_tbl<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$calib_tbl %>%
+  calib_tbl<-readRDS(paste0("./data/model_kumc/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$calib_tbl %>%
   mutate(pred_task=recode(pred_task,
                           `stg1up`="a.AKI>=1",
                           `stg2up`="b.AKI>=2",

@@ -173,28 +173,31 @@ execute_single_sql<-function(conn,statement,write,table_name){
       if(!(driver_type %in% c("OCI","JDBC"))){
         stop("Driver type not supported for ",DBMS_type,"!\n")
       }else{
-        try_tbl<-try(dbGetQuery(conn,paste("select * from",table_name,"where 1=0")),silent=T)
-        if(is.null(attr(try_tbl,"condition"))&!grepl("(Error)+",attr(try_tbl,"condition"))){
+        #drop existing tables, if applicable
+        chk_exist<-dbGetQuery(conn,paste0("select tname from tab where tname ='",table_name,"'"))
+        if(length(chk_exist$TNAME)>0){
           if(driver_type=="OCI"){
-            dbSendQuery(conn,paste("drop table",table_name)) #in case there exists same table name
+            dbSendQuery(conn,paste("drop table",table_name))
           }else{
-            dbSendUpdate(conn,paste("drop table",table_name)) #in case there exists same table name
+            dbSendUpdate(conn,paste("drop table",table_name)) 
           }
         }
         
         if(driver_type=="OCI"){
-          dbSendQuery(conn,statement) 
+          dbSendQuery(conn,statement)
         }else{
-          dbSendUpdate(conn,statement)
+          dbSendUpdate(conn,statement) 
         }
       }
-      
     }else if(DBMS_type=="tSQL"){
       if(driver_type=="JDBC"){
-        try_tbl<-try(dbGetQuery(conn,paste("select * from",table_name,"where 1=0")),silent=T)
-        if(!grepl("(table or view does not exist)+",tolower(attr(try_tbl,"class")))){
-          dbSendUpdate(conn,paste("drop table",table_name)) #in case there exists same table name
-        }
+        #drop existing tables, if applicable
+        # dbSendUpdate(conn,paste0("IF EXISTS (select * from dbo.sysobjects
+        #                                      where id = object_id(N'dbo.",table_name,"') and 
+        #                                      objectproperty(id, N'IsTable') = 1)",
+        #                          "BEGIN ",paste("drop table",table_name)," END ",
+        #                          "GO"))
+        #write new tables
         dbSendUpdate(conn,statement)
       }else{
         stop("Driver type not supported for ",DBMS_type,"!\n")
