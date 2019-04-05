@@ -18,9 +18,9 @@ require_libraries(c("knitr",
 # 1. AKI_CDM_EXT_VALID_p1_QA.html
 # 2. AKI_CDM_EXT_VALID_p1_QA_TBL.xlsx
 render_report(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
-              DBMS_type="tSQL",
-              driver_type="JDBC",
-              start_date="2017-01-01")
+              DBMS_type="Oracle",
+              driver_type="OCI",
+              start_date="2010-01-01")
 
 # The error: 
 # Error in unlockBinding("params", <environment>) : no binding for "params"

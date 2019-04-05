@@ -7,7 +7,7 @@ require_libraries(c("DBI",
                     "stringr"))
 
 params<-list(  DBMS_type="Oracle",
-               driver_type="JDBC",
+               driver_type="OCI",
                remote_CDM=FALSE)
 
 

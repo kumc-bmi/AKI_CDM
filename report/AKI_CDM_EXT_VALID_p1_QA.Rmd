@@ -578,13 +578,13 @@ lab_report<-lab_temp %>%
   dplyr::filter(key != "NI") %>%
   arrange(desc(enc_cnt)) %>% 
   dplyr::select(key) %>%
-  unique %>% slice(1:5) %>%
+  unique %>% dplyr::slice(1:5) %>%
   bind_rows(
     lab_temp %>% 
       dplyr::filter(key != "NI") %>%
       arrange(desc(record_intensity)) %>% 
       dplyr::select(key) %>%
-      unique %>% slice(1:2)
+      unique %>% dplyr::slice(1:2)
   ) %>%
   mutate(link=lapply(key,get_loinc_ref))
 
@@ -674,7 +674,7 @@ ggplot(dx_temp,aes(x=mean_history,y=enc_cnt,label=label))+
 
 dx_report<-dx_temp %>% 
   arrange(desc(enc_cnt)) %>%
-  slice(1:6) %>%
+  dplyr::slice(1:6) %>%
   dplyr::select(key) %>%
   left_join(readRDS("./data/ccs_ref.rda") %>% 
               filter(type=="dx"),
@@ -757,7 +757,7 @@ ggplot(px_temp,aes(x=dsa_grp,y=enc_cnt,label=label))+
 px_report<-px_temp %>%
   arrange(desc(enc_cnt)) %>%
   dplyr::select(key) %>%
-  unique %>% slice(1:5) %>%
+  unique %>% dplyr::slice(1:5) %>%
   # mutate(link=lapply(key,google_code)) #uncomment it if google_code doesn't cause error
   mutate(link="https://coder.aapc.com/cpt-codes/") #comment it if google_code doesn't cause error
   
@@ -927,7 +927,7 @@ if(nrow(med_temp)>0){
     mutate(key=gsub(".*_","",trimws(gsub("\\:.*","",key),"both"))) %>%
     arrange(desc(enc_cnt)) %>%
     dplyr::select(key) %>% 
-    unique %>% slice(1:3) %>%
+    unique %>% dplyr::slice(1:3) %>%
     mutate(rx_name=lapply(key,get_rxcui_nm))
   
   freq_med<-c()
@@ -939,7 +939,7 @@ if(nrow(med_temp)>0){
     mutate(key=gsub(".*_","",trimws(gsub("\\:.*","",key),"both"))) %>%
     arrange(desc(median_expos)) %>%
     dplyr::select(key) %>%
-    unique %>% slice(1:3) %>%
+    unique %>% dplyr::slice(1:3) %>%
     mutate(rx_name=lapply(key,get_rxcui_nm))
   
   intens_med<-c()
