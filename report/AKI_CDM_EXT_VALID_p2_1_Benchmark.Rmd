@@ -311,9 +311,16 @@ for(pred_in_d in pred_in_d_opt){
         X_ts<-X_ts[-1,]
       }
       
+      X_ts<-X_ts[,tr_key$key]
+      
       #check alignment
-      all(row.names(X_ts)==y_ts$ROW_ID)
-      all(ref_mod$feature_names==colnames(X_ts))
+      if (!all(row.names(X_ts)==y_ts$ROW_ID)){
+        stop("row ids of testing set don't match!")
+      }
+      
+      if (!all(ref_mod$feature_names==colnames(X_ts))){
+        stop("feature names don't match!")
+      }
       
       #--covert to xgb data frame
       dtest<-xgb.DMatrix(data=X_ts,label=y_ts$y)

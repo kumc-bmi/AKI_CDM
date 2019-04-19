@@ -10,27 +10,24 @@ require_libraries(c("tidyr",
                     "broom",
                     "Matrix",
                     "xgboost",
-                    # "CMake",
-                    # "LightGBM",
-                    # "catboost",
                     "ROCR",
                     "PRROC"))
 
 #choose task parameters
 #-----prediction point
-pred_in_d<-1
-# pred_in_d<-2
+# pred_in_d<-1
+pred_in_d<-2
 # pred_in_d<-3
 
 #-----feature selection type
-fs_type<-"no_fs"
-# fs_type<-"rm_scr_bun"
-# rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
-#           '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
-#           '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9',
-#           '12966-8','12965-0','6299-2','59570-2','12964-3','49071-4','72270-2',
-#           '11065-0','3094-0','35234-4','14937-7',
-#           '3097-3','44734-2','BUN_SCR')
+# fs_type<-"no_fs"
+fs_type<-"rm_scr_bun"
+rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
+          '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
+          '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9',
+          '12966-8','12965-0','6299-2','59570-2','12964-3','49071-4','72270-2',
+          '11065-0','3094-0','35234-4','14937-7',
+          '3097-3','44734-2','BUN_SCR')
 
 #-----prediction tasks
 pred_task_lst<-c("stg1up","stg2up","stg3")
@@ -52,26 +49,16 @@ for(pred_task in pred_task_lst){
   X_ts<-c()
   y_tr<-c()
   y_ts<-c()
-  rsample_idx<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda"))
+  rsample_idx<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda")) %>%
+    dplyr::mutate(cv5_idx=ceiling(cv10_idx/2))
+    
   for(i in seq_along(yr_rg)){
     var_by_yr<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))[[i]]
     
-    X_tr %<>% bind_rows(var_by_yr[["X_surv"]]) %>%
-      semi_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
-                by="ENCOUNTERID")
-    
-    y_tr %<>% bind_rows(var_by_yr[["y_surv"]] %>%
-                          left_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
-                                    by="ENCOUNTERID"))
-    
-    X_ts %<>% bind_rows(var_by_yr[["X_surv"]]) %>%
-      semi_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
-                by="ENCOUNTERID")
-    
-    y_ts %<>% bind_rows(var_by_yr[["y_surv"]] %>%
-                          left_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
-                                    by="ENCOUNTERID"))
-    
+    X_tr %<>% bind_rows(var_by_yr[["X_surv"]])
+    y_tr %<>% bind_rows(var_by_yr[["y_surv"]]) %>%
+      left_join(rsample_idx,by="ENCOUNTERID")
+
     cat("...finish stack data of encounters from",yr_rg[i],".\n")
   }
   lapse_i<-Sys.time()-start_tsk_i
@@ -82,9 +69,6 @@ for(pred_task in pred_task_lst){
   #--pre-filter
   if(fs_type=="rm_scr_bun"){
     X_tr %<>%
-      filter(!(key %in% c(rm_key,paste0(rm_key,"_change"))))
-    
-    X_ts %<>%
       filter(!(key %in% c(rm_key,paste0(rm_key,"_change"))))
   }
   
@@ -108,53 +92,14 @@ for(pred_task in pred_task_lst){
   #--collect variables used in training
   tr_key<-data.frame(key = unique(colnames(X_tr)),
                      stringsAsFactors = F)
-  
-  #--transform testing matrix
-  y_ts %<>%
-    filter(!is.na(cv10_idx)) %>%
-    arrange(ENCOUNTERID,dsa_y) %>%
-    unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
-    arrange(ROW_ID) %>%
-    unique
-  
-  X_ts %<>% 
-    unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
-    semi_join(y_ts,by="ROW_ID") %>%
-    semi_join(tr_key,by="key")
-  
-  x_add<-tr_key %>%
-    anti_join(data.frame(key = unique(X_ts$key),
-                         stringsAsFactors = F),
-              by="key")
-  
-  #align with training
-  if(nrow(x_add)>0){
-    X_ts %<>%
-      arrange(ROW_ID) %>%
-      bind_rows(data.frame(ROW_ID = rep("0_0",nrow(x_add)),
-                           dsa = -99,
-                           key = x_add$key,
-                           value = 0,
-                           stringsAsFactors=F))
-  }
-  X_ts %<>%
-    long_to_sparse_matrix(df=.,
-                          id="ROW_ID",
-                          variable="key",
-                          val="value")
-  if(nrow(x_add)>0){
-    X_ts<-X_ts[-1,]
-  }
+
   
   #check alignment
   all(row.names(X_tr)==y_tr$ROW_ID)
-  all(row.names(X_ts)==y_ts$ROW_ID)
-  all(colnames(X_tr)==colnames(X_ts))
-  
+
   #--covert to xgb data frame
   dtrain<-xgb.DMatrix(data=X_tr,label=y_tr$y)
-  dtest<-xgb.DMatrix(data=X_ts,label=y_ts$y)
-  
+
   lapse_i<-Sys.time()-start_tsk_i
   bm<-c(bm,paste0(lapse_i,units(lapse_i)))
   bm_nm<-c(bm_nm,"transform data")
@@ -165,9 +110,9 @@ for(pred_task in pred_task_lst){
   #--get indices for k folds
   y_tr %<>% dplyr::mutate(row_idx = 1:n())
   folds<-list()
-  for(fd in seq_len(max(y_tr$cv10_idx))){
+  for(fd in seq_len(max(y_tr$cv5_idx))){
     fd_df<-y_tr %>% 
-      filter(cv10_idx==fd) %>%
+      filter(cv5_idx==fd) %>%
       dplyr::select(row_idx)
     folds[[fd]]<-fd_df$row_idx
   }
@@ -177,8 +122,10 @@ for(pred_task in pred_task_lst){
   eval_metric<-"auc"
   objective<-"binary:logistic"
   grid_params<-expand.grid(
-    max_depth=c(4,6,10),
-    eta=c(0.3,0.1,0.01),
+    # max_depth=c(4,6,10),
+    max_depth=10,
+    # eta=c(0.3,0.1,0.01),
+    eta=0.02,
     min_child_weight=1,
     subsample=0.8,
     colsample_bytree=0.8, 
@@ -240,10 +187,6 @@ for(pred_task in pred_task_lst){
                       objective="binary:logistic",
                       print_every_n = 100)
   
-  valid<-data.frame(y_ts,
-                    pred = predict(xgb_tune,dtest),
-                    stringsAsFactors = F)
-  
   #--feature importance
   feat_imp<-xgb.importance(colnames(X_tr),model=xgb_tune)
   
@@ -254,10 +197,9 @@ for(pred_task in pred_task_lst){
   cat("...finish model validating.\n")
   
   #--save model and other results
-  saveRDS(xgb_tune,file=paste0("./data_local/model_ref/pred_in_",pred_in_d,"d_model_gbm_",fs_type,"_",pred_task,".rda"))
-  saveRDS(bst_grid,file=paste0("./data_local/model_ref/pred_in_",pred_in_d,"d_hyperpar_gbm_",fs_type,"_",pred_task,".rda"))
-  saveRDS(valid,file=paste0("./data_local/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda"))
-  saveRDS(feat_imp,file=paste0("./data_local/model_ref/pred_in_",pred_in_d,"d_varimp_gbm_",fs_type,"_",pred_task,".rda"))
+  saveRDS(xgb_tune,file=paste0("./data_local/model_ref2/pred_in_",pred_in_d,"d_model_gbm_",fs_type,"_",pred_task,".rda"))
+  saveRDS(bst_grid,file=paste0("./data_local/model_ref2/pred_in_",pred_in_d,"d_hyperpar_gbm_",fs_type,"_",pred_task,".rda"))
+  saveRDS(feat_imp,file=paste0("./data_local/model_ref2/pred_in_",pred_in_d,"d_varimp_gbm_",fs_type,"_",pred_task,".rda"))
   
   #-------------------------------------------------------------------------------------------------------------
   lapse_tsk<-Sys.time()-start_tsk
@@ -269,34 +211,6 @@ for(pred_task in pred_task_lst){
   #benchmark
   bm<-data.frame(bm_nm=bm_nm,bm_time=bm,
                  stringsAsFactors = F)
-  saveRDS(bm,file=paste0("./data_local/model_ref/pred_in_",pred_in_d,"d_bm_gbm_",fs_type,"_",pred_task,".rda"))
+  saveRDS(bm,file=paste0("./data_local/model_ref2/pred_in_",pred_in_d,"d_bm_gbm_",fs_type,"_",pred_task,".rda"))
 }
-
-############################## benchmark performance ##############################
-#-----prediction point
-# pred_in_d<-1
-pred_in_d<-2
-# pred_in_d<-3
-
-#-----feature selection type
-fs_type<-"no_fs"
-# fs_type<-"rm_scr_bun"
-
-bm<-c()
-for(pred_task in c("stg1up","stg2up","stg3")){
-  proc_bm<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_var_bm",pred_task,".rda"))
-  bm2<-c()
-  for(i in seq_along(seq(2010,2018))){
-    bm2 %<>%
-      bind_rows(proc_bm[[i]] %>% 
-                  filter(bm_nm=="overall") %>%
-                  dplyr::mutate(bm_nm=paste0(bm_nm,"_",seq(2010,2018)[i])))
-  }
-  
-  bm %<>% 
-    bind_rows(bind_rows(bm2,
-                        readRDS(paste0("./data_local/model_ref/pred_in_",pred_in_d,"d_bm_gbm_",fs_type,"_",pred_task,".rda"))) %>%
-                dplyr::mutate(outcome=pred_task))
-}
-bm %<>% spread(outcome,bm_time)
 

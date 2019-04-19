@@ -358,9 +358,15 @@ for(pred_in_d in pred_in_d_opt){
       }
       
       #check alignment
-      all(row.names(X_tr)==y_tr$ROW_ID)
-      all(row.names(X_ts)==y_ts$ROW_ID)
-      all(colnames(X_tr)==colnames(X_ts))
+      if(!all(row.names(X_tr)==y_tr$ROW_ID)){
+        stop("row ids of traning set don't match!")
+      }
+      if(!all(row.names(X_ts)==y_ts$ROW_ID)){
+        stop("row ids of testing set don't match!")
+      }
+      if(!all(colnames(X_tr)==colnames(X_ts))){
+        stop("feature names don't match!")
+      }
       
       #--covert to xgb data frame
       dtrain<-xgb.DMatrix(data=X_tr,label=y_tr$y)
