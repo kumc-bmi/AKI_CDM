@@ -3,7 +3,7 @@
 /*
 /*in: #AKI_onsets
 /*
-/*params: &&dbname, &&PCORNET_CDM
+/*params: &&cdm_db_name, &&cdm_db_schema
 /*
 /*out: AKI_VITAL
 /*
@@ -25,7 +25,7 @@ select pat.PATID
       ,case when v.TOBACCO_TYPE = 'NI' then null else v.TOBACCO_TYPE end as TOBACCO_TYPE
       ,datediff(dd,pat.ADMIT_DATE,v.MEASURE_DATE) DAYS_SINCE_ADMIT
 from #AKI_onsets pat
-left join [&&dbname].[&&PCORNET_CDM].VITAL v
+left join [&&cdm_db_name].[&&cdm_db_schema].VITAL v
 on pat.PATID = v.PATID
 where v.MEASURE_DATE between dateadd(day,-7,pat.ADMIT_DATE) and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE) and
       coalesce(v.HT, v.WT, v.SYSTOLIC, v.DIASTOLIC, v.ORIGINAL_BMI) is not null

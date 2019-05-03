@@ -3,7 +3,7 @@
 /*
 /*in: PCORNET_CDM tables 
 /*
-/*params: &&dbname, &&PCORNET_CDM, &&start_date, &&end_date
+/*params: &&cdm_db_name, &&cdm_db_schema, &&start_date, &&end_date
 /*       
 /*out: #AKI_Initial
 /*
@@ -22,8 +22,8 @@ select e.ENCOUNTERID
       ,e.DRG
       ,e.DRG_TYPE
       ,e.ADMITTING_SOURCE
-from [&&dbname].[&&PCORNET_CDM].ENCOUNTER e
-join [&&dbname].[&&PCORNET_CDM].DEMOGRAPHIC d
+from [&&cdm_db_name].[&&cdm_db_schema].ENCOUNTER e
+join [&&cdm_db_name].[&&cdm_db_schema].DEMOGRAPHIC d
 on e.PATID = d.PATID
 where datediff(dd,e.ADMIT_DATE,e.DISCHARGE_DATE) >= 2 and
       e.ENC_TYPE in ('EI','IP','IS') and

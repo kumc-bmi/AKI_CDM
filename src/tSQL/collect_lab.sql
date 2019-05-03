@@ -3,7 +3,7 @@
 /*
 /*in: #AKI_onsets
 /*
-/*params: &&dbname, &&PCORNET_CDM
+/*params: &&cdm_db_name, &&cdm_db_schema
 /*
 /*out: AKI_LAB
 /*
@@ -28,6 +28,6 @@ select distinct
       ,l.RESULT_UNIT
       ,datediff(dd,pat.ADMIT_DATE,l.SPECIMEN_DATE) DAYS_SINCE_ADMIT
 from #AKI_onsets pat
-join [&&dbname].[&&PCORNET_CDM].LAB_RESULT_CM l
+join [&&cdm_db_name].[&&cdm_db_schema].LAB_RESULT_CM l
 on pat.PATID = l.PATID and l.LAB_ORDER_DATE between pat.ADMIT_DATE and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE)
 order by pat.PATID, pat.ENCOUNTERID, SPECIMEN_DATE_TIME
