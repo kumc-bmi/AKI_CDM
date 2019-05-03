@@ -16,15 +16,15 @@ params:
 
 * (IP,IS,EI) visits with length of stay (LOS) >= 2 days; 
 * age at visit >= 18 years old
+* had at least 2 SCr measurements during stay
 
 ***
 
 ##### Exclusion criteria:
 
-* had no documented SCr measurements during admission; 
-* developed stage 2 AKI (eGFR <= 15 mL/min per 1.73m^2) initially; 
-* pre-existing chronic renal failure (DX); 
-* received RRT within 48 hours since admission; 
+* initial eGFR < 15 mL/min per 1.73m^2 at visit; 
+* any dialysis procedure or renal transplantation prior to visit;
+* received RRT within 48 hours since first SCr; 
 * burn patients (DX)
 
 ***
@@ -33,9 +33,12 @@ params:
 
 AKI Stages are defined based on [KDIGO](http://www.kdigo.org/clinical_practice_guidelines/pdf/KDIGO%20AKI%20Guideline.pdf):
 
-* AKI 1: increase in serum creatinine by >=**0.3 mg/dL** within **48 hours** OR **1.5-1.9 times** baseline within **7 days**; 
+* AKI 1: increase in serum creatinine by >=**0.3 mg/dL** within **48 hours** OR **1.5-1.9 times** baseline^1 within **7 days**; 
 * AKI 2: **2.0 to 2.9 times** baseline within **7 days**; 
-* AKI 3: increase in serum creatinine to >= **4.0 mg/dL** within **48 hours** OR **3.0 times** baseline within **7 days**
+* AKI 3: increase in serum creatinine to >= **4.0 mg/dL** within **48 hours** OR **3.0 times** baseline^1 within **7 days**
+
+*baseline is defined as initial SCr during hospitalization    
+
 
 ***
 

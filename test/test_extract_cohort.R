@@ -6,7 +6,8 @@ require_libraries(c("DBI",
                     "dplyr",
                     "stringr"))
 
-params<-list(  DBMS_type="tSQL",
+params<-list(  DBMS_type="Oracle",
+               driver_type="OCI",
                remote_CDM=FALSE)
 
 
@@ -17,8 +18,6 @@ DBMS_type<-attr(conn,"DBMS_type")
 
 
 #set up parameters
-remote_CDM=params$remote_CDM
-cdm_db_link=config_file$cdm_db_link
 cdm_db_name=config_file$cdm_db_name
 cdm_db_schema=config_file$cdm_db_schema
 start_date="2010-01-01"
@@ -27,7 +26,7 @@ verb=F
 
 #statements to be tested
 statements<-paste0(
-  paste0("./inst/",DBMS_type),
+  paste0("./src/",DBMS_type),
   c("/cohort_initial.sql",
     "/cohort_all_SCr.sql",
     "/cohort_enc_SCr.sql",
@@ -41,7 +40,6 @@ statements<-paste0(
 
 ####batch snippets
 execute_batch_sql(conn,statements,verb=T,
-                  cdm_db_link=cdm_db_link,
                   cdm_db_name=cdm_db_name,
                   cdm_db_schema=cdm_db_schema,
                   start_date=start_date,
@@ -51,7 +49,7 @@ execute_batch_sql(conn,statements,verb=T,
 
 ####consort table
 #collect attrition info
-sql<-parse_sql(paste0("./inst/",DBMS_type,"/consort_diagram.sql"))
+sql<-parse_sql(paste0("./src/",DBMS_type,"/consort_diagram.sql"))
 attrition<-execute_single_sql(conn,
                               statement=sql$statement,
                               write=(sql$action=="write"),
