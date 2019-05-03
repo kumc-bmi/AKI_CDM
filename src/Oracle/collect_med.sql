@@ -3,7 +3,7 @@
 /*
 /*in: AKI_onsets
 /*
-/*params: @dblink, &&PCORNET_CDM
+/*params: &&cdm_db_schema
 /*
 /*out: AKI_MED
 /*
@@ -18,7 +18,6 @@ select distinct
       ,least(pat.DISCHARGE_DATE,p.RX_END_DATE) RX_END_DATE
       ,p.RX_BASIS
       ,p.RXNORM_CUI
-      ,p.RAW_RX_NDC
       --,regexp_substr(p.RAW_RX_MED_NAME,'[^\[]+',1,1) RX_MED_NAME
       ,p.RX_QUANTITY
       --,p.RX_QUANTITY_UNIT
@@ -29,14 +28,13 @@ select distinct
             else null end as RX_QUANTITY_DAILY
       ,round(p.RX_START_DATE-pat.ADMIT_DATE,2) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-join &&PCORNET_CDM.PRESCRIBING@dblink p
-on pat.ENCOUNTERID = p.ENCOUNTERID
-where coalesce(p.RXNORM_CUI,p.RAW_RX_NDC) is not null and 
+join &&cdm_db_schema.PRESCRIBING p
+on pat.PATID = p.PATID
+where p.RXNORM_CUI is not null and
       p.RX_START_DATE is not null and
       p.RX_ORDER_DATE is not null and 
       p.RX_ORDER_TIME is not null and
-      p.RX_ORDER_DATE between pat.ADMIT_DATE-30 and
-                              pat.DISCHARGE_DATE
+      p.RX_ORDER_DATE between pat.ADMIT_DATE-30 and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE)
 order by PATID, ENCOUNTERID, RXNORM_CUI, RX_START_DATE
 
 

@@ -231,7 +231,7 @@ for(pred_task in pred_task_lst){
     objective<-"binary:logistic"
     grid_params_tree<-expand.grid(
       # max_depth=8,
-      max_depth=c(4,8,10),
+      max_depth=c(4,6,8,10),
       eta=0.02,
       # eta=c(0.02,0.01),
       min_child_weight=1,

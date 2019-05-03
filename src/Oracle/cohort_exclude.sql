@@ -3,7 +3,7 @@
 /*
 /*in: AKI_Scr_eGFR, AKI_Initial
 /*
-/*params: @dblink, &&PCORNET_CDM
+/*params: &&cdm_db_schema
 /*
 /*out: exclude_all
 /*
@@ -27,7 +27,7 @@ where rn = 1 and eGFR <= 15
     ,AKI_EXCLD_PRF_EN as (
 select aki.ENCOUNTERID
 from AKI_Initial aki
-where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS@dblink dx
+where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
               where dx.PATID = aki.PATID and
                     -- ICD9 for renal failure
                     ((dx.DX_TYPE = '09' and
@@ -53,7 +53,7 @@ where rn = 1
     ,AKI_EXCLD_RT48_EN as (
 select distinct scr48.ENCOUNTERID
 from scr48
-where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS@dblink dx
+where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
               where dx.PATID = scr48.PATID and
                     -- ICD9 for RRT
                     ((dx.DX_TYPE = '09' and
@@ -71,7 +71,7 @@ where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS@dblink dx
 union all
 select distinct scr48.ENCOUNTERID
 from scr48
-where exists (select 1 from &&PCORNET_CDM.PROCEDURES@dblink px
+where exists (select 1 from &&cdm_db_schema.PROCEDURES px
               where px.PATID = scr48.PATID and
                     -- CPT codes
                     (   regexp_like(px.px,'00868')
@@ -85,7 +85,7 @@ where exists (select 1 from &&PCORNET_CDM.PROCEDURES@dblink px
     ,AKI_EXCLD_BURN_EN as (
 select distinct aki.ENCOUNTERID
 from AKI_Initial aki
-where exists (select 1 from &&PCORNET_CDM.DIAGNOSIS@dblink dx
+where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
               where dx.ENCOUNTERID = aki.ENCOUNTERID and
                     -- ICD9 for burn patients
                     ((dx.DX_TYPE = '09' and

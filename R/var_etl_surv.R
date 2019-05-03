@@ -214,7 +214,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
 }
 
 #tw should be the same time unit as dsa
-get_dsurv_temporal<-function(dat,censor,tw,pred_in_d=1){
+get_dsurv_temporal<-function(dat,censor,tw,pred_in_d=1,carry_over=T){
   y_surv<-c()
   X_surv<-c()
   for(t in tw){
@@ -238,18 +238,31 @@ get_dsurv_temporal<-function(dat,censor,tw,pred_in_d=1){
                   dplyr::select(ENCOUNTERID,dsa_y,y))
     
     #stack x
-    X_surv %<>% 
-      bind_rows(dat %>% left_join(censor_t,by="ENCOUNTERID") %>%
-                  filter(dsa < dsa_y-(pred_in_d-1)) %>% # prediction point is at least "pred_in_d" days before endpoint
-                  group_by(ENCOUNTERID,key) %>%
-                  top_n(n=1,wt=dsa) %>% # take latest value
-                  ungroup %>%
-                  dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value) %>%
-                  bind_rows(censor_t %>% 
-                              mutate(dsa=dsa_y-1,
-                                     key=paste0("day",(dsa_y-1)),
-                                     value=1) %>%
-                              dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value)))
+    if(carry_over){
+      X_surv %<>% 
+        bind_rows(dat %>% left_join(censor_t,by="ENCOUNTERID") %>%
+                    filter(dsa < dsa_y-(pred_in_d-1)) %>% # prediction point is at least "pred_in_d" days before endpoint
+                    group_by(ENCOUNTERID,key) %>%
+                    top_n(n=1,wt=dsa) %>% # take latest value (carry over)
+                    ungroup %>%
+                    dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value) %>%
+                    bind_rows(censor_t %>% 
+                                mutate(dsa=dsa_y-1,
+                                       key=paste0("day",(dsa_y-1)),
+                                       value=1) %>%
+                                dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value)))
+    }else{
+      X_surv %<>% 
+        bind_rows(dat %>% left_join(censor_t,by="ENCOUNTERID") %>%
+                    filter(dsa < dsa_y-(pred_in_d-1)) %>% # prediction point is at least "pred_in_d" days before endpoint
+                    dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value) %>%
+                    bind_rows(censor_t %>% 
+                                mutate(dsa=dsa_y-1,
+                                       key=paste0("day",(dsa_y-1)),
+                                       value=1) %>%
+                                dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value)))
+    }
+    
   }
 
   Xy_surv<-list(X_surv = X_surv,

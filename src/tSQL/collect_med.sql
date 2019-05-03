@@ -3,7 +3,7 @@
 /*
 /*in: #AKI_onsets
 /*
-/*params: &&dbname, &&PCORNET_CDM
+/*params: &&cdm_db_name, &&cdm_db_schema
 /*
 /*out: AKI_MED
 /*
@@ -32,7 +32,7 @@ select distinct
 	     end as RX_QUANTITY_DAILY
       ,datediff(dd,pat.ADMIT_DATE,p.RX_START_DATE) DAYS_SINCE_ADMIT
 from #AKI_onsets pat
-join [&&dbname].[&&PCORNET_CDM].PRESCRIBING p
+join [&&cdm_db_name].[&&cdm_db_schema].PRESCRIBING p
 on pat.PATID = p.PATID
 where p.RXNORM_CUI is not null and 
       p.RX_START_DATE is not null and 

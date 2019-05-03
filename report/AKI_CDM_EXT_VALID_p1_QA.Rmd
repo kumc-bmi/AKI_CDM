@@ -6,7 +6,6 @@ output: html_document
 params:
   DBMS_type: Oracle
   driver_type: OCI
-  remote_CDM: FALSE
   start_date: "2010-01-01"
   end_date: as.character(Sys.Date())
 ---
@@ -66,7 +65,7 @@ require_libraries(c("DBI",
 
 ```{r connect, include=F}
 #establish the connection between r-studio and CDM server (Oracle)
-config_file_path<-"./config.csv"
+config_file_path<-"./config/config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
 conn<-connect_to_db(params$DBMS_type,params$driver_type,config_file)
 ```
@@ -161,7 +160,7 @@ Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*,
 
 ```{r demo, include=F}
 ## demographic
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_demo.sql"),
+sql<-parse_sql(paste0("./src/",params$DBMS_type,"/collect_demo.sql"),
                            cdm_db_link=config_file$cdm_db_link,
                            cdm_db_name=config_file$cdm_db_name,
                            cdm_db_schema=config_file$cdm_db_schema)
@@ -269,7 +268,7 @@ Vital variables include: *Height*, *Weight*, *BMI*, *Blood Pressure (Systolic, D
 
 ```{r vital, include=F}
 ## vital
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_vital.sql"),
+sql<-parse_sql(paste0("./src/",params$DBMS_type,"/collect_vital.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)
@@ -481,7 +480,7 @@ Table 2b identifies unreliable reporting of smoking status. A significant number
 ##### Labs
 ```{r lab, include=F}
 ## labs
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_lab.sql"),
+sql<-parse_sql(paste0("./src/",params$DBMS_type,"/collect_lab.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)
@@ -609,7 +608,7 @@ A total of `r length(unique(lab_summ$key))` LOINC identifiable labs are eligible
 ##### Diagnosis
 ```{r dx, include=F}
 ## historical diagnosis
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_dx.sql"),
+sql<-parse_sql(paste0("./src/",params$DBMS_type,"/collect_dx.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)
@@ -694,7 +693,7 @@ A Total of `r length(unique(dx_summ$key))` distinct CCS-grouped diagnoses has be
 ##### Procedure
 ```{r px, include=F}
 ## procedure
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_px.sql"),
+sql<-parse_sql(paste0("./src/",params$DBMS_type,"/collect_px.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)
@@ -781,7 +780,7 @@ A Total of `r length(unique(px_summ$key))` distinct total procedures codes have 
 ##### Medications
 ```{r med, include=F}
 ## medication
-sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
+sql<-parse_sql(paste0("./src/",params$DBMS_type,"/collect_med.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)

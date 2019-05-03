@@ -31,7 +31,7 @@ connect_to_db<-function(DBMS_type,driver_type=c("OCI","JDBC"),config_file){
       # make sure ojdbc6.jar is in the AKI_CDM folder
       # Source: https://www.r-bloggers.com/connecting-r-to-an-oracle-database-with-rjdbc/
       drv<-JDBC(driverClass="oracle.jdbc.OracleDriver",
-                classPath="./ojdbc6.jar")
+                classPath="./inst/ojdbc6.jar")
       url <- paste0("jdbc:oracle:thin:@", config_file$access,":",config_file$sid)
       conn <- RJDBC::dbConnect(drv, url, 
                                config_file$username, 
@@ -44,7 +44,7 @@ connect_to_db<-function(DBMS_type,driver_type=c("OCI","JDBC"),config_file){
     require_libraries("RJDBC")
     # make sure sqljdbc.jar is in the AKI_CDM folder
     drv <- JDBC(driverClass="com.microsoft.sqlserver.jdbc.SQLServerDriver",
-                classPath="./sqljdbc.jar",
+                classPath="./inst/sqljdbc.jar",
                 identifier.quote="`")
     url <- paste0("jdbc:sqlserver:", config_file$access,
                   ";DatabaseName=",config_file$cdm_db_name,
@@ -106,11 +106,7 @@ parse_sql<-function(file_path,...){
       params<-gsub(",","",strsplit(trimws(gsub("(/\\*params\\:\\s)","",line),"both")," ")[[1]])
       params_symbol<-params
       #normalize the parameter names
-      params[params=="@dblink"]<-"cdm_db_link"
-      params[params=="&&dbname"]<-"cdm_db_name"
-      params[params=="&&PCORNET_CDM"]<-"cdm_db_schema"
-      params[params=="&&start_date"]<-"start_date"      
-      params[params=="&&end_date"]<-"end_date"   
+      params<-gsub("&&","",params) 
     }
     #remove the first line
     line<-gsub("\\t", " ", line)

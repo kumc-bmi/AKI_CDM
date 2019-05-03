@@ -10,6 +10,7 @@ logs/
 data_local/
 data/model_ref_local/
 data/model_kumc_local/
+LightGBM/
 feature_dict.csv
 *config.csv
 *.xlsx

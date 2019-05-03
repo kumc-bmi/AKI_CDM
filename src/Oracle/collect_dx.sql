@@ -1,9 +1,9 @@
 /********************************************************************************/
 /*@file collect_dx.sql
 /*
-/*in: #AKI_onsets
+/*in: AKI_onsets
 /*
-/*params: &&dbname, &&PCORNET_CDM
+/*params: &&cdm_db_schema
 /*
 /*out: AKI_DX
 /*
@@ -15,14 +15,14 @@ select pat.PATID
       ,dx.DX
       ,dx.DX_TYPE
       ,dx.DX_SOURCE
-      ,dx.DX_ORIGIN
+      --,dx.DX_ORIGIN
       ,dx.PDX
       ,dx.ADMIT_DATE DX_DATE
-      ,datediff(dd,pat.ADMIT_DATE,dx.ADMIT_DATE) as DAYS_SINCE_ADMIT
-from #AKI_onsets pat
-join [&&dbname].[&&PCORNET_CDM].DIAGNOSIS dx
+      ,round(dx.ADMIT_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
+from AKI_onsets pat
+join &&cdm_db_schema.DIAGNOSIS dx
 on pat.PATID = dx.PATID
-where datediff(dd,dx.ADMIT_DATE,pat.ADMIT_DATE) between 1 and 365
+where dx.ADMIT_DATE between pat.ADMIT_DATE-365 and pat.ADMIT_DATE-1
 order by pat.PATID, pat.ENCOUNTERID, dx.ADMIT_DATE desc
 
 

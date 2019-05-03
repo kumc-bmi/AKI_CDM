@@ -15,17 +15,17 @@ Share and Enjoy according to the terms of the MIT Open Source License.
 
 ## Background
 
-Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affecting 10-15% of all hospitalized patients and >50% of the intensive care unit (ICU) patients. In this application, we propose to build predictive models to identify patients at risk for hospital-acquired AKI and externally validate the models using the PCORnet (Patient Centered Outcomes Research Network)13 common data model (CDM) infrastructure ([GPC#711],[[GPC#742]]). The project will be carried out with the following aims:
+Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affecting 10-15% of all hospitalized patients and >50% of the intensive care unit (ICU) patients. In this application, we propose to build predictive models to identify patients at risk for hospital-acquired AKI and externally validate the models using the PCORnet (Patient Centered Outcomes Research Network)13 common data model (CDM) infrastructure ([GPC#711],[GPC#742]). The project will be carried out with the following aims:
 
 * **Aim 1 - KUMC**: Building predictive models on single-site data. We will develop and internally cross-validate machine learning based predictive models for in-hospital AKI using electronic medical record (EMR) data from the University of Kansas Medical Center’s (KUMC) PCORnet CDM. As co-I of the PCORnet network Greater Plains Collaborative (GPC), PI of this project has direct access to the KUMC CDM for model development.    
       * Task 1.1: developing R implementation for data extraction and quality check       
-      * **Task 1.2: exploratory data analysis (e.g. strategies for data cleaning and representation, feature engineering) -- current (due at 03/31/2019)**    
-      * **Task 1.3: benchmarking with replication of current state-of-art prediction model -- -- current (due at 03/31/2019)**     
-      * Task 1.4: developing new models   
+      * Task 1.2: exploratory data analysis (e.g. strategies for data cleaning and representation, feature engineering)     
+      * **Task 1.3: benchmarking with replication of current state-of-art prediction model -- current (due at 05/31/2019)**     
+      * **Task 1.4: developing new models -- current (due at 06/31/2019)**   
  
 * **Aim 2 -  GPC**: Validating predictive models on multi-site data. We will implement an automated analytic package with built in data extraction and predictive modeling from Aim 1 for distributed execution within two PCORnet clinical data research networks (CDRNs), namely GPC led by Dr. Waitman and Veterans Health Administration (VHA) site led by Dr. Matheny in pSCANNER. All prototyping will be done on the KUMC CDM.    
-      * Task 2.1: deploying R codes for data extraction and quanlity check, and reporting results to KUMC -- current (due at 12/31/2018)        
-      * **Task 2.2: deploying R codes for external validations of predictive models -- current (due at 03/31/2019)**      
+      * Task 2.1: deploying R codes for data extraction and quanlity check, and reporting results to KUMC           
+      * **Task 2.2: deploying R codes for external validations of predictive models -- current (due at 05/31/2019)**      
       
 [GPC#711]: https://informatics.gpcnetwork.org/trac/Project/ticket/711
 [GPC#742]: https://informatics.gpcnetwork.org/trac/Project/ticket/742
@@ -124,10 +124,6 @@ The following instructions are for extracting cohort and generating final report
         - `which_report`: which report you want to render (default is `./report/AKI_CDM_EXT_VALID_p1_QA.Rmd`, but there will be more options in the future)   
         - `DBMS_type`: what type of database the current CDM is built on (available options are: `Oracle`(default), `tSQL`)        
         - `driver_type`: what type of database connection driver is available (available options are: `OCI` or `JDBC` for oracle; `JDBC` for sql server)      
-        - `remote_CDM`: if CDM is on a different server from the default schema (default `remote_CDM = F`),          
-                  ---- 1. make sure there is a valid remote database connection for sending back CDM data           
-                  ---- 2. set `remote_CDM = T`                   
-                  ---- 3. add a column `cdm_db_link` to `config.csv` and specify the link     
         - `start_date`, `end_date`: the start and end date of inclusion period, in `"yyyy-mm-dd"` format (e.g. "2010-01-01", with the quotes)             
       
       iii) **run** *Part I* of r script `render_report.R` after assigning correct values to the parameters in ii)        
@@ -174,4 +170,4 @@ b. It takes about **25 ~ 30 hours** to complete Part II.1 (AKI_CDM_EXT_VALID_p2_
 c. It takes about **40 ~ 50 hours** to complete Part II.2 (AKI_CDM_EXT_VALID_p2_Retrain.Rmd). At peak time, it will use about **50 ~ 60GB memory**, especially at the preprocessing stage. Total size of intermediate tables and output for Part II.1 is about **800MB**.
 
 ***
-*updated 04/04/2019*
+*updated 05/03/2019*

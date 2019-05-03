@@ -1,8 +1,6 @@
 #### extract AKI cohort ####
 
 extract_cohort<-function(conn,
-                         remote_CDM=params$remote_CDM,
-                         cdm_db_link=NULL,
                          cdm_db_name,
                          cdm_db_schema,
                          start_date="2010-01-01",
@@ -14,14 +12,9 @@ extract_cohort<-function(conn,
     stop("DBMS_type=",attr(conn,"DBMS_type"),"is not currently supported \n(should be one of 'Oracle','tSQL','PostgreSQL', case-sensitive)")
   }
 
-  #check if cdm_db_server has been specified when remote_CDM=T
-  if(remote_CDM & is.null(cdm_db_link)){
-    warning("must specify the cdm_db_link for CDM when remote_CDM=T!")
-  }
-  
   #execute(write) the following sql snippets according to the specified order
   statements<-paste0(
-    paste0("./inst/",attr(conn,"DBMS_type")),
+    paste0("./src/",attr(conn,"DBMS_type")),
     c("/cohort_initial.sql",
       "/cohort_all_SCr.sql",
       "/cohort_enc_SCr.sql",
@@ -33,14 +26,13 @@ extract_cohort<-function(conn,
   )
   
   execute_batch_sql(conn,statements,verb,
-                    cdm_db_link=cdm_db_link,
                     cdm_db_name=cdm_db_name,
                     cdm_db_schema=cdm_db_schema,
                     start_date=start_date,
                     end_date=end_date)
   
   #collect attrition info
-  sql<-parse_sql(paste0("./inst/",attr(conn,"DBMS_type"),"/consort_diagram.sql"))
+  sql<-parse_sql(paste0("./src/",attr(conn,"DBMS_type"),"/consort_diagram.sql"))
   attrition<-execute_single_sql(conn,
                                 statement=sql$statement,
                                 write=(sql$action=="write"),

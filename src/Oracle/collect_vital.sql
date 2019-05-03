@@ -3,7 +3,7 @@
 /*
 /*in: AKI_onsets
 /*
-/*params: @dblink, &&PCORNET_CDM
+/*params: &&cdm_db_schema
 /*
 /*out: AKI_VITAL
 /*
@@ -24,7 +24,7 @@ select pat.PATID
       ,v.TOBACCO_TYPE
       ,round(v.MEASURE_DATE-pat.ADMIT_DATE) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-left join &&PCORNET_CDM.VITAL@dblink v
+left join &&cdm_db_schema.VITAL v
 on pat.PATID = v.PATID
 where v.MEASURE_DATE between pat.ADMIT_DATE-7 and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE) and
       coalesce(v.HT, v.WT, v.SYSTOLIC, v.DIASTOLIC, v.ORIGINAL_BMI) is not null
