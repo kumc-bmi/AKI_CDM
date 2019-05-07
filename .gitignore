@@ -7,6 +7,7 @@ AKI_CDM_EXT_VALID_p1_QA.R
 AKI_CDM_EXT_VALID_p1_QA_full.Rmd
 report_local/
 logs/
+data/
 data_local/
 data/model_ref_local/
 data/model_kumc_local/

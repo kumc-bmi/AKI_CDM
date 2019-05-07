@@ -394,12 +394,12 @@ for(pred_in_d in pred_in_d_opt){
       eval_metric<-"auc"
       objective<-"binary:logistic"
       grid_params<-expand.grid(
-        max_depth=c(4,6,10),
-        eta=c(0.3,0.1,0.01),
+        max_depth=c(4,10),
+        eta=c(0.1,0.01),
         min_child_weight=1,
         subsample=0.8,
         colsample_bytree=0.8, 
-        gamma=1
+        gamma=c(1,10)
       )
       
       verb<-TRUE
@@ -512,18 +512,14 @@ For each prediction task, defined as "predict AKI stage X in Y days, with/withou
 ```{r perf_summ, include=F}
 rm(list=c("X_ts","y_ts","dtest","X_tr","y_tr","dtrain")); gc() #release some memory
 
-pred_in_d_opt<-c(1,2)
-fs_type_opt<-c("no_fs","rm_scr_bun")
-pred_task<-c("stg1up","stg2up","stg3")
-
 for(pred_in_d in pred_in_d_opt){
   for(fs_type in fs_type_opt){
     perf_tbl_full<-c()
     perf_tbl<-c()
     calib_tbl<-c()
     varimp_tbl<-c()
-    for(i in seq_along(pred_task)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda"))
+    for(i in seq_along(pred_task_lst)){
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task_lst[i],".rda"))
       
       #overall summary
       perf_summ<-get_perf_summ(pred=valid$pred,
@@ -531,11 +527,11 @@ for(pred_in_d in pred_in_d_opt){
                                keep_all_cutoffs=T)
       perf_tbl_full %<>% 
         bind_rows(perf_summ$perf_at %>% 
-                    dplyr::mutate(pred_task=pred_task[i],pred_in_d=pred_in_d,fs_type=fs_type))
+                    dplyr::mutate(pred_task=pred_task_lst[i],pred_in_d=pred_in_d,fs_type=fs_type))
       
       perf_tbl %<>% 
         bind_rows(perf_summ$perf_summ %>% 
-                    dplyr::mutate(pred_task=pred_task[i],pred_in_d=pred_in_d,fs_type=fs_type))
+                    dplyr::mutate(pred_task=pred_task_lst[i],pred_in_d=pred_in_d,fs_type=fs_type))
       
       #calibration
       calib<-get_calibr(pred=valid$pred,
@@ -544,17 +540,17 @@ for(pred_in_d in pred_in_d_opt){
       
       calib_tbl %<>% 
         bind_rows(calib %>% 
-                    dplyr::mutate(pred_task=pred_task[i],pred_in_d=pred_in_d,fs_type=fs_type))
+                    dplyr::mutate(pred_task=pred_task_lst[i],pred_in_d=pred_in_d,fs_type=fs_type))
       
       #variable
-      varimp<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_varimp_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
+      varimp<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_varimp_gbm_",fs_type,"_",pred_task_lst[i],".rda")) %>%
         dplyr::mutate(rank=1:n(),
                       Gain_rescale=round(Gain/Gain[1]*100)) %>%
         dplyr::select(rank,Feature,Gain_rescale)
       
       varimp_tbl %<>% 
         bind_rows(varimp %>% 
-                    mutate(pred_task=pred_task[i],pred_in_d=pred_in_d,fs_type=fs_type,tot_feature=nrow(varimp)))
+                    mutate(pred_task=pred_task_lst[i],pred_in_d=pred_in_d,fs_type=fs_type,tot_feature=nrow(varimp)))
     }
     
     perf_out<-list(perf_tbl_full=perf_tbl_full,
@@ -572,7 +568,7 @@ for(pred_in_d in pred_in_d_opt){
 
 ```{r data_dict, include=F}
 # plot variable importance
-data_dict<-read.csv("./data/feature_dict.csv") %>%
+data_dict<-read.csv("./ref/feature_dict.csv") %>%
   dplyr::select(FIELD_NAME,VALUESET_ITEM,VALUESET_ITEM_DESCRIPTOR) %>%
   mutate(VALUESET_ITEM_DESCRIPTOR=as.character(VALUESET_ITEM_DESCRIPTOR)) %>%
   mutate(VALUESET_ITEM=gsub("'","",VALUESET_ITEM))
@@ -629,8 +625,8 @@ for(fs_type in fs_type_opt){
 #subgroup-age
 fs_type<-"no_fs"
 subgrp_age<-c()
-for(i in seq_along(pred_task)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
+for(i in seq_along(pred_task_lst)){
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task_lst[i],".rda")) %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -668,8 +664,8 @@ for(i in seq_along(pred_task)){
   
   #subgroup-scr
   subgrp_scr<-c()
-  for(i in seq_along(pred_task)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
+  for(i in seq_along(pred_task_lst)){
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task_lst[i],".rda")) %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -907,8 +903,8 @@ for(fs_type in fs_type_opt){
 #subgroup-age
 fs_type<-"no_fs"
 subgrp_age<-c()
-for(i in seq_along(pred_task)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
+for(i in seq_along(pred_task_lst)){
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task_lst[i],".rda")) %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -946,8 +942,8 @@ for(i in seq_along(pred_task)){
   
   #subgroup-scr
   subgrp_scr<-c()
-  for(i in seq_along(pred_task)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task[i],".rda")) %>%
+  for(i in seq_along(pred_task_lst)){
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task_lst[i],".rda")) %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%

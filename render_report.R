@@ -20,7 +20,8 @@ require_libraries(c("knitr",
 render_report(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
               DBMS_type="Oracle",
               driver_type="OCI",
-              start_date="2010-01-01")
+              start_date="2010-01-01",
+              end_date="2018-12-31")
 
 # The error: 
 # Error in unlockBinding("params", <environment>) : no binding for "params"
@@ -41,3 +42,5 @@ render_report(which_report="./report/AKI_CDM_EXT_VALID_p2_1_Benchmark.Rmd")
 # 1. AKI_CDM_EXT_VALID_p2_2_Retrain.html
 # 2. AKI_CDM_EXT_VALID_p2_2_Retrain_TBL.xlsx
 render_report(which_report="./report/AKI_CDM_EXT_VALID_p2_2_Retrain.Rmd")
+
+

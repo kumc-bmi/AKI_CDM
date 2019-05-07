@@ -1,5 +1,5 @@
 /********************************************************************************/
-/*@file get_final_cohort.sql
+/*@file collect_demo.sql
 /*
 /*in: AKI_onsets
 /*

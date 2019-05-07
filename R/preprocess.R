@@ -12,25 +12,14 @@ require_libraries(c("tidyr",
 
 #choose task parameters
 #-----prediction point
-# pred_in_d<-1
-pred_in_d<-2
-# pred_in_d<-3
-
-#-----feature selection type
-fs_type<-"no_fs"
-# fs_type<-"rm_scr_bun"
-# rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
-#           '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
-#           '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9',
-#           '12966-8','12965-0','6299-2','59570-2','12964-3','49071-4','72270-2',
-#           '11065-0','3094-0','35234-4','14937-7',
-#           '3097-3','44734-2','BUN_SCR')
+pred_in_d<-1
+# pred_in_d<-2
 
 #-----prediction tasks
 pred_task_lst<-c("stg1up","stg2up","stg3")
 
 #-----whether values should be carried over?
-carry_over<-F
+carry_over<-T
 
 
 ############################## collect and format variables on daily basis ######################
