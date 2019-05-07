@@ -10,23 +10,22 @@
 /*action: write
 /********************************************************************************/
 create table exclude_all as
--- Only one Scr record at encounter
-with AKI_EXCLD_1SCR_EN as (
-select ENCOUNTERID, max(rn) lab_cnt 
-from AKI_Scr_eGFR
-group by ENCOUNTERID
-having max(rn) <= 1
-)
 -- At CKD stage 4 or higher
-    ,AKI_EXCLD_L1GFR_EN as (
+with AKI_EXCLD_L1GFR_EN as (
 select distinct ENCOUNTERID
 from AKI_Scr_eGFR
 where rn = 1 and eGFR < 15
 )
+-- update AKI_initial 
+    ,AKI_init as (
+select * from AKI_Initial init
+where exists (select 1 from AKI_Scr_eGFR scr2
+              where scr2.ENCOUNTERID = init.ENCOUNTERID)
+)
 -- Pre-existing ESRD
     ,AKI_EXCLD_PRF_EN as (
 select aki.ENCOUNTERID
-from AKI_Initial aki
+from AKI_init aki
 where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
               where dx.PATID = aki.PATID and
                     -- ICD9 for ESRD
@@ -44,7 +43,7 @@ where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
 -- Pre-existing dialysis or renal transplantation
     ,AKI_EXCLD_PRRT_EN as (
 select aki.ENCOUNTERID
-from AKI_Initial aki
+from AKI_init aki
 where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
               where dx.PATID = aki.PATID and
                     -- ICD9 for ESRD
@@ -62,19 +61,17 @@ where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
                 )
 union all
 select aki.ENCOUNTERID
-from AKI_Initial aki
+from AKI_init aki
 where exists (select 1 from &&cdm_db_schema.PROCEDURES px
               where px.PATID = aki.PATID and
                     -- CPT codes
                     (
                      (px.PX_TYPE = 'CH' and   
-                      (   regexp_like(px.px,'99512')
+                      (   px.px in ('99512','90970','90989')
                        or regexp_like(px.px,'9092[0|1|4|5]')
                        or regexp_like(px.px,'9093[5|7]')
                        or regexp_like(px.px,'9094[5|7]')
                        or regexp_like(px.px,'9096[0|1|2|6]')
-                       or regexp_like(px.px,'90970')
-                       or regexp_like(px.px,'90989')
                        or regexp_like(px.px,'9099[3|9]')
                        )
                       ) or
@@ -105,17 +102,15 @@ where rn = 1
 select distinct scr48.ENCOUNTERID
 from scr48
 where exists (select 1 from &&cdm_db_schema.PROCEDURES px
-              where px.PATID = scr48.PATID and
+              where px.ENCOUNTERID = scr48.ENCOUNTERID and
                     -- CPT codes
                     (
                      (px.PX_TYPE = 'CH' and   
-                      (   regexp_like(px.px,'99512')
+                      (   px.px in ('99512','90970','90989')
                        or regexp_like(px.px,'9092[0|1|4|5]')
                        or regexp_like(px.px,'9093[5|7]')
                        or regexp_like(px.px,'9094[5|7]')
                        or regexp_like(px.px,'9096[0|1|2|6]')
-                       or regexp_like(px.px,'90970')
-                       or regexp_like(px.px,'90989')
                        or regexp_like(px.px,'9099[3|9]')
                        )
                       ) or
@@ -138,7 +133,7 @@ where exists (select 1 from &&cdm_db_schema.PROCEDURES px
 -- Burn Patients
     ,AKI_EXCLD_BURN_EN as (
 select distinct aki.ENCOUNTERID
-from AKI_Initial aki
+from AKI_init aki
 where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
               where dx.ENCOUNTERID = aki.ENCOUNTERID and
                     -- ICD9 for burn patients
@@ -156,8 +151,6 @@ where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
                 )
 )
 -- collect all excluded encounters
-select ENCOUNTERID, 'Less_than_2_SCr' EXCLUD_TYPE from AKI_EXCLD_1SCR_EN
-union all
 select ENCOUNTERID, 'Initial_GFR_below_15' EXCLUD_TYPE from AKI_EXCLD_L1GFR_EN
 union all 
 select ENCOUNTERID, 'Pre_ESRD' EXCLUD_TYPE from AKI_EXCLD_PRF_EN

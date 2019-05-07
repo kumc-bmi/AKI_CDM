@@ -11,7 +11,8 @@ create table AKI_Scr_eGFR as
 with multi_match as (
 select scr.*
 from All_Scr_eGFR scr
-where exists (select 1 from AKI_Initial aki where scr.ENCOUNTERID = aki.ENCOUNTERID)
+where exists (select 1 from AKI_Initial aki where scr.ENCOUNTERID = aki.ENCOUNTERID and
+              scr.LAB_ORDER_DATE between aki.ADMIT_DATE_TIME and aki.DISCHARGE_DATE_TIME)
 union all
 select aki.PATID
       ,aki.ENCOUNTERID
@@ -25,6 +26,7 @@ join AKI_Initial aki
 on scr.PATID = aki.PATID and scr.ENCOUNTERID <> aki.ENCOUNTERID and
    scr.LAB_ORDER_DATE between aki.ADMIT_DATE_TIME and aki.DISCHARGE_DATE_TIME
 )   
+   ,scr_cnt as (
 select PATID
       ,ENCOUNTERID
       ,SERUM_CREAT
@@ -32,7 +34,21 @@ select PATID
       ,LAB_ORDER_DATE
       ,SPECIMEN_DATE_TIME
       ,RESULT_DATE_TIME
+      ,count(distinct SPECIMEN_DATE_TIME) over (partition by ENCOUNTERID) scr_tot
       ,dense_rank() over (partition by ENCOUNTERID order by LAB_ORDER_DATE,SPECIMEN_DATE_TIME) rn      
 from multi_match
+)
+select distinct
+       PATID
+      ,ENCOUNTERID
+      ,SERUM_CREAT
+      ,eGFR
+      ,LAB_ORDER_DATE
+      ,SPECIMEN_DATE_TIME
+      ,RESULT_DATE_TIME
+      ,rn
+from scr_cnt
+where scr_tot > 1
+
 
 

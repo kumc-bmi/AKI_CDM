@@ -13,9 +13,7 @@ params<-list(  DBMS_type="Oracle",
 
 config_file_path<-"./config/config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-connect_to_db(params$DBMS_type,
-                    params$driver_type,
-                    config_file)
+conn<-connect_to_db(params$DBMS_type,params$driver_type,config_file)
 DBMS_type<-attr(conn,"DBMS_type")
 driver_type<-attr(conn,"driver_type")
 
@@ -41,7 +39,7 @@ statements<-paste0(
 
 ##======write
 ####single snippet
-sql<-parse_sql(file_path=statements[1],
+sql<-parse_sql(file_path=statements[8],
                cdm_db_name=cdm_db_name,
                cdm_db_schema=cdm_db_schema,
                start_date=start_date,
@@ -66,7 +64,7 @@ execute_batch_sql(conn,statements,verb=T,
 ##==========read
 ####consort table
 #collect attrition info
-sql<-parse_sql(paste0("./inst/",DBMS_type,"/consort_diagram.sql"))
+sql<-parse_sql(paste0("./src/",DBMS_type,"/consort_diagram.sql"))
 attrition<-execute_single_sql(conn,
                               statement=sql$statement,
                               write=(sql$action=="write"),

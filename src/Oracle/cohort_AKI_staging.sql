@@ -3,12 +3,50 @@
 /*
 /*in: AKI_eligible
 /*
+/*params: &&cdm_db_schema
+/*   
 /*out: AKI_stages_daily
 /*
 /*action: write
 /********************************************************************************/
 create table AKI_stages_daily as
-with stage_aki as (
+with aki3_rrt as (
+-- identify 3-stage AKI based on existence of RRT
+select akie.PATID
+      ,akie.ENCOUNTERID
+      ,akie.ADMIT_DATE_TIME
+      ,akie.SERUM_CREAT_BASE
+      ,akie.SPECIMEN_DATE_TIME_BASE
+      ,min(px.PX_DATE) SPECIMEN_DATE_TIME
+from AKI_eligible akie
+join &&cdm_db_schema.PROCEDURES px
+on px.ENCOUNTERID = akie.ENCOUNTERID and
+   (
+    (px.PX_TYPE = 'CH' and   
+     (   px.px in ('99512','90970','90989')
+      or regexp_like(px.px,'9092[0|1|4|5]')
+      or regexp_like(px.px,'9093[5|7]')
+      or regexp_like(px.px,'9094[5|7]')
+      or regexp_like(px.px,'9096[0|1|2|6]')
+      or regexp_like(px.px,'9099[3|9]')
+     )
+    ) or
+   -- ICD9 codes
+   (px.PX_TYPE = '09' and
+    (  regexp_like(px.px,'39\.9[3|5]')
+    or regexp_like(px.px,'54\.98')
+     )
+    ) or
+   -- ICD10 codes
+   (px.PX_TYPE = '10' and
+    (  regexp_like(px.px,'031[3|4|5|6|7|8|]0JD')
+    or regexp_like(px.px,'031[A|B|C|9]0JF')
+     )
+    )
+  )
+group by akie.PATID,akie.ENCOUNTERID,akie.ADMIT_DATE_TIME,akie.SERUM_CREAT_BASE,akie.SPECIMEN_DATE_TIME_BASE
+)
+  ,stage_aki as (
 -- a semi-cartesian self-join to identify all eligible 1-, 3-stages w.r.t rolling baseline
 select distinct
        s1.PATID
@@ -32,7 +70,7 @@ on s1.ENCOUNTERID = s2.ENCOUNTERID
 where s2.SPECIMEN_DATE_TIME - s1.SPECIMEN_DATE_TIME <= 2 and
       s2.SPECIMEN_DATE_TIME - s1.SPECIMEN_DATE_TIME > 0
 union all
--- only compare to baseline
+-- identify 1-,2-,3-stage AKI compared to baseline
 select distinct 
        PATID
       ,ENCOUNTERID
@@ -49,10 +87,23 @@ select distinct
        end as AKI_STAGE
       ,SPECIMEN_DATE_TIME
       ,RESULT_DATE_TIME
-from AKI_eligible  
+from AKI_eligible 
 where SPECIMEN_DATE_TIME_BASE - ADMIT_DATE_TIME >= 0 and
       SPECIMEN_DATE_TIME - SPECIMEN_DATE_TIME_BASE <= 7 and
       SPECIMEN_DATE_TIME - SPECIMEN_DATE_TIME_BASE > 0
+union all
+select rrt.PATID
+      ,rrt.ENCOUNTERID
+      ,rrt.ADMIT_DATE_TIME
+      ,rrt.SERUM_CREAT_BASE
+      ,rrt.SPECIMEN_DATE_TIME_BASE SERUM_CREAT_BASE_DATE_TIME
+      ,null SERUM_CREAT_RBASE
+      ,null SERUM_CREAT
+      ,null SERUM_CREAT_INC
+      ,3 as AKI_STAGE
+      ,rrt.SPECIMEN_DATE_TIME
+      ,null RESULT_DATE_TIME
+from aki3_rrt rrt
 )
    ,AKI_stages as (
 select PATID

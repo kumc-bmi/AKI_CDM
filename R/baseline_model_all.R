@@ -15,13 +15,12 @@ require_libraries(c("tidyr",
 
 #choose task parameters
 #-----prediction point
-# pred_in_d<-1
-pred_in_d<-2
-# pred_in_d<-3
+pred_in_d<-1
+# pred_in_d<-2
 
 #-----feature selection type
-# fs_type<-"no_fs"
-fs_type<-"rm_scr_bun"
+fs_type<-"no_fs"
+# fs_type<-"rm_scr_bun"
 rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
           '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9',
@@ -32,6 +31,8 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
 #-----prediction tasks
 pred_task_lst<-c("stg1up","stg2up","stg3")
 
+#-----whether values should be carried over?
+carry_over<-T
 
 ############################## baseline GBM model ######################################
 for(pred_task in pred_task_lst){
@@ -49,11 +50,11 @@ for(pred_task in pred_task_lst){
   X_ts<-c()
   y_tr<-c()
   y_ts<-c()
-  rsample_idx<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda")) %>%
+  rsample_idx<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_rsample_idx_",pred_task,"_co",carry_over,".rda")) %>%
     dplyr::mutate(cv5_idx=ceiling(cv10_idx/2))
     
   for(i in seq_along(yr_rg)){
-    var_by_yr<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))[[i]]
+    var_by_yr<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_var_by_yr_",pred_task,"_co",carry_over,".rda"))[[i]]
     
     X_tr %<>% bind_rows(var_by_yr[["X_surv"]])
     y_tr %<>% bind_rows(var_by_yr[["y_surv"]]) %>%
@@ -122,11 +123,11 @@ for(pred_task in pred_task_lst){
   eval_metric<-"auc"
   objective<-"binary:logistic"
   grid_params<-expand.grid(
-    # max_depth=c(4,6,10),
-    max_depth=10,
+    max_depth=c(4,10),
+    # max_depth=10,
     # eta=c(0.3,0.1,0.01),
     eta=0.02,
-    min_child_weight=1,
+    min_child_weight=c(1,10),
     subsample=0.8,
     colsample_bytree=0.8, 
     gamma=1

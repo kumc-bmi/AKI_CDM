@@ -78,13 +78,11 @@ conn<-connect_to_db(params$DBMS_type,params$driver_type,config_file)
 #extract cohort --Table1
 # by default, we assume cdm schema is on the same server as current schema,
 cohort<-extract_cohort(conn,
-                       remote_CDM=params$remote_CDM,
                        cdm_db_name=config_file$cdm_db_name,
                        cdm_db_schema=config_file$cdm_db_schema,
                        start_date=params$start_date,
                        end_date=params$end_date,
                        verb=F)
-
 ```
 
 The above codes extracted AKI study cohort based on the "Inclusion" and "Exclusion" criteria specified above. The final output will be automatically saved in the current working directory `r getwd()` as "Table1.rda". More details are included in the following consort diagram.  
@@ -190,10 +188,10 @@ demo<-execute_single_sql(conn,
 
 #collect summaries
 demo_summ<-aki_stage_ind %>% 
-  filter(!chk_pt %in% c("DISCHARGE")) %>%
+  dplyr::filter(!chk_pt %in% c("DISCHARGE")) %>%
   dplyr::select(-critical_date) %>%
   left_join(demo %>% 
-              filter(!(key %in% c("AGE","DDAYS_SINCE_ENC"))), 
+              dplyr::filter(!(key %in% c("AGE","DDAYS_SINCE_ENC"))), 
             by="ENCOUNTERID") %>%
   group_by(chk_pt,stg_tot_cnt,key,value) %>%
   #HIPAA compliance, low count masking
@@ -203,7 +201,7 @@ demo_summ<-aki_stage_ind %>%
   dplyr::select(-stg_tot_cnt) %>%
   gather(summ,summ_val,-chk_pt,-key,-value) %>%
   bind_rows(aki_stage_ind %>%
-              filter(!chk_pt %in% c("DISCHARGE")) %>%
+              dplyr::filter(!chk_pt %in% c("DISCHARGE")) %>%
               dplyr::select(chk_pt,stg_tot_cnt) %>% 
               unique %>%
               #HIPAA compliance, low count masking
@@ -285,7 +283,7 @@ vital<-execute_single_sql(conn,
   dplyr::rename(dsa=DAYS_SINCE_ADMIT,
                 timestamp=MEASURE_DATE_TIME) %>%
   gather(key,value,-PATID,-ENCOUNTERID,-dsa,-timestamp) %>%
-  filter(!is.na(key) & !is.na(value)) %>%
+  dplyr::filter(!is.na(key) & !is.na(value)) %>%
   mutate(key=recode(key,
                     ORIGINAL_BMI="BMI",
                     SYSTOLIC="BP_SYSTOLIC",
@@ -295,7 +293,7 @@ vital<-execute_single_sql(conn,
 
 vital1<-vital %>%
   dplyr::select(ENCOUNTERID, key, value, dsa) %>%
-  filter(key %in% c("HT","WT","BMI","BP_DIASTOLIC","BP_SYSTOLIC")) %>%
+  dplyr::filter(key %in% c("HT","WT","BMI","BP_DIASTOLIC","BP_SYSTOLIC")) %>%
   mutate(value=as.numeric(value)) %>%
   mutate(param_low=case_when(key=="HT" ~ 0,
                              key=="WT" ~ 0,
@@ -390,7 +388,7 @@ vital_summ<-vital1 %>%
 
 vital_smoke_summ<-vital %>%
   dplyr::select(PATID,ENCOUNTERID, key, value) %>%
-  filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
+  dplyr::filter(key %in% c("SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
   unique %>%
   group_by(PATID,ENCOUNTERID, key) %>%
   dplyr::mutate(value=paste(value[order(value)],collapse = ",")) %>% 
@@ -455,7 +453,7 @@ Table 2a identifies extreme values of vitals for height, weight, BMI, and blood 
 
 
 ```{r vital_out2, echo=F, warning=F, message=F}
-vital_smoke_summ %<>% filter(`2.encounters#`!="<11") %>%
+vital_smoke_summ %<>% dplyr::filter(`2.encounters#`!="<11") %>%
   arrange(key,desc(`2.encounters#`))
 
 row_grp_pos<-vital_smoke_summ %>% 
@@ -494,7 +492,7 @@ lab<-execute_single_sql(conn,
   dplyr::rename(key=LAB_LOINC,value=RESULT_NUM,unit=RESULT_UNIT,
                 dsa=DAYS_SINCE_ADMIT,timestamp=SPECIMEN_DATE_TIME) %>%
   dplyr::select(ENCOUNTERID,key,value,unit,dsa,timestamp) %>%
-  filter(!is.na(key) & !is.na(value)) %>%
+  dplyr::filter(!is.na(key) & !is.na(value)) %>%
   unique %>%
   mutate(dsa_grp=case_when(dsa < 0 ~ "0>",
                            dsa >=0 & dsa < 1 ~ "1",
@@ -558,12 +556,12 @@ rm(lab); gc()
 
 ```{r lab_out, echo=F, warning=F, message=F}
 lab_temp<-lab_summ %>%
-  filter(summ %in% c("enc_cnt","record_cnt")) %>%
+  dplyr::filter(summ %in% c("enc_cnt","record_cnt")) %>%
   dplyr::select(key,summ,overall) %>% unique %>%
-  filter(overall!="<11") %>%
+  dplyr::filter(overall!="<11") %>%
   mutate(overall=as.numeric(overall)) %>%
   spread(summ,overall,fill=0) %>%
-  filter(enc_cnt>=enc_tot*0.01) %>%
+  dplyr::filter(enc_cnt>=enc_tot*0.01) %>%
   mutate(record_intensity=round(record_cnt/enc_cnt,2)) %>%
   mutate(label=ifelse(dense_rank(-enc_cnt)<=10 | dense_rank(-record_intensity)<=10,key,""))
 
@@ -621,7 +619,7 @@ dx<-execute_single_sql(conn,
                        write=(sql$action=="write")) %>%
   #attach CCS diagnosis grouping
   dplyr::mutate(DX_ICD=paste0("ICD",DX_TYPE,":",DX)) %>%
-  left_join(readRDS("./data/ccs_icd_cw.rda") %>% 
+  left_join(readRDS("./ref/ccs_icd_cw.rda") %>% 
               select(-ccs_name),by=c("DX_ICD"="icd_w_type")) %>%
   unique %>% filter(!is.na(ccs_code)) %>%
   dplyr::rename(key=ccs_code, dsa=DAYS_SINCE_ADMIT) %>%
@@ -678,7 +676,7 @@ dx_report<-dx_temp %>%
   arrange(desc(enc_cnt)) %>%
   dplyr::slice(1:6) %>%
   dplyr::select(key) %>%
-  left_join(readRDS("./data/ccs_ref.rda") %>% 
+  left_join(readRDS("./ref/ccs_ref.rda") %>% 
               filter(type=="dx"),
             by=c("key"="ccs_code")) %>%
   dplyr::select(key,ccs_name)

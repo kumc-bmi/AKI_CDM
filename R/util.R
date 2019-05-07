@@ -341,7 +341,7 @@ google_code<-function(code,nlink=1){
 
 ## render report
 render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
-                        DBMS_type,driver_type,remote_CDM=F,
+                        DBMS_type,driver_type,
                         start_date,end_date=as.character(Sys.Date())){
   
   # to avoid <Error in unlockBinding("params", <environment>) : no binding for "params">
@@ -352,7 +352,6 @@ render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
   rmarkdown::render(input=which_report,
                     params=list(DBMS_type=DBMS_type,
                                 driver_type=driver_type,
-                                remote_CDM=remote_CDM,
                                 start_date=start_date,
                                 end_date=end_date),
                     output_dir="./output/",

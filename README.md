@@ -149,7 +149,7 @@ The following instructions are for extracting cohort and generating final report
 
 2. Retrain the model using local data and validate on holdout set 
 
-    i) **download** the data dictionary, "feature_dict.csv", from the securefile link shared by KUMC and save the file under "./data/" (remark: make sure to save the file under the correct directory, as it will be called later using the corresponding path)   
+    i) **download** the data dictionary, "feature_dict.csv", from the securefile link shared by KUMC and save the file under "./ref/" (remark: make sure to save the file under the correct directory, as it will be called later using the corresponding path)   
 
     ii) **continue to run** *Part II.2* of the r script `render_report.R` after completing *Part I*. *Part II.2* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
 

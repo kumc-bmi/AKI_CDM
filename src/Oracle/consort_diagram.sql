@@ -11,7 +11,7 @@ select 'Initial' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
 from AKI_Initial
 union all
-select 'Has_at_least_1_SCr' CNT_TYPE,
+select 'Has_at_least_2_SCr' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
 from AKI_Scr_eGFR
 union all
