@@ -19,8 +19,8 @@ pred_in_d<-1
 # pred_in_d<-2
 
 #-----feature selection type
-fs_type<-"no_fs"
-# fs_type<-"rm_scr_bun"
+# fs_type<-"no_fs"
+fs_type<-"rm_scr_bun"
 rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
           '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9',
@@ -35,6 +35,18 @@ pred_task_lst<-c("stg1up","stg2up","stg3")
 carry_over<-T
 
 ############################## baseline GBM model ######################################
+#hyper-parameter grid for xgboost
+eval_metric<-"auc"
+objective<-"binary:logistic"
+grid_params<-expand.grid(
+  max_depth=10,
+  eta=0.05,
+  min_child_weight=1,
+  subsample=0.8,
+  colsample_bytree=0.8, 
+  gamma=1
+)
+
 for(pred_task in pred_task_lst){
   bm<-c()
   bm_nm<-c()
@@ -50,11 +62,11 @@ for(pred_task in pred_task_lst){
   X_ts<-c()
   y_tr<-c()
   y_ts<-c()
-  rsample_idx<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_rsample_idx_",pred_task,"_co",carry_over,".rda")) %>%
+  rsample_idx<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda")) %>%
     dplyr::mutate(cv5_idx=ceiling(cv10_idx/2))
     
   for(i in seq_along(yr_rg)){
-    var_by_yr<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_var_by_yr_",pred_task,"_co",carry_over,".rda"))[[i]]
+    var_by_yr<-readRDS(paste0("./data_local/data_preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))[[i]]
     
     X_tr %<>% bind_rows(var_by_yr[["X_surv"]])
     y_tr %<>% bind_rows(var_by_yr[["y_surv"]]) %>%
@@ -119,20 +131,6 @@ for(pred_task in pred_task_lst){
   }
   
   #--tune hyperparameter
-  #hyper-parameter grid for xgboost
-  eval_metric<-"auc"
-  objective<-"binary:logistic"
-  grid_params<-expand.grid(
-    max_depth=c(4,10),
-    # max_depth=10,
-    # eta=c(0.3,0.1,0.01),
-    eta=0.02,
-    min_child_weight=c(1,10),
-    subsample=0.8,
-    colsample_bytree=0.8, 
-    gamma=1
-  )
-  
   verb<-TRUE
   bst_grid<-c()
   bst_grid_cv<-c()
@@ -150,11 +148,11 @@ for(pred_task in pred_task_lst){
                   objective = objective,
                   metrics = eval_metric,
                   maximize = TRUE,
-                  nrounds=2000,
+                  nrounds=1000,
                   # nfold = 5,
                   folds = folds,
-                  early_stopping_rounds = 100,
-                  print_every_n = 100,
+                  early_stopping_rounds = 50,
+                  print_every_n = 50,
                   prediction = T) #keep cv results
     
     bst_grid<-rbind(bst_grid, cbind(grid_params[i,],
@@ -198,11 +196,12 @@ for(pred_task in pred_task_lst){
   cat("...finish model validating.\n")
   
   #--save model and other results
-  saveRDS(xgb_tune,file=paste0("./data_local/model_ref2/pred_in_",pred_in_d,"d_model_gbm_",fs_type,"_",pred_task,".rda"))
-  saveRDS(bst_grid,file=paste0("./data_local/model_ref2/pred_in_",pred_in_d,"d_hyperpar_gbm_",fs_type,"_",pred_task,".rda"))
-  saveRDS(feat_imp,file=paste0("./data_local/model_ref2/pred_in_",pred_in_d,"d_varimp_gbm_",fs_type,"_",pred_task,".rda"))
-  
-  #-------------------------------------------------------------------------------------------------------------
+  result<-list(model=xgb_tune,
+               valid_cv=bst_grid,
+               feat_imp=feat_imp)
+  saveRDS(result,file=paste0("./data_local/model_ref2/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
+
+    #-------------------------------------------------------------------------------------------------------------
   lapse_tsk<-Sys.time()-start_tsk
   bm<-c(bm,paste0(lapse_tsk,units(lapse_tsk)))
   bm_nm<-c(bm_nm,"complete task")
