@@ -75,7 +75,7 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
 
 
 # collect and format variables on daily basis 
-n_chunk<-2
+n_chunk<-4
 
 tbl1<-readRDS("./data//Table1.rda") %>%
   dplyr::mutate(yr=as.numeric(format(strptime(ADMIT_DATE, "%Y-%m-%d %H:%M:%S"),"%Y")))
@@ -85,11 +85,10 @@ enc_yr<-tbl1 %>%
   dplyr::select(yr) %>%
   unique %>% arrange(yr) %>%
   filter(yr>2009) %>%
-  dplyr::mutate(chunk=sample(1:n_chunk,n(),replace=T))
+  dplyr::mutate(chunk=ceiling((yr-2009)/(n()/n_chunk)))
 
 #--by variable type
 var_type<-c("demo","vital","lab","dx","px","med")
-
 
 for(pred_in_d in pred_in_d_opt){
   #--determine update time window
@@ -240,26 +239,37 @@ for(pred_in_d in pred_in_d_opt){
 #' 
 #' We will adopt the AKI prediction model by [*Koyner et al*] using all variables from each site's CDM Demographic, Vital, Diagnosis, Procedure and Prescribing Medication tables.The same strategy as in Koyner et al for outlier removal and aggregation of repeated values have been followed. Training/Validation sets are partitioned based on pre-assigned indices in the files "..._rsample_idx_..." from previous part.  The model development progress will be reported as follows:
 
+#hyper-parameter grid for xgboost
+eval_metric<-"auc"
+objective<-"binary:logistic"
+grid_params<-expand.grid(
+  max_depth=10,
+  eta=c(0.05,0.01),
+  min_child_weight=1,
+  subsample=0.8,
+  colsample_bytree=0.8, 
+  gamma=1
+)
+
 for(pred_in_d in pred_in_d_opt){
-  
+
   for(pred_task in pred_task_lst){
     bm<-c()
     bm_nm<-c()
     
     start_tsk<-Sys.time()
-    cat("Start build reference model for task",pred_task,".\n")
+    cat("Start build reference model for task",pred_task,"in",pred_in_d,"days",".\n")
     #---------------------------------------------------------------------------------------------
     
     start_tsk_i<-Sys.time()
     #--prepare training and testing set
-    yr_rg<-seq(2010,2018)
     X_tr<-c()
     X_ts<-c()
     y_tr<-c()
     y_ts<-c()
     rsample_idx<-readRDS(paste0("./data/preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda"))
     var_by_task<-readRDS(paste0("./data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
-    for(i in seq_along(yr_rg)){
+    for(i in seq_len(n_chunk)){
       var_by_yr<-var_by_task[[i]]
       
       X_tr %<>% bind_rows(var_by_yr[["X_surv"]]) %>%
@@ -279,12 +289,13 @@ for(pred_in_d in pred_in_d_opt){
                                       by="ENCOUNTERID"))
       }
     lapse_i<-Sys.time()-start_tsk_i
-    bm<-c(bm,paste0(lapse_i,units(lapse_i)))
+    bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
     bm_nm<-c(bm_nm,"prepare data")
     
     #-----------------------
     for(fs_type in fs_type_opt){
         start_tsk_i<-Sys.time()
+        
       #--pre-filter
       if(fs_type=="rm_scr_bun"){
         X_tr %<>%
@@ -302,7 +313,7 @@ for(pred_in_d in pred_in_d_opt){
         arrange(ROW_ID) %>%
         unique
       
-      X_tr %<>%
+      X_tr_sp<-X_tr %>%
         arrange(ENCOUNTERID,dsa_y) %>%
         unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
         semi_join(y_tr,by="ROW_ID") %>%
@@ -312,7 +323,7 @@ for(pred_in_d in pred_in_d_opt){
                               val="value")
       
       #--collect variables used in training
-      tr_key<-data.frame(key = unique(colnames(X_tr)),
+      tr_key<-data.frame(key = unique(colnames(X_tr_sp)),
                          stringsAsFactors = F)
       
       #--transform testing matrix
@@ -323,7 +334,7 @@ for(pred_in_d in pred_in_d_opt){
         arrange(ROW_ID) %>%
         unique
       
-      X_ts %<>% 
+      X_ts_sp<-X_ts %>% 
         unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
         semi_join(y_ts,by="ROW_ID") %>%
         semi_join(tr_key,by="key")
@@ -335,7 +346,7 @@ for(pred_in_d in pred_in_d_opt){
       
       #align with training
       if(nrow(x_add)>0){
-        X_ts %<>%
+        X_ts_sp %<>%
           arrange(ROW_ID) %>%
           bind_rows(data.frame(ROW_ID = rep("0_0",nrow(x_add)),
                                dsa = -99,
@@ -343,35 +354,36 @@ for(pred_in_d in pred_in_d_opt){
                                value = 0,
                                stringsAsFactors=F))
       }
-      X_ts %<>%
+      X_ts_sp %<>%
         long_to_sparse_matrix(df=.,
                               id="ROW_ID",
                               variable="key",
                               val="value")
       if(nrow(x_add)>0){
-        X_ts<-X_ts[-1,]
+        X_ts_sp<-X_ts_sp[-1,]
       }
       
       #check alignment
-      if(!all(row.names(X_tr)==y_tr$ROW_ID)){
+      if(!all(row.names(X_tr_sp)==y_tr$ROW_ID)){
         stop("row ids of traning set don't match!")
       }
-      if(!all(row.names(X_ts)==y_ts$ROW_ID)){
+      if(!all(row.names(X_ts_sp)==y_ts$ROW_ID)){
         stop("row ids of testing set don't match!")
       }
-      if(!all(colnames(X_tr)==colnames(X_ts))){
+      if(!all(colnames(X_tr_sp)==colnames(X_ts_sp))){
         stop("feature names don't match!")
       }
       
       #--covert to xgb data frame
-      dtrain<-xgb.DMatrix(data=X_tr,label=y_tr$y)
-      dtest<-xgb.DMatrix(data=X_ts,label=y_ts$y)
+      dtrain<-xgb.DMatrix(data=X_tr_sp,label=y_tr$y)
+      dtest<-xgb.DMatrix(data=X_ts_sp,label=y_ts$y)
       
       lapse_i<-Sys.time()-start_tsk_i
-      bm<-c(bm,paste0(lapse_i,units(lapse_i)))
+      bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
       bm_nm<-c(bm_nm,"transform data")
       
-      cat("...finish formatting training and testing sets.\n")
+      cat(paste0(c(pred_in_d,pred_task,fs_type),collapse = ","),
+          "...finish formatting training and testing sets.\n")
       
       #-----------------------
       start_tsk_i<-Sys.time()
@@ -386,18 +398,6 @@ for(pred_in_d in pred_in_d_opt){
       }
       
       #--tune hyperparameter
-      #hyper-parameter grid for xgboost
-      eval_metric<-"auc"
-      objective<-"binary:logistic"
-      grid_params<-expand.grid(
-        max_depth=c(4,10),
-        eta=c(0.1,0.01),
-        min_child_weight=1,
-        subsample=0.8,
-        colsample_bytree=0.8, 
-        gamma=c(1,10)
-      )
-      
       verb<-TRUE
       bst_grid<-c()
       bst_grid_cv<-c()
@@ -415,11 +415,11 @@ for(pred_in_d in pred_in_d_opt){
                       objective = objective,
                       metrics = eval_metric,
                       maximize = TRUE,
-                      nrounds=2000,
+                      nrounds=1000,
                       # nfold = 5,
                       folds = folds,
-                      early_stopping_rounds = 100,
-                      print_every_n = 100,
+                      early_stopping_rounds = 50,
+                      print_every_n = 50,
                       prediction = T) #keep cv results
         
         bst_grid<-rbind(bst_grid, cbind(grid_params[i,],
@@ -429,7 +429,8 @@ for(pred_in_d in pred_in_d_opt){
         bst_grid_cv<-cbind(bst_grid_cv,bst$pred)
         
         if(verb){
-          cat('...finished train case:',paste0(paste0(c(colnames(grid_params),"scale_pos_weight"),"="),param,collapse="; "),
+          cat(paste0(c(pred_in_d,pred_task,fs_type),collapse = ","),
+              '...finished train case:',paste0(paste0(c(colnames(grid_params),"scale_pos_weight"),"="),param,collapse="; "),
               'in',Sys.time()-start_i,units(Sys.time()-start_i),"\n")
           start_i<-Sys.time()
         }
@@ -437,10 +438,11 @@ for(pred_in_d in pred_in_d_opt){
       hyper_param<-bst_grid[which.max(bst_grid$metric),]
       
       lapse_i<-Sys.time()-start_tsk_i
-      bm<-c(bm,paste0(lapse_i,units(lapse_i)))
+      bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
       bm_nm<-c(bm_nm,"tune model")
       
-      cat("...finish model tunning.\n")
+      cat(paste0(c(pred_in_d,pred_task,fs_type),collapse = ","),
+          "...finish model tunning.\n")
       
       #-----------------------
       start_tsk_i<-Sys.time()  
@@ -459,27 +461,30 @@ for(pred_in_d in pred_in_d_opt){
                         stringsAsFactors = F)
       
       #--feature importance
-      feat_imp<-xgb.importance(colnames(X_tr),model=xgb_tune)
+      feat_imp<-xgb.importance(colnames(X_tr_sp),model=xgb_tune)
       
       lapse_i<-Sys.time()-start_tsk_i
-      bm<-c(bm,paste0(lapse_i,units(lapse_i)))
+      bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
       bm_nm<-c(bm_nm,"validate model")
       
-      cat("...finish model validating.\n")
+      cat(paste0(c(pred_in_d,pred_task,fs_type),collapse = ","),
+          "...finish model validating.\n")
       
       #-----------------------
       #--save model and other results
-      saveRDS(xgb_tune,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_model_gbm_",fs_type,"_",pred_task,".rda"))
-      saveRDS(bst_grid,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_hyperpar_gbm_",fs_type,"_",pred_task,".rda"))
-      saveRDS(valid,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda"))
-      saveRDS(feat_imp,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_varimp_gbm_",fs_type,"_",pred_task,".rda"))
-      
+      result<-list(hyper=bst_grid,
+                   model=xgb_tune,
+                   valid=valid,
+                   feat_imp=feat_imp)
+      saveRDS(result,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
+
       #-------------------------------------------------------------------------------------------------------------
       lapse_tsk<-Sys.time()-start_tsk
-      bm<-c(bm,paste0(lapse_tsk,units(lapse_tsk)))
+      bm<-c(bm,paste0(round(lapse_tsk,1),units(lapse_tsk)))
       bm_nm<-c(bm_nm,"complete task")
       
-      cat("\nFinish building reference models for task:",pred_task,"in",pred_in_d,"with",fs_type,",in",lapse_tsk,units(lapse_tsk),".\n")
+      cat("\nFinish building reference models for task:",pred_task,"in",pred_in_d,"with",fs_type,",in",lapse_tsk,units(lapse_tsk),
+          ".\n--------------------------\n")
       
       #benchmark
       bm<-data.frame(bm_nm=bm_nm,bm_time=bm,
@@ -488,7 +493,6 @@ for(pred_in_d in pred_in_d_opt){
     }
   }
 }
-
 
 
 #' For each prediction task, defined as "predict AKI stage X in Y days, with/without Scr", 4 intermedicate data files have been generated and saved in `./data/model_ref/...`, which are:  
@@ -504,17 +508,21 @@ for(pred_in_d in pred_in_d_opt){
 
 
 #' #### Objective 2.3: Performance Evaluations for Benchmark Model
-
-rm(list=c("X_ts","y_ts","dtest","X_tr","y_tr","dtrain")); gc() #release some memory
+rm(list=ls()[!(ls() %in% c("pred_in_d_opt","fs_type_opt",
+                           "get_perf_summ","get_calibr"))]);
+gc() #release some memory
 
 for(pred_in_d in pred_in_d_opt){
+  
   for(fs_type in fs_type_opt){
+    
     perf_tbl_full<-c()
     perf_tbl<-c()
     calib_tbl<-c()
     varimp_tbl<-c()
     for(i in seq_along(pred_task_lst)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task_lst[i],".rda"))
+      valid_out<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))
+      valid<-valid_out$valid
       
       #overall summary
       perf_summ<-get_perf_summ(pred=valid$pred,
@@ -538,7 +546,7 @@ for(pred_in_d in pred_in_d_opt){
                     dplyr::mutate(pred_task=pred_task_lst[i],pred_in_d=pred_in_d,fs_type=fs_type))
       
       #variable
-      varimp<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_varimp_gbm_",fs_type,"_",pred_task_lst[i],".rda")) %>%
+      varimp<-valid_out$feat_imp %>%
         dplyr::mutate(rank=1:n(),
                       Gain_rescale=round(Gain/Gain[1]*100)) %>%
         dplyr::select(rank,Feature,Gain_rescale)
