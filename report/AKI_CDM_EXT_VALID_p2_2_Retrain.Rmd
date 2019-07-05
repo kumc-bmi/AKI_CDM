@@ -49,7 +49,11 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9',
           '12966-8','12965-0','6299-2','59570-2','12964-3','49071-4','72270-2',
           '11065-0','3094-0','35234-4','14937-7',
+          '48642-3','48643-1', #eGFR
           '3097-3','44734-2','BUN_SCR')
+
+tbl1<-readRDS("./data//Table1.rda") %>%
+  dplyr::mutate(yr=as.numeric(format(strptime(ADMIT_DATE, "%Y-%m-%d %H:%M:%S"),"%Y")))
 ```
 
 
@@ -79,7 +83,7 @@ By running `Part I` of "render_report.R", the raw data tables should have alread
 In this section, the raw data tables will be cleaned and transformed to a discrete-survival-like representation, which will be used in the final modeling stage. To reduce the burden on memory requirments, the ETL (extract, transform, load) process will be performed in chunks with respect to **distinct prediction task, encounter years and variable types**. Meanwhile, indices for random paritioning will be assigned to each encounter. The ETL progress will be reported as follows:
 
 
-```{r preprocess, include=F}
+```{r preprocess, include=F,eval=F}
 # collect and format variables on daily basis 
 n_chunk<-4
 
@@ -247,7 +251,7 @@ The final preprocessed intermediate tables from this code chunk should be found 
 We will adopt the AKI prediction model by [*Koyner et al*] using all variables from each site's CDM Demographic, Vital, Diagnosis, Procedure and Prescribing Medication tables.The same strategy as in Koyner et al for outlier removal and aggregation of repeated values have been followed. Training/Validation sets are partitioned based on pre-assigned indices in the files "..._rsample_idx_..." from previous part.  The model development progress will be reported as follows:
 
 
-```{r benchmark, include=F}
+```{r benchmark, include=F,eval=F}
 #hyper-parameter grid for xgboost
 eval_metric<-"auc"
 objective<-"binary:logistic"
@@ -600,6 +604,10 @@ tbl1<-readRDS("./data/Table1.rda") %>%
               mutate(AGE=as.numeric(AGE)),
             by="ENCOUNTERID")
 
+perf_metrics<-c("roauc","roauc_low","roauc_up",
+               "prauc1","opt_sens","opt_spec",
+               "opt_ppv","opt_npv")
+
 final_out<-list()
 ```
 
@@ -613,7 +621,7 @@ pred_in_d<-1
 
 *(I.a) Overall Prediction Performance and Subgroup Analysis*   
 
-```{r pred24_summ,echo=F}
+```{r pred24_summ,echo=F,warning=F}
 fs_type_opt<-c("no_fs","rm_scr_bun")
 
 #overall summary
@@ -621,22 +629,8 @@ perf_overall<-c()
 for(fs_type in fs_type_opt){
   perf_overall %<>%
     bind_rows(readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>%
-                filter(overall_meas %in% c("roauc",
-                                           "roauc_low",
-                                           "roauc_up",
-                                           "prauc1",
-                                           "opt_sens",
-                                           "opt_spec",
-                                           "opt_ppv",
-                                           "opt_npv")) %>%
-                dplyr::mutate(overall_meas=recode(overall_meas,
-                                                  roauc="1.ROAUC",
-                                                  prauc1="2.PRAUC",
-                                                  opt_sens="3.Optimal Sensitivity",
-                                                  opt_spec="4.Optimal Specificity",
-                                                  opt_ppv="5.Optimal Positive Predictive Value",
-                                                  opt_npv="6.Optimal Negative Predictive Value"),
-                              grp="Overall",
+                filter(overall_meas %in% perf_metrics) %>%
+                dplyr::mutate(grp_type="Overall",
                               subgrp=fs_type))
 }
 
@@ -644,7 +638,7 @@ for(fs_type in fs_type_opt){
 fs_type<-"no_fs"
 subgrp_age<-c()
 for(i in seq_along(pred_task_lst)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task_lst[i],".rda")) %>%
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -657,24 +651,11 @@ for(i in seq_along(pred_task_lst)){
         grp_summ<-get_perf_summ(pred=valid_grp$pred,
                                 real=valid_grp$y,
                                 keep_all_cutoffs=F)$perf_summ %>%
-          dplyr::filter(overall_meas %in% c("roauc",
-                                            "roauc_low",
-                                            "roauc_up",
-                                            "prauc1",
-                                            "opt_sens",
-                                            "opt_spec",
-                                            "opt_ppv",
-                                            "opt_npv")) %>%
-          dplyr::mutate(overall_meas=recode(overall_meas,
-                                            roauc="1.ROAUC",
-                                            prauc1="2.PRAUC",
-                                            opt_sens="3.Optimal Sensitivity",
-                                            opt_spec="4.Optimal Specificity",
-                                            opt_ppv="5.Optimal Positive Predictive Value",
-                                            opt_npv="6.Optimal Negative Predictive Value"))
+          dplyr::filter(overall_meas %in% perf_metrics)
+        
         subgrp_age %<>% 
           bind_rows(grp_summ %>% 
-                      dplyr::mutate(grp="Subgrp_AGE",
+                      dplyr::mutate(grp_type="Subgrp_AGE",
                                     subgrp=grp_vec[grp],
                                     pred_task=paste0("stg",i,"up")))
       }
@@ -683,7 +664,7 @@ for(i in seq_along(pred_task_lst)){
   #subgroup-scr
   subgrp_scr<-c()
   for(i in seq_along(pred_task_lst)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task_lst[i],".rda")) %>%
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -696,24 +677,11 @@ for(i in seq_along(pred_task_lst)){
         grp_summ<-get_perf_summ(pred=valid_grp$pred,
                                 real=valid_grp$y,
                                 keep_all_cutoffs=F)$perf_summ %>%
-          filter(overall_meas %in% c("roauc",
-                                     "roauc_low",
-                                     "roauc_up",
-                                     "prauc1",
-                                     "opt_sens",
-                                     "opt_spec",
-                                     "opt_ppv",
-                                     "opt_npv")) %>%
-          dplyr::mutate(overall_meas=recode(overall_meas,
-                                            roauc="1.ROAUC",
-                                            prauc1="2.PRAUC",
-                                            opt_sens="3.Optimal Sensitivity",
-                                            opt_spec="4.Optimal Specificity",
-                                            opt_ppv="5.Optimal Positive Predictive Value",
-                                            opt_npv="6.Optimal Negative Predictive Value"))
+          filter(overall_meas %in% perf_metrics)
+        
         subgrp_scr %<>% 
           bind_rows(grp_summ %>% 
-                      dplyr::mutate(grp="Subgrp_Scr_Base",
+                      dplyr::mutate(grp_type="Subgrp_Scr_Base",
                                     subgrp=grp_vec[grp],
                                     pred_task=paste0("stg",i,"up")))
       }
@@ -724,12 +692,19 @@ perf_overall %<>%
               dplyr::mutate(pred_in_d=pred_in_d,fs_type=fs_type)) %>%
   bind_rows(subgrp_scr %>% 
               dplyr::mutate(pred_in_d=pred_in_d,fs_type=fs_type)) %>%
-  dplyr::select(pred_in_d,fs_type,grp,subgrp,pred_task,overall_meas,meas_val) %>%
+  dplyr::select(pred_in_d,fs_type,grp_type,subgrp,pred_task,overall_meas,meas_val) %>%
   dplyr::mutate(pred_task=recode(pred_task,
                                  `stg1up`="a.AKI>=1",
                                  `stg2up`="b.AKI>=2",
                                  `stg3`="c.AKI=3",
                                  `stg3up`="c.AKI=3"),
+                overall_meas=recode(overall_meas,
+                                          roauc="1.ROAUC",
+                                          prauc1="2.PRAUC",
+                                          opt_sens="3.Optimal Sensitivity",
+                                          opt_spec="4.Optimal Specificity",
+                                          opt_ppv="5.Optimal Positive Predictive Value",
+                                          opt_npv="6.Optimal Negative Predictive Value"),
                 meas_val=round(meas_val,4)) %>%
                 spread(overall_meas,meas_val) %>%
                 dplyr::mutate(roauc_up=paste0(roauc_up,")")) %>%
@@ -737,15 +712,15 @@ perf_overall %<>%
                 unite("1.ROAUC",c("1.ROAUC","1.ROAUC_CI"),sep=" (")  
 
 row_grp_pos<-perf_overall %>% 
-  arrange(grp,pred_task) %>%
+  arrange(grp_type,pred_task) %>%
   mutate(rn=1:n()) %>%
-  dplyr::mutate(root_grp=gsub(":.*","",grp)) %>%
+  dplyr::mutate(root_grp=gsub(":.*","",grp_type)) %>%
   group_by(root_grp,pred_in_d) %>%
   dplyr::summarize(begin=rn[1],
                    end=rn[n()]) %>%
   ungroup
 
-kable(perf_overall %>% arrange(grp,pred_task),
+kable(perf_overall %>% arrange(grp_type,pred_task),
       caption="Table1 - 24-Hour Prediction of AKI1, AKI2, AKI3") %>%
   kable_styling("striped", full_width = F) %>%
   group_rows("Overall", row_grp_pos$begin[1],row_grp_pos$end[1]) %>%
@@ -891,7 +866,7 @@ pred_in_d<-2
 
 *(II.a) Overall Prediction Performance*
 
-```{r pred48_summ,echo=F}
+```{r pred48_summ,echo=F,warning=F}
 fs_type_opt<-c("no_fs","rm_scr_bun")
 
 #overall summary
@@ -899,22 +874,8 @@ perf_overall<-c()
 for(fs_type in fs_type_opt){
   perf_overall %<>%
     bind_rows(readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>%
-                filter(overall_meas %in% c("roauc",
-                                           "roauc_low",
-                                           "roauc_up",
-                                           "prauc1",
-                                           "opt_sens",
-                                           "opt_spec",
-                                           "opt_ppv",
-                                           "opt_npv")) %>%
-                dplyr::mutate(overall_meas=recode(overall_meas,
-                                                  roauc="1.ROAUC",
-                                                  prauc1="2.PRAUC",
-                                                  opt_sens="3.Optimal Sensitivity",
-                                                  opt_spec="4.Optimal Specificity",
-                                                  opt_ppv="5.Optimal Positive Predictive Value",
-                                                  opt_npv="6.Optimal Negative Predictive Value"),
-                              grp="Overall",
+                filter(overall_meas %in% perf_metrics) %>%
+                dplyr::mutate(grp_type="Overall",
                               subgrp=fs_type))
 }
 
@@ -922,7 +883,7 @@ for(fs_type in fs_type_opt){
 fs_type<-"no_fs"
 subgrp_age<-c()
 for(i in seq_along(pred_task_lst)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task_lst[i],".rda")) %>%
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -935,24 +896,11 @@ for(i in seq_along(pred_task_lst)){
         grp_summ<-get_perf_summ(pred=valid_grp$pred,
                                 real=valid_grp$y,
                                 keep_all_cutoffs=F)$perf_summ %>%
-          dplyr::filter(overall_meas %in% c("roauc",
-                                            "roauc_low",
-                                            "roauc_up",
-                                            "prauc1",
-                                            "opt_sens",
-                                            "opt_spec",
-                                            "opt_ppv",
-                                            "opt_npv")) %>%
-          dplyr::mutate(overall_meas=recode(overall_meas,
-                                            roauc="1.ROAUC",
-                                            prauc1="2.PRAUC",
-                                            opt_sens="3.Optimal Sensitivity",
-                                            opt_spec="4.Optimal Specificity",
-                                            opt_ppv="5.Optimal Positive Predictive Value",
-                                            opt_npv="6.Optimal Negative Predictive Value"))
+          dplyr::filter(overall_meas %in% perf_metrics)
+        
         subgrp_age %<>% 
           bind_rows(grp_summ %>% 
-                      dplyr::mutate(grp="Subgrp_AGE",
+                      dplyr::mutate(grp_type="Subgrp_AGE",
                                     subgrp=grp_vec[grp],
                                     pred_task=paste0("stg",i,"up")))
       }
@@ -961,7 +909,7 @@ for(i in seq_along(pred_task_lst)){
   #subgroup-scr
   subgrp_scr<-c()
   for(i in seq_along(pred_task_lst)){
-      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task_lst[i],".rda")) %>%
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -974,24 +922,11 @@ for(i in seq_along(pred_task_lst)){
         grp_summ<-get_perf_summ(pred=valid_grp$pred,
                                 real=valid_grp$y,
                                 keep_all_cutoffs=F)$perf_summ %>%
-          filter(overall_meas %in% c("roauc",
-                                     "roauc_low",
-                                     "roauc_up",
-                                     "prauc1",
-                                     "opt_sens",
-                                     "opt_spec",
-                                     "opt_ppv",
-                                     "opt_npv")) %>%
-          dplyr::mutate(overall_meas=recode(overall_meas,
-                                            roauc="1.ROAUC",
-                                            prauc1="2.PRAUC",
-                                            opt_sens="3.Optimal Sensitivity",
-                                            opt_spec="4.Optimal Specificity",
-                                            opt_ppv="5.Optimal Positive Predictive Value",
-                                            opt_npv="6.Optimal Negative Predictive Value"))
+          filter(overall_meas %in% perf_metrics)
+        
         subgrp_scr %<>% 
           bind_rows(grp_summ %>% 
-                      dplyr::mutate(grp="Subgrp_Scr_Base",
+                      dplyr::mutate(grp_type="Subgrp_Scr_Base",
                                     subgrp=grp_vec[grp],
                                     pred_task=paste0("stg",i,"up")))
       }
@@ -1002,12 +937,19 @@ perf_overall %<>%
               dplyr::mutate(pred_in_d=pred_in_d,fs_type=fs_type)) %>%
   bind_rows(subgrp_scr %>% 
               dplyr::mutate(pred_in_d=pred_in_d,fs_type=fs_type)) %>%
-  dplyr::select(pred_in_d,fs_type,grp,pred_task,overall_meas,meas_val) %>%
+  dplyr::select(pred_in_d,fs_type,grp_type,subgrp,pred_task,overall_meas,meas_val) %>%
   dplyr::mutate(pred_task=recode(pred_task,
                                  `stg1up`="a.AKI>=1",
                                  `stg2up`="b.AKI>=2",
                                  `stg3`="c.AKI=3",
                                  `stg3up`="c.AKI=3"),
+                overall_meas=recode(overall_meas,
+                                          roauc="1.ROAUC",
+                                          prauc1="2.PRAUC",
+                                          opt_sens="3.Optimal Sensitivity",
+                                          opt_spec="4.Optimal Specificity",
+                                          opt_ppv="5.Optimal Positive Predictive Value",
+                                          opt_npv="6.Optimal Negative Predictive Value"),
                 meas_val=round(meas_val,4)) %>%
                 spread(overall_meas,meas_val) %>%
                 dplyr::mutate(roauc_up=paste0(roauc_up,")")) %>%
@@ -1015,15 +957,15 @@ perf_overall %<>%
                 unite("1.ROAUC",c("1.ROAUC","1.ROAUC_CI"),sep=" (")  
 
 row_grp_pos<-perf_overall %>% 
-  arrange(grp,pred_task) %>%
+  arrange(grp_type,pred_task) %>%
   mutate(rn=1:n()) %>%
-  dplyr::mutate(root_grp=gsub(":.*","",grp)) %>%
+  dplyr::mutate(root_grp=gsub(":.*","",grp_type)) %>%
   group_by(root_grp,pred_in_d) %>%
   dplyr::summarize(begin=rn[1],
                    end=rn[n()]) %>%
   ungroup
 
-kable(perf_overall %>% arrange(grp,pred_task),
+kable(perf_overall %>% arrange(grp_type,pred_task),
       caption="Table1 - 48-Hour Prediction of AKI1, AKI2, AKI3") %>%
   kable_styling("striped", full_width = F) %>%
   group_rows("Overall", row_grp_pos$begin[1],row_grp_pos$end[1]) %>%
