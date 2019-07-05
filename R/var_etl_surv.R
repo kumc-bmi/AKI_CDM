@@ -34,9 +34,9 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
       bind_rows(dat %>% dplyr::select(-PATID) %>%
                   filter(key %in% c("HT","WT","BMI")) %>%
                   group_by(ENCOUNTERID,key) %>%
-                  mutate(value=ifelse((key=="HT" & (value>95 | value<0))|
-                                      (key=="WT" & (value>1400 | value<0))|
-                                      (key=="BMI" & (value>70 | value<0)),NA,value)) %>%
+                  mutate(value=ifelse((key=="HT" & (value>95 | value<=0))|
+                                      (key=="WT" & (value>1400 | value<=0))|
+                                      (key=="BMI" & (value>70 | value<=0)),NA,value)) %>%
                   dplyr::summarize(value=median(as.numeric(value),na.rm=T)) %>%
                   ungroup %>% mutate(dsa=-1))
 
@@ -68,7 +68,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
     #--trend of bp
     bp_slp_eligb<-bp %>%
       mutate(add_time=difftime(strptime(timestamp,"%Y-%m-%d %H:%M:%S"),strptime(timestamp,"%Y-%m-%d"),units="mins")) %>%
-      mutate(timestamp=round(as.numeric(add_time)/(24*60),2)) %>%
+      mutate(timestamp=round(as.numeric(add_time)/60,2)) %>% #coefficient represents change per hour
       dplyr::select(-add_time) %>%
       group_by(ENCOUNTERID,key,dsa) %>%
       dplyr::mutate(df=length(unique(timestamp))-1) %>%

@@ -83,7 +83,7 @@ By running `Part I` of "render_report.R", the raw data tables should have alread
 In this section, the raw data tables will be cleaned and transformed to a discrete-survival-like representation, which will be used in the final modeling stage. To reduce the burden on memory requirments, the ETL (extract, transform, load) process will be performed in chunks with respect to **distinct prediction task, encounter years and variable types**. Meanwhile, indices for random paritioning will be assigned to each encounter. The ETL progress will be reported as follows:
 
 
-```{r preprocess, include=F}
+```{r preprocess, include=F,eval=F}
 # collect and format variables on daily basis 
 n_chunk<-4
 
@@ -251,7 +251,7 @@ The final preprocessed intermediate tables from this code chunk should be found 
 We will adopt the AKI prediction model by [*Koyner et al*] using all variables from each site's CDM Demographic, Vital, Diagnosis, Procedure and Prescribing Medication tables.The same strategy as in Koyner et al for outlier removal and aggregation of repeated values have been followed. Training/Validation sets are partitioned based on pre-assigned indices in the files "..._rsample_idx_..." from previous part.  The model development progress will be reported as follows:
 
 
-```{r benchmark, include=F}
+```{r benchmark, include=F,eval=F}
 #hyper-parameter grid for xgboost
 eval_metric<-"auc"
 objective<-"binary:logistic"
