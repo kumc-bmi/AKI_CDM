@@ -7,12 +7,12 @@ require_libraries(c("DBI",
                     "dplyr",
                     "magrittr"))
 
-config_file_path<-"./config.csv"
+config_file_path<-"./config/config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-connect_to_db("Oracle",config_file)
+conn<-connect_to_db("Oracle","OCI",config_file)
 
 #metadata - source I: PCORNET CDM website
-meta_cdm<-read.csv("./data/meta_data/cdm_metadata.csv",stringsAsFactors = F) %>%
+cdm_metadata<-read.csv("./data/meta_data/cdm_metadata.csv",stringsAsFactors = F) %>%
   dplyr::mutate(FIELD_NAME2=FIELD_NAME,
                 VALUESET_ITEM2=VALUESET_ITEM) %>%
   unite("VALUESET_ITEM2",c("FIELD_NAME2","VALUESET_ITEM2"),sep="_") %>%
@@ -35,15 +35,19 @@ meta_cdm<-read.csv("./data/meta_data/cdm_metadata.csv",stringsAsFactors = F) %>%
 
 
 #metadata - source II: local metadata table
-meta_sql<-parse_sql("./inst/Oracle/metadata_i2b2.sql",cdm_db_schema="blueheron")
+meta_sql<-parse_sql("./src/Oracle/metadata_i2b2.sql",
+                    cdm_meta_schema=config_file$cdm_meta_schema)
 i2b2_metadata<-execute_single_sql(conn,
                                   statement=meta_sql$statement,
                                   write=(meta_sql$action=="write"),
                                   table_name=toupper(sql$tbl_out))
-saveRDS(i2b2_metadata,"./data/i2b2_metadata.rda")
 
-#if breaks
-i2b2_metadata<-readRDS("./data/meta_data/i2b2_metadata.rda")
+# #save loinc
+# saveRDS(i2b2_metadata %>% filter(FIELD_NAME=="LOINC"),
+#         "./ref/loinc_metadata.rda")
+
+# #if breaks
+# i2b2_metadata<-readRDS("./data/meta_data/i2b2_metadata.rda")
 i2b2_metadata %<>%
   mutate(VALUESET_ITEM2=case_when(FIELD_NAME=="DX"&ITEM_TYPE=="09" ~ paste0("ICD9:",VALUESET_ITEM),
                                   FIELD_NAME=="DX"&ITEM_TYPE=="10" ~ paste0("ICD10:",VALUESET_ITEM),
@@ -84,10 +88,12 @@ add_ft<-data.frame(TABLE_NAME=rep("additional",8),
 
 ##========== metadata set =============##
 metadata<-i2b2_metadata %>%
-  bind_rows(meta_cdm) %>%
+  bind_rows(cdm_metadata) %>%
   bind_rows(ccs_ref) %>%
   bind_rows(add_ft) %>%
   unique
 
 saveRDS(metadata,file="./data/meta_data/metadata.rda")
+
+meta<-readRDS("./data_local/meta_data/metadata.rda")
 
