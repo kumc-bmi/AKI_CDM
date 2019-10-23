@@ -1,6 +1,5 @@
 #source utility functions
 source("./R/util.R")
-source("./R/var_etl_surv.R")
 
 require_libraries(c("tidyr",
                     "dplyr",
@@ -280,8 +279,6 @@ for(pred_in_d in pred_in_d_opt){
                    model=xgb_tune,
                    valid=valid,
                    feat_imp=feat_imp)
-      saveRDS(result,file=paste0("./data/model_ref/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
-
       #-------------------------------------------------------------------------------------------------------------
       lapse_tsk<-Sys.time()-start_tsk
       bm<-c(bm,paste0(round(lapse_tsk,1),units(lapse_tsk)))
@@ -291,9 +288,10 @@ for(pred_in_d in pred_in_d_opt){
           ".\n--------------------------\n")
       
       #benchmark
-      bm_df<-data.frame(bm_nm=bm_nm,bm_time=bm,
-                        stringsAsFactors = F)
-      saveRDS(bm_df,file=paste0("./data/model_ref/",pred_in_d,"d_bm_gbm_",fs_type,"_",pred_task,".rda"))
+      result$bm_df<-data.frame(bm_nm=bm_nm,bm_time=bm,
+                               stringsAsFactors = F)
+      
+      saveRDS(result,file=paste0("./data/model_ref/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
     }
   }
 }
