@@ -14,14 +14,13 @@ require_libraries(c("Matrix",
 ))
 
 #-----prediction point
-pred_in_d_opt<-c(1,2)
+pred_in_d_opt<-c(2,1)
 
 #-----prediction tasks
-pred_task_lst<-c("stg1up","stg2up","stg3")
+pred_task_lst<-c("stg2up","stg1up","stg3")
 
 #-----feature selection type
-# fs_type_opt<-c("no_fs","rm_scr_bun")
-fs_type_opt<-"rm_scr_bun"
+fs_type_opt<-c("no_fs","rm_scr_bun")
 rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
           '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9',
@@ -29,6 +28,36 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '11065-0','3094-0','35234-4','14937-7',
           '48642-3','48643-1', #eGFR
           '3097-3','44734-2','BUN_SCR')
+
+#-----variables of interests
+var_nm<-c("2160-0",
+          "2160-0_change",
+          "48642-3",
+          "48642-3_change",
+          "375983:01_cum",
+          "AGE",
+          "BMI",
+          "158",
+          "718-7",
+          "718-7_change",
+          "CH:71010",
+          "3094-0",
+          "BUN_SCR",
+          "2075-0",
+          "17861-6",
+          "2823-3",
+          "2777-1",
+          "2075-0",
+          "777-3",
+          "1920-8",
+          "2345-7",
+          "788-0",
+          "1751-7",
+          "6690-2",
+          "BP_DIASTOLIC_min",
+          "BP_SYSTOLIC_min",
+          "BP_DIASTOLIC_slope",
+          "BP_SYSTOLIC_slope")
 
 # collect and format variables on daily basis 
 n_chunk<-4
@@ -135,34 +164,40 @@ for(pred_in_d in pred_in_d_opt){
       gbm_model<-gbm_ctnr$model
 
       #bootstrap CI for SHAP values
-      boots<-30
-      ns<-5000
-      
+      boots<-20
+      nns<-10000
+
       pred_brkdn_b<-c()
       x_val_b<-c()
       
       for(b in 1:boots){
         start_b<-Sys.time()
         
-        #smaller sample
-        n<-nrow(X_ts_sp)
-        idxset<-sample(1:n,ns,replace=F)
+        #stratified sampling
+        n_idx<-which(y_ts_sp$y==0)
+        p_idx<-which(y_ts_sp$y==1)
+        nn<-length(n_idx)
+        idxset<-c(p_idx,n_idx[sample(1:nn,nns,replace=F)])
+        
         contr <- predict(gbm_model,
-                         X_ts_sp[idxset,],
+                         newdata=X_ts_sp[idxset,],
                          predcontrib = TRUE)
         
-        shap<-xgb.plot.shap(data=X_ts_sp[idxset,],
-                            shap_contrib=contr,
-                            model = gbm_model,
-                            top_n = 20,
-                            plot=F)
+        shap_sel<-contr[,which(colnames(contr) %in% var_nm)]
+        
+        #careful!! rows get re-ordered by xgb.plot.shap
+        # shap<-xgb.plot.shap(data=X_ts_sp[idxset,],
+        #                     shap_contrib=contr,
+        #                     model = gbm_model,
+        #                     top_n = 10,
+        #                     plot=F)
         
         pred_brkdn_b %<>%
-          bind_rows(cbind(as.data.frame(shap$shap_contrib),
+          bind_rows(cbind(as.data.frame(shap_sel),
                           boot=b,idx=idxset))
         
         x_val_b %<>%
-          bind_rows(cbind(as.data.frame(as.matrix(X_ts_sp[idxset,which(colnames(X_ts_sp) %in% colnames(shap$shap_contrib))])),
+          bind_rows(cbind(as.data.frame(as.matrix(X_ts_sp[idxset,which(colnames(X_ts_sp) %in% var_nm)])),
                           boot=b,idx=idxset))
         
         lapse<-Sys.time()-start_b
@@ -175,7 +210,7 @@ for(pred_in_d in pred_in_d_opt){
       for(v in seq_along(var_lst)){
         pred_brkdn %<>%
           bind_rows(pred_brkdn_b %>%
-                      dplyr::select(var_lst[v],boot,idx) %>%
+                      dplyr::select(var_lst[v],"boot","idx") %>%
                       dplyr::mutate(val=round(x_val_b[,var_lst[v]],2)) %>%
                       group_by(boot,val) %>%
                       dplyr::summarise(effect=mean(get(var_lst[v]))) %>%
@@ -188,5 +223,12 @@ for(pred_in_d in pred_in_d_opt){
   }
 }
 
-      
+#sanity check
+readRDS("./data/model_explain/2d_rm_scr_bun_stg2up.rda") %>%
+  filter(var=="AGE") %>%
+  group_by(var,val) %>%
+  dplyr::summarize(eff=median(effect),
+                   eff_lb=quantile(effect,0.025),
+                   eff_ub=quantile(effect,0.975)) %>%
+  ungroup %>% View
 

@@ -794,8 +794,9 @@ med<-execute_single_sql(conn,
   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
   dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
   dplyr::select(ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
-  unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
-
+  # unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":") %>% #separate between rx_basis (01: prescribed, 02: administered)
+  dplyr::rename(key==RXNORM_CUI) %>% dplyr::filter(RX_BASIS=="01"|is.na(RX_BASIS)) #just use 01, as rx_basis is not always populated in other sites
+  
 
 #re-calculate medication exposure
 chunk_num<-20
