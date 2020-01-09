@@ -90,20 +90,26 @@ for(pred_in_d in pred_in_d_opt){
       
       if(pred_task=="stg1up"){
         dat_i %<>%
+          group_by(ENCOUNTERID) %>%
+          dplyr::mutate(last_stg=max(y)) %>% ungroup %>% #filter out earlier days of AKI>=1
+          dplyr::filter(!(last_stg>=1&y==0)) %>%       
           dplyr::mutate(y=as.numeric(y>0)) %>%
+          
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else if(pred_task=="stg2up"){
         dat_i %<>%
           group_by(ENCOUNTERID) %>%
-          dplyr::filter(max(y)!=1) %>% ungroup %>%   #filter out entire AKI1 encounters
-          filter(y!=1) %>%                           #filter AKI1 stages for AKI2 cases
+          dplyr::mutate(last_stg=max(y)) %>% ungroup %>% 
+          dplyr::filter(!((last_stg>=2&y==0)|               #filter out earlier days of AKI>=2
+                           last_stg==1)) %>%                #filter out entire AKI1 encounters
           dplyr::mutate(y=as.numeric(y>=2)) %>%
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else if(pred_task=="stg3"){
         dat_i %<>%
           group_by(ENCOUNTERID) %>%
-          filter(max(y) %in% c(1,2)) %>% ungroup %>%   #filter out entire AKI1,2 encounters
-          filter(!y %in% c(1,2)) %>%                   #filter out AKI1,2 stages for AKI3 cases
+          dplyr::mutate(last_stg=max(y)) %>% ungroup %>% 
+          dplyr::filter(!((last_stg==2&y==0)|               #filter earlier days of AKI=3
+                           last_stg %in% c(1,2))) %>%                #filter out entire AKI1,2 encounters
           dplyr::mutate(y=as.numeric(y>2)) %>%
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else{
