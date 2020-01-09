@@ -1,6 +1,9 @@
-#source utility functions
+############################
+#### Data Preprocessing ####
+############################
+rm(list=ls()); gc()
+
 source("./R/util.R")
-source("./R/var_etl_surv.R")
 
 require_libraries(c("tidyr",
                     "dplyr",
@@ -91,12 +94,16 @@ for(pred_in_d in pred_in_d_opt){
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else if(pred_task=="stg2up"){
         dat_i %<>%
-          # filter(y!=1) %>% # remove stage 1
-          dplyr::mutate(y=as.numeric(y>1)) %>%
+          group_by(ENCOUNTERID) %>%
+          dplyr::filter(max(y)!=1) %>% ungroup %>%   #filter out entire AKI1 encounters
+          filter(y!=1) %>%                           #filter AKI1 stages for AKI2 cases
+          dplyr::mutate(y=as.numeric(y>=2)) %>%
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else if(pred_task=="stg3"){
         dat_i %<>%
-          # filter(!(y %in% c(1,2))) %>% # remove stage 1,2
+          group_by(ENCOUNTERID) %>%
+          filter(max(y) %in% c(1,2)) %>% ungroup %>%   #filter out entire AKI1,2 encounters
+          filter(!y %in% c(1,2)) %>%                   #filter out AKI1,2 stages for AKI3 cases
           dplyr::mutate(y=as.numeric(y>2)) %>%
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else{

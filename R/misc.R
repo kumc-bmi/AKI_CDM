@@ -11,6 +11,31 @@ require_libraries(c("tidyr",
                     "ROCR",
                     "PRROC",
                     "ResourceSelection"))
+
+tbl1<-readRDS("./data/Table1.rda") %>%
+  select(ENCOUNTERID,NONAKI_SINCE_ADMIT,AKI1_SINCE_ADMIT,AKI2_SINCE_ADMIT,AKI3_SINCE_ADMIT) %>%
+  gather(stg,time,-ENCOUNTERID) %>%
+  filter(!is.na(time)) %>%
+  mutate(aki_stg_num=case_when(stg=="AKI1_SINCE_ADMIT" ~ 1,
+                               stg=="AKI2_SINCE_ADMIT" ~ 2,
+                               stg=="AKI3_SINCE_ADMIT" ~ 3,
+                               TRUE ~ 0)) %>%
+  group_by(ENCOUNTERID) %>%
+  arrange(desc(aki_stg_num)) %>%
+  dplyr::slice(1:1) %>%
+  ungroup 
+
+N<-length(unique(tbl1$ENCOUNTERID))
+
+tbl1 %>%
+  group_by(aki_stg_num) %>%
+  dplyr::summarize(enc_cnt=length(unique(ENCOUNTERID))) %>%
+  ungroup %>%
+  bind_rows(data.frame(aki_stg_num=9,
+                       enc_cnt=N)) %>%
+  View
+
+
 ##collect sample data
 pred_in_d<-1
 pred_task<-"stg2up"
