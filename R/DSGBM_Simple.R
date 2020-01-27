@@ -1,4 +1,6 @@
-#source utility functions
+############################
+#### Simple DSGBM Model ####
+############################
 source("./R/util.R")
 
 require_libraries(c("tidyr",
@@ -295,4 +297,13 @@ for(pred_in_d in pred_in_d_opt){
     }
   }
 }
+
+
+##--- spot check some results ---
+readRDS("./data/model_ref/2d_no_fs_stg2up.rda")$feat_imp %>%
+  View
+
+readRDS("./data/model_ref/2d_no_fs_stg1up.rda")$feat_imp %>%
+  View
+
 

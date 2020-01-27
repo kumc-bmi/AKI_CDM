@@ -1,3 +1,6 @@
+#################################
+#### SHAP Partial Dependance ####
+#################################
 rm(list=ls()); gc()
 source("./R/util.R")
 require_libraries(c("Matrix",
@@ -32,32 +35,9 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
 #-----variables of interests
 var_nm<-c("2160-0",
           "2160-0_change",
-          "48642-3",
-          "48642-3_change",
           "375983:01_cum",
-          "AGE",
-          "BMI",
-          "158",
-          "718-7",
-          "718-7_change",
-          "CH:71010",
-          "3094-0",
-          "BUN_SCR",
-          "2075-0",
-          "17861-6",
-          "2823-3",
-          "2777-1",
-          "2075-0",
-          "777-3",
-          "1920-8",
-          "2345-7",
-          "788-0",
-          "1751-7",
-          "6690-2",
-          "BP_DIASTOLIC_min",
-          "BP_SYSTOLIC_min",
-          "BP_DIASTOLIC_slope",
-          "BP_SYSTOLIC_slope")
+          "AGE")
+
 
 # collect and format variables on daily basis 
 n_chunk<-4
@@ -206,7 +186,7 @@ for(pred_in_d in pred_in_d_opt){
       }
       
       pred_brkdn<-c()
-      var_lst<-colnames(shap$shap_contrib)
+      var_lst<-colnames(shap_sel)
       for(v in seq_along(var_lst)){
         pred_brkdn %<>%
           bind_rows(pred_brkdn_b %>%
@@ -222,6 +202,7 @@ for(pred_in_d in pred_in_d_opt){
     }
   }
 }
+
 
 #sanity check
 readRDS("./data/model_explain/2d_rm_scr_bun_stg2up.rda") %>%
