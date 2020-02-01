@@ -46,7 +46,6 @@ AKI Stages are defined based on [KDIGO](http://www.kdigo.org/clinical_practice_g
 ```{r setup, include=F}
 #source utility functions
 source("./R/util.R")
-source("./R/viz.R")
 
 #load libraries
 require_libraries(c("DBI",

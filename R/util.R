@@ -317,6 +317,206 @@ extract_cohort<-function(conn,
 }
 
 
+#----collect facts from i2b2 observation_fact table----
+#note: there should be a reference patient table ("pat_num") on oracle server with the key column "key_col"
+collect_i2b2_obs<-function(conn,
+                           code_vec=c(),
+                           regexp_str="",
+                           col_out=c("patient_num",
+                                     "encounter_num",
+                                     "concept_cd",
+                                     "units_cd",
+                                     "nval_num",
+                                     "tval_char",
+                                     "modifier_cd",
+                                     "start_date",
+                                     "end_date"),
+                           key_col=c("patient_num"),
+                           schema=c("blueherondata"),
+                           pat_num){
+  
+  col_out<-col_out[!col_out %in% key_col]
+  
+  match_key<-c()
+  for(i in seq_along(key_col)){
+    match_key<-c(match_key,paste(paste0(c("p.","f."),key_col[i]),collapse = "="))
+  }
+  if(length(key_col)>1){
+    match_key<-paste(match_key,collapse = " and ")
+  }
+  
+  i2b2_obs_lst<-list()
+  
+  for(i in seq_along(schema)){
+    sql<-paste0("select distinct ",
+                paste0(paste(paste0("p.",key_col,collapse = ","),",",
+                             paste(paste0("f.",col_out,collapse = ",")),
+                             paste0(" from ", pat_num, " p"),
+                             paste0(" join ", schema, ".observation_fact f"),
+                             " on ",match_key)))
+    
+    if(length(code_vec)>0&nchar(regexp_str)>0){
+      sql<-paste0(sql," and ",
+                  "(f.concept_cd in ",paste0("('",paste(code_vec,collapse="','"),"')")," or ",
+                  "regexp_like(f.concept_cd,'",regexp_str,"','i'))")
+    }else if(length(code_vec)==0&nchar(regexp_str)>0){
+      sql<-paste0(sql," and ",
+                  "regexp_like(f.concept_cd,'",regexp_str,"','i')")
+    }else if(length(code_vec)>0&nchar(regexp_str)==0){
+      sql<-paste0(sql," and ",
+                  "f.concept_cd in ",paste0("('",paste(code_vec,collapse="','"),"')"))
+    }else{
+      stop("either code_vec or regexp_str should be specified for filtering concept_cd!")
+    }
+    
+    i2b2_obs_lst[[schema[i]]]<-DBI::dbGetQuery(conn,sql)
+  }
+  
+  return(i2b2_obs_lst)
+}
+
+#----collect concepts from i2b2 concept_dimension table----
+#note: there should be a reference concept table ("concept") on oracle server with the key column "key_col"
+collect_i2b2_cd<-function(conn,
+                          exact_match=T,
+                          cd_prefix=NULL,
+                          col_out=c("concept_cd",
+                                    "name_char",
+                                    "concept_path"),
+                          key_col=c("CONCEPT_CD"),
+                          schema=c("blueherondata"),
+                          concept){
+  
+  col_out<-col_out[!col_out %in% key_col]
+  
+  match_key<-c()
+  for(i in seq_along(key_col)){
+    if(exact_match){
+      match_key<-c(match_key,paste(paste0(c("cd.","f."),key_col[i]),collapse = "="))
+    }else{
+      match_key<-c(match_key,paste0("regexp_like(f.",key_col[i],",('(' || cd.",key_col[i]," || ')+'),'i')"))
+    }
+    
+    if(!is.null(cd_prefix)){
+      match_key<-paste0(match_key," and regexp_like(f.",key_col[i],",'^(",cd_prefix,")+')")
+    }else{
+      
+    }
+  }
+  
+  if(length(key_col)>1){
+    match_key<-paste(match_key,collapse = " and ")
+  }
+  
+  i2b2_obs_lst<-list()
+  
+  for(i in seq_along(schema)){
+    sql<-paste0("select distinct ",
+                paste0(paste(paste0("cd.",key_col,collapse = ",")," ICD_FUZZY,",
+                             paste(paste0("f.",col_out,collapse = ",")),
+                             paste0(" from ", concept, " cd"),
+                             paste0(" join ", schema, ".concept_dimension f"),
+                             " on ",match_key)))
+    
+    i2b2_obs_lst[[schema[i]]]<-DBI::dbGetQuery(conn,sql)
+  }
+  
+  return(i2b2_obs_lst)
+}
+
+
+#----collect data from one of the CDM tables----
+#note: there should be a reference patient table ("pat_num") on oracle server with the key column "key_col"
+collect_cdm<-function(conn,
+                      code_vec=c(),
+                      str_vec=c(),
+                      col_out=NULL,
+                      key_col_schema=c("PATID"),
+                      key_col_pat=c("PATIENT_NUM"),
+                      schema=c("PCORNET_CDM_C7R2"),
+                      tbl="DEMOGRAPHIC",
+                      pat_num){
+  if(is.null(col_out)){
+    col_out<-colnames(DBI::dbGetQuery(conn,
+                                      paste0("select * from ",schema[1],".",tbl," where 1=0")))
+  }
+  col_out<-col_out[!col_out %in% key_col_schema]
+  
+  
+  match_key<-c()
+  for(i in seq_along(key_col_pat)){
+    match_key<-c(match_key,paste(c(paste0("p.",key_col_pat[i]),
+                                   paste0("f.",key_col_schema[i])),
+                                 collapse = "="))
+  }
+  if(length(key_col_pat)>1){
+    match_key<-paste(match_key,collapse = " and ")
+  }
+  
+  cdm_obs_lst<-list()
+  
+  for(i in seq_along(schema)){
+    sql<-paste0("select distinct ",
+                paste0(paste(paste0("p.",key_col_pat,collapse = ","),",",
+                             paste(paste0("f.",col_out,collapse = ",")),
+                             paste0(" from ", pat_num, " p"),
+                             paste0(" join ", schema[i], ".",tbl," f"),
+                             " on ",match_key)))
+    if(tbl=="PROCEDURES"){
+      #procedures are identified uniquely by (PX_TYPE || ':' || PX)
+      sql<-paste0(sql," and",
+                  " (f.PX_TYPE || ':' || f.PX) in ",paste0("('",paste(code_vec,collapse="','"),"')"))
+      
+    }else if(tbl=="PRESCRIBING"){
+      #prescribing are identified uniquely by RXNORM_CUI or RAW_RX_MED_NAME
+      if(length(code_vec)>0){
+        sql<-paste0(sql," and",
+                    "f.RXNORM_CUI in ",paste0("('",paste(code_vec,collapse="','"),"')"))
+      }
+      if(length(str_vec)>0){
+        if(length(code_vec)>0){
+          sql<-paste0(sql, " or ",
+                      " regexp_like(f.RAW_RX_MED_NAME,",paste0("'((",paste(str_vec,collapse = ")|("),"))+'"),",'i')")
+        }else{
+          sql<-paste0(sql, " and ",
+                      " regexp_like(f.RAW_RX_MED_NAME,",paste0("'((",paste(str_vec,collapse = ")|("),"))+'"),",'i')")
+        }
+      }
+      
+    }else if(tbl=="DISPENSING"){
+      #dispensing are identified by NDC codes
+      sql<-paste0(sql," and ",
+                  "(f.NDC in ",paste0("('",paste(code_vec,collapse="','"),"')"))
+      
+    }else if(tbl=="DIAGNOSIS"){
+      #diagnosis are identified by (DX_TYPE || ':' || DX)
+      if(length(code_vec)>0){
+        sql<-paste0(sql," and",
+                    "(f.DX_TYPE || ':' || f.DX) in ",paste0("('",paste(code_vec,collapse="','"),"')"))
+      }
+      if(length(str_vec)>0){
+        if(length(code_vec)>0){
+          sql<-paste0(sql, " or ",
+                      " regexp_like((f.DX_TYPE || ':' || f.DX),",paste0("'((",paste(str_vec,collapse = ")|("),"))+'"),",'i')")
+        }else{
+          sql<-paste0(sql," and",
+                      " regexp_like((f.DX_TYPE || ':' || f.DX),",paste0("'((",paste(str_vec,collapse = ")|("),"))+'"),",'i')")
+        }
+        
+      }
+      
+    }else{
+      sql<-sql
+    }
+    
+    cdm_obs_lst[[schema[i]]]<-DBI::dbGetQuery(conn,sql)
+  }
+  
+  return(cdm_obs_lst)
+  
+}
+
+
 consort_diag<-function(consort_tbl){
   require_libraries("diagram")
   tbl<-data.frame(CNT_TYPE=c("Initial",
