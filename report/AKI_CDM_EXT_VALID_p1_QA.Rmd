@@ -68,7 +68,9 @@ require_libraries(c("DBI",
 #establish the connection between r-studio and CDM server (Oracle)
 config_file_path<-"./config/config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-connect_to_db(params$DBMS_type,params$driver_type,config_file)
+conn<-connect_to_db(DBMS_type=params$DBMS_type,
+                    driver_type=params$driver_type,
+                    config_file=config_file %>% filter(id_server==0))
 ```
 
 
@@ -793,7 +795,7 @@ med<-execute_single_sql(conn,
   dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
   dplyr::select(ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
   # unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":") %>% #separate between rx_basis (01: prescribed, 02: administered)
-  dplyr::rename(key==RXNORM_CUI) %>% dplyr::filter(RX_BASIS=="01"|is.na(RX_BASIS)) #just use 01, as rx_basis is not always populated in other sites
+  dplyr::rename(key=RXNORM_CUI) %>% dplyr::filter(RX_BASIS=="01"|is.na(RX_BASIS)) #just use 01, as rx_basis is not always populated in other sites
   
 
 #re-calculate medication exposure
@@ -851,7 +853,7 @@ for(i in 1:chunk_num){
 med<-med2
 
 #collect summaries
-med_summ<- med %>%
+med_summ<-med %>% 
   dplyr::select(ENCOUNTERID,key,sdsa,RX_EXPOS) %>%
   mutate(dsa_grp=case_when(sdsa < 0 ~ "0>",
                            sdsa >=0 & sdsa < 1 ~ "1",
@@ -871,14 +873,14 @@ med_summ<- med %>%
                    median_expos=round(median(RX_EXPOS,na.rm=T)),
                    max_expos=max(RX_EXPOS,na.rm=T)) %>%
   ungroup %>%
-  #HIPAA, low counts masking
+  #HIPPA, low counts masking
   mutate(enc_cnt=ifelse(as.numeric(enc_cnt)<11,"<11",as.character(enc_cnt)),
          record_cnt=ifelse(as.numeric(record_cnt)<11,"<11",as.character(record_cnt)),
          sd_expos=ifelse(is.na(sd_expos),0,sd_expos)) %>%
   dplyr::mutate(cov_expos=round(sd_expos/mean_expos,1)) %>%
   gather(summ,summ_val,-key,-dsa_grp) %>%
   spread(dsa_grp,summ_val) %>%
-  arrange(key,summ) 
+  arrange(key,summ)
 
 med_density<-length(unique(med$ENCOUNTERID))
 

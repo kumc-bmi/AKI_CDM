@@ -37,39 +37,43 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '3097-3','44734-2','BUN_SCR')
 
 #-----variables of interests
-var_nm<-c("2160-0",
-          "2160-0_change",
-          "48642-3",
-          "48642-3_change",
-          "375983:01_cum",
-          "AGE",
-          "BMI",
-          "158",
-          "718-7",
-          "718-7_change",
-          "CH:71010",
-          "3094-0",
-          "BUN_SCR",
-          "2075-0",
-          "17861-6",
-          "2823-3",
-          "2777-1",
-          "2075-0",
-          "777-3",
-          "1920-8",
-          "2345-7",
-          "788-0",
-          "1751-7",
-          "6690-2",
-          "BP_DIASTOLIC_min",
-          "BP_SYSTOLIC_min",
-          "BP_DIASTOLIC_slope",
-          "BP_SYSTOLIC_slope")
+# var_nm<-c("2160-0",
+#           "2160-0_change",
+#           "48642-3",
+#           "48642-3_change",
+#           "375983:01_cum",
+#           "AGE",
+#           "BMI",
+#           "158",
+#           "718-7",
+#           "718-7_change",
+#           "CH:71010",
+#           "3094-0",
+#           "BUN_SCR",
+#           "2075-0",
+#           "17861-6",
+#           "2823-3",
+#           "2777-1",
+#           "2075-0",
+#           "777-3",
+#           "1920-8",
+#           "2345-7",
+#           "788-0",
+#           "1751-7",
+#           "6690-2",
+#           "BP_DIASTOLIC_min",
+#           "BP_SYSTOLIC_min",
+#           "BP_DIASTOLIC_slope",
+#           "BP_SYSTOLIC_slope")
+
+n_chunk<-4
+
+k<-100
 
 
 ##------important variables variations-------
 for(pred_in_d in pred_in_d_opt){
-  data_ds<-readRDS(paste0("./data/preproc/",params$site,"/data_ds_",pred_in_d,"d.rda"))
+  data_ds<-readRDS(paste0("./data/preproc/data_ds_",pred_in_d,"d.rda"))
   
   for(pred_task in pred_task_lst){
     
@@ -142,6 +146,9 @@ for(pred_in_d in pred_in_d_opt){
       ##------------------------------------------------------------------------------------
       #load trained model
       gbm_model<-gbm_ctnr$model
+      
+      #identify top k features
+      var_nm<-xgboo
       
       #bootstrap CI for SHAP values
       boots<-20

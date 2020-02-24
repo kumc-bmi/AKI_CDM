@@ -7,13 +7,16 @@ require_libraries(c("DBI",
                     "stringr"))
 
 params<-list(  DBMS_type="Oracle",
+               driver_type="OCI",
                remote_CDM=FALSE,
                incl_NDC=FALSE)
 
 
-config_file_path<-"./config.csv"
+config_file_path<-"./config/config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-connect_to_db(params$DBMS_type,config_file)
+conn<-connect_to_db(DBMS_type=params$DBMS_type,
+                    driver_type=params$driver_type,
+                    config_file=config_file %>% filter(id_server==0))
 DBMS_type<-attr(conn,"DBMS_type")
 
 
@@ -31,19 +34,19 @@ Table1<-readRDS("./data/Table1.rda")
 enc_tot<-length(unique(Table1$ENCOUNTERID))
 
 #statements to be tested
-# sql<-parse_sql(paste0("./inst/",params$DBMS_type,"/collect_med.sql"),
-#                cdm_db_link=config_file$cdm_db_link,
-#                cdm_db_name=config_file$cdm_db_name,
-#                cdm_db_schema=config_file$cdm_db_schema)
-# med<-execute_single_sql(conn,
-#                         statement=sql$statement,
-#                         write=(sql$action=="write")) %>%
-#   dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
-#                                     pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
-#   replace_na(list(RX_QUANTITY_DAILY=1)) %>%
-#   dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
-#   dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
-#   unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
+sql<-parse_sql(paste0("./src/",params$DBMS_type,"/collect_med.sql"),
+               cdm_db_link=config_file$cdm_db_link,
+               cdm_db_name=config_file$cdm_db_name,
+               cdm_db_schema=config_file$cdm_db_schema)
+med<-execute_single_sql(conn,
+                        statement=sql$statement,
+                        write=(sql$action=="write")) %>%
+  dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1),
+                                    pmax(RX_DAYS_SUPPLY,1),na.rm=T))) %>%
+  replace_na(list(RX_QUANTITY_DAILY=1)) %>%
+  dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
+  dplyr::select(PATID,ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
+  unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":")
 
 med<-readRDS("./data/AKI_MED.rda")
 
