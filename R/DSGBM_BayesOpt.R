@@ -219,7 +219,7 @@ for(pred_in_d in pred_in_d_opt){
                                                     subsample = c(0.5,0.8)),
                                       init_grid_dt = NULL,
                                       init_points = 10,
-                                      n_iter = 10,
+                                      n_iter = 100,
                                       acq = "ucb",
                                       kappa = 2.576,
                                       eps = 0.0,
