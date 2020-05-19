@@ -66,11 +66,12 @@ require_libraries(c("DBI",
 
 ```{r connect, include=F}
 #establish the connection between r-studio and CDM server (Oracle)
-config_file_path<-"./config/config.csv"
-config_file<-read.csv(config_file_path,stringsAsFactors = F)
+config_file<-read.csv("./config/config.csv",stringsAsFactors = F) %>%
+  filter(id_server==2)
+
 conn<-connect_to_db(DBMS_type=params$DBMS_type,
                     driver_type=params$driver_type,
-                    config_file=config_file %>% filter(id_server==0))
+                    config_file=config_file)
 ```
 
 
@@ -789,15 +790,12 @@ sql<-parse_sql(paste0("./src/",params$DBMS_type,"/collect_med.sql"),
 med<-execute_single_sql(conn,
                         statement=sql$statement,
                         write=(sql$action=="write")) %>%
-  dplyr::mutate(RX_EXPOS=round(pmin(pmax(as.numeric(difftime(RX_END_DATE,RX_START_DATE,units="days")),1,na.rm=T),
-                                    pmax(RX_DAYS_SUPPLY,1,na.rm=T),na.rm=T))) %>%
-  replace_na(list(RX_QUANTITY_DAILY=1)) %>%
+  dplyr::mutate(RX_EXPOS=round(pmax(as.numeric(difftime(MEDADMIN_START_DATE_TIME,MEDADMIN_STOP_DATE_TIME,units="days")),1))) %>%
   dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
-  dplyr::select(ENCOUNTERID,RXNORM_CUI,RX_BASIS,RX_EXPOS,RX_QUANTITY_DAILY,sdsa) %>%
-  # unite("key",c("RXNORM_CUI","RX_BASIS"),sep=":") %>% #separate between rx_basis (01: prescribed, 02: administered)
-  dplyr::rename(key=RXNORM_CUI) %>% dplyr::filter(RX_BASIS=="01"|is.na(RX_BASIS)) #just use 01, as rx_basis is not always populated in other sites
+  dplyr::select(PATID,ENCOUNTERID,MEDADMIN_CODE,MEDADMIN_TYPE,RX_EXPOS,sdsa) %>%
+  mutate(RX_QUANTITY_DAILY=1) %>%
+  unite("key",c("MEDADMIN_CODE","MEDADMIN_TYPE","MEDADMIN_ROUTE"),sep=":")
   
-
 #re-calculate medication exposure
 chunk_num<-20
 enc_chunk<-med %>% dplyr::select(ENCOUNTERID) %>% unique %>%
