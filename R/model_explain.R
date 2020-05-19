@@ -68,8 +68,8 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
 
 n_chunk<-4
 
-k<-100
 
+k_seq<-1:1000
 
 ##------important variables variations-------
 for(pred_in_d in pred_in_d_opt){
@@ -148,10 +148,11 @@ for(pred_in_d in pred_in_d_opt){
       gbm_model<-gbm_ctnr$model
       
       #identify top k features
-      var_nm<-xgboo
+      var_imp<-xgb.importance(model=gbm_model) %>% dplyr::slice(k_seq) %>%
+        select(Feature, Gain)
       
       #bootstrap CI for SHAP values
-      boots<-20
+      boots<-100
       nns<-10000
       
       pred_brkdn_b<-c()
