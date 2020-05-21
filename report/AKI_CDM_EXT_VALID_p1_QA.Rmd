@@ -1,7 +1,7 @@
 ---
 title: "Building and Validating Predictive Models for Acute Kidney Injury (AKI) using PCORnet CDM (Part I)"
 author: "xing song"
-date: "December 19, 2018"
+date: "May, 2020"
 output: html_document
 params:
   DBMS_type: Oracle
@@ -66,9 +66,7 @@ require_libraries(c("DBI",
 
 ```{r connect, include=F}
 #establish the connection between r-studio and CDM server (Oracle)
-config_file<-read.csv("./config/config.csv",stringsAsFactors = F) %>%
-  filter(id_server==2)
-
+config_file<-read.csv("./config/config.csv",stringsAsFactors = F)
 conn<-connect_to_db(DBMS_type=params$DBMS_type,
                     driver_type=params$driver_type,
                     config_file=config_file)
@@ -792,7 +790,7 @@ med<-execute_single_sql(conn,
                         write=(sql$action=="write")) %>%
   dplyr::mutate(RX_EXPOS=round(pmax(as.numeric(difftime(MEDADMIN_START_DATE_TIME,MEDADMIN_STOP_DATE_TIME,units="days")),1))) %>%
   dplyr::rename(sdsa=DAYS_SINCE_ADMIT) %>%
-  dplyr::select(PATID,ENCOUNTERID,MEDADMIN_CODE,MEDADMIN_TYPE,RX_EXPOS,sdsa) %>%
+  dplyr::select(PATID,ENCOUNTERID,MEDADMIN_CODE,MEDADMIN_TYPE,MEDADMIN_ROUTE,RX_EXPOS,sdsa) %>%
   mutate(RX_QUANTITY_DAILY=1) %>%
   unite("key",c("MEDADMIN_CODE","MEDADMIN_TYPE","MEDADMIN_ROUTE"),sep=":")
   
@@ -947,7 +945,7 @@ if(nrow(med_temp)>0){
   }
   
   description<-paste0("Figure4 demonstrates average exposures for drug starting at X days since admission. 
-                      It helps identify typical medciations dispensed (:01) or administered(:02) during the course of stay. 
+                      It helps identify typical medciations administered during the course of stay. 
                       (e.g. the typical medications identified are ",paste(freq_med,collapse=","),
                       "; while drugs such as ",paste(intens_med,collapse=","), 
                       "are used with a relative longer exposure than the others).")
