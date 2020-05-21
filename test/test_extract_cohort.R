@@ -10,9 +10,10 @@ params<-list(  DBMS_type="Oracle",
                driver_type="OCI")
 
 
-config_file_path<-"./config/config.csv"
-config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-connect_to_db(params$DBMS_type,params$driver_type,config_file)
+config_file<-read.csv("./config/config.csv",stringsAsFactors = F)
+conn<-connect_to_db(DBMS_type=params$DBMS_type,
+                    driver_type=params$driver_type,
+                    config_file=config_file)
 DBMS_type<-attr(conn,"DBMS_type")
 
 
@@ -20,7 +21,7 @@ DBMS_type<-attr(conn,"DBMS_type")
 cdm_db_name=config_file$cdm_db_name
 cdm_db_schema=config_file$cdm_db_schema
 start_date="2010-01-01"
-end_date="2018-12-31"
+end_date="2019-12-31"
 verb=F
 
 #statements to be tested
