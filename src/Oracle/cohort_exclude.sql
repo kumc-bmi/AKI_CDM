@@ -46,15 +46,17 @@ select aki.ENCOUNTERID
 from AKI_init aki
 where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
               where dx.PATID = aki.PATID and
-                    -- ICD9 for ESRD
+                    -- ICD9 for ESRD or KTT
                     ((dx.DX_TYPE = '09' and
-                      (   regexp_like(dx.DX,'V45\.11')
-                       or regexp_like(dx.DX,'V56\.0'))
+                      (   regexp_like(dx.DX,'V45\.1')
+                       or regexp_like(dx.DX,'V56\.')
+                       or regexp_like(dx.DX,'V42\.0'))
                       ) or
-                    -- ICD10 for ESRD
+                    -- ICD10 for ESRD or KTT
                      (dx.DX_TYPE = '10' and
-                      (   regexp_like(dx.DX,'Z49\.31')
-                       or regexp_like(dx.DX,'Z99\.2'))
+                      (   regexp_like(dx.DX,'Z49\.')
+                       or regexp_like(dx.DX,'Z99\.2')
+                       or regexp_like(dx.DX,'Z94\.0'))
                        )
                       ) and
                     dx.ADMIT_DATE < trunc(aki.ADMIT_DATE_TIME)

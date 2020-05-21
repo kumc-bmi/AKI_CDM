@@ -1,4 +1,10 @@
+##############################
+#### SHAP interpretations ####
+##############################
+#TODO
+
 rm(list=ls()); gc()
+
 source("./R/util.R")
 require_libraries(c("Matrix",
                     "dplyr",
@@ -6,13 +12,14 @@ require_libraries(c("Matrix",
                     "plyr",
                     "magrittr", 
                     "stringr",                    
-                    "ResourceSelection",
                     "pROC",
                     "ROCR",
                     "PRROC",
                     "xgboost"
 ))
 
+
+##task parameters
 #-----prediction point
 pred_in_d_opt<-c(2,1)
 
@@ -30,75 +37,52 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '3097-3','44734-2','BUN_SCR')
 
 #-----variables of interests
-var_nm<-c("2160-0",
-          "2160-0_change",
-          "48642-3",
-          "48642-3_change",
-          "375983:01_cum",
-          "AGE",
-          "BMI",
-          "158",
-          "718-7",
-          "718-7_change",
-          "CH:71010",
-          "3094-0",
-          "BUN_SCR",
-          "2075-0",
-          "17861-6",
-          "2823-3",
-          "2777-1",
-          "2075-0",
-          "777-3",
-          "1920-8",
-          "2345-7",
-          "788-0",
-          "1751-7",
-          "6690-2",
-          "BP_DIASTOLIC_min",
-          "BP_SYSTOLIC_min",
-          "BP_DIASTOLIC_slope",
-          "BP_SYSTOLIC_slope")
+# var_nm<-c("2160-0",
+#           "2160-0_change",
+#           "48642-3",
+#           "48642-3_change",
+#           "375983:01_cum",
+#           "AGE",
+#           "BMI",
+#           "158",
+#           "718-7",
+#           "718-7_change",
+#           "CH:71010",
+#           "3094-0",
+#           "BUN_SCR",
+#           "2075-0",
+#           "17861-6",
+#           "2823-3",
+#           "2777-1",
+#           "2075-0",
+#           "777-3",
+#           "1920-8",
+#           "2345-7",
+#           "788-0",
+#           "1751-7",
+#           "6690-2",
+#           "BP_DIASTOLIC_min",
+#           "BP_SYSTOLIC_min",
+#           "BP_DIASTOLIC_slope",
+#           "BP_SYSTOLIC_slope")
 
-# collect and format variables on daily basis 
 n_chunk<-4
 
+
+k_seq<-1:1000
+
+##------important variables variations-------
 for(pred_in_d in pred_in_d_opt){
+  data_ds<-readRDS(paste0("./data/preproc/data_ds_",pred_in_d,"d.rda"))
   
   for(pred_task in pred_task_lst){
-    bm<-c()
-    bm_nm<-c()
-    
-    start_tsk<-Sys.time()
-    cat("Start interpret model for",pred_task,"in",pred_in_d,"days",".\n")
-    #---------------------------------------------------------------------------------------------
-    
-    start_tsk_i<-Sys.time()
-    #--prepare testing set
-    X_ts<-c()
-    y_ts<-c()
-    rsample_idx<-readRDS(paste0("./data/preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda"))
-    var_by_task<-readRDS(paste0("./data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
-    for(i in seq_len(n_chunk)){
-      var_by_yr<-var_by_task[[i]]
-      
-      X_ts %<>% bind_rows(var_by_yr[["X_surv"]]) %>%
-        semi_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
-                  by="ENCOUNTERID")
-      
-      y_ts %<>% bind_rows(var_by_yr[["y_surv"]] %>%
-                            left_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
-                                      by="ENCOUNTERID"))
-    }
-    lapse_i<-Sys.time()-start_tsk_i
-    bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
-    bm_nm<-c(bm_nm,"prepare data")
-    
-    #-----------------------
-    y_ts %<>%
-      filter(!is.na(cv10_idx))
     
     for(fs_type in fs_type_opt){
       start_tsk_i<-Sys.time()
+      
+      #--prepare testing set
+      X_ts<-data_ds[[pred_task]][[1]]
+      y_ts<-data_ds[[pred_task]][[2]]
       
       #--pre-filter
       if(fs_type=="rm_scr_bun"){
@@ -107,7 +91,7 @@ for(pred_in_d in pred_in_d_opt){
       }
       
       #--collect variables used in training
-      gbm_ctnr<-readRDS(paste0("./data/model_kumc/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
+      gbm_ctnr<-readRDS(paste0("./data/validation/",params$site,"/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
       tr_key<-data.frame(key = gbm_ctnr$model$feature_names,
                          stringsAsFactors = F)
       
@@ -139,6 +123,7 @@ for(pred_in_d in pred_in_d_opt){
                                stringsAsFactors=F))
       }
       X_ts_sp %<>%
+        semi_join(tr_key,by="key") %>%
         long_to_sparse_matrix(df=.,
                               id="ROW_ID",
                               variable="key",
@@ -147,26 +132,29 @@ for(pred_in_d in pred_in_d_opt){
         X_ts_sp<-X_ts_sp[-1,]
       }
       
+      #align feature orders
+      X_ts_sp<-X_ts_sp[,tr_key$key]
+      
       #check alignment
       if(!all(row.names(X_ts_sp)==y_ts_sp$ROW_ID)){
         stop("row ids of testing set don't match!")
       }
       
-      lapse_i<-Sys.time()-start_tsk_i
-      bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
-      bm_nm<-c(bm_nm,"transform data")
-      
-      cat(paste0(c(pred_in_d,pred_task,fs_type),collapse = ","),
+      cat(paste0(c(params$site,pred_in_d,pred_task,fs_type),collapse = ","),
           "...finish formatting testing sets.\n")
       
       ##------------------------------------------------------------------------------------
       #load trained model
       gbm_model<-gbm_ctnr$model
-
+      
+      #identify top k features
+      var_imp<-xgb.importance(model=gbm_model) %>% dplyr::slice(k_seq) %>%
+        select(Feature, Gain)
+      
       #bootstrap CI for SHAP values
-      boots<-20
+      boots<-100
       nns<-10000
-
+      
       pred_brkdn_b<-c()
       x_val_b<-c()
       
@@ -201,12 +189,12 @@ for(pred_in_d in pred_in_d_opt){
                           boot=b,idx=idxset))
         
         lapse<-Sys.time()-start_b
-        cat(paste0(c(pred_in_d,pred_task,fs_type),collapse = ","),
+        cat(paste0(c(params$site,pred_in_d,pred_task,fs_type),collapse = ","),
             "...finish bootstrapped sample",b,"in",lapse,units(lapse),".\n")
       }
       
       pred_brkdn<-c()
-      var_lst<-colnames(shap$shap_contrib)
+      var_lst<-colnames(shap_sel)
       for(v in seq_along(var_lst)){
         pred_brkdn %<>%
           bind_rows(pred_brkdn_b %>%
@@ -218,17 +206,9 @@ for(pred_in_d in pred_in_d_opt){
                       dplyr::mutate(var=var_lst[v]))
       }
       
-      saveRDS(pred_brkdn,file=paste0("./data/model_explain/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
+      saveRDS(pred_brkdn,file=paste0("./data/validation/",params$site,"/model_explain/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
     }
   }
 }
 
-#sanity check
-readRDS("./data/model_explain/2d_rm_scr_bun_stg2up.rda") %>%
-  filter(var=="AGE") %>%
-  group_by(var,val) %>%
-  dplyr::summarize(eff=median(effect),
-                   eff_lb=quantile(effect,0.025),
-                   eff_ub=quantile(effect,0.975)) %>%
-  ungroup %>% View
 

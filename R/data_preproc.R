@@ -1,6 +1,9 @@
-#source utility functions
+############################
+#### Data Preprocessing ####
+############################
+rm(list=ls()); gc()
+
 source("./R/util.R")
-source("./R/var_etl_surv.R")
 
 require_libraries(c("tidyr",
                     "dplyr",
@@ -60,8 +63,9 @@ for(pred_in_d in pred_in_d_opt){
     cat("Start variable collection for task",pred_task,".\n")
     #---------------------------------------------------------------------------------------------
     
-    var_by_yr<-list()
-    var_bm<-list()
+    X_surv<-c()
+    y_surv<-c()
+    proc_bm<-c()
     rsample_idx<-c()
     
     for(i in seq_len(n_chunk)){
@@ -87,16 +91,26 @@ for(pred_in_d in pred_in_d_opt){
       
       if(pred_task=="stg1up"){
         dat_i %<>%
+          group_by(ENCOUNTERID) %>%
+          dplyr::mutate(last_stg=max(y)) %>% ungroup %>% #filter out earlier days of AKI>=1
+          dplyr::filter(!(last_stg>=1&y==0)) %>%       
           dplyr::mutate(y=as.numeric(y>0)) %>%
+          
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else if(pred_task=="stg2up"){
         dat_i %<>%
-          # filter(y!=1) %>% # remove stage 1
-          dplyr::mutate(y=as.numeric(y>1)) %>%
+          group_by(ENCOUNTERID) %>%
+          dplyr::mutate(last_stg=max(y)) %>% ungroup %>% 
+          dplyr::filter(!((last_stg>=2&y==0)|               #filter out earlier days of AKI>=2
+                           last_stg==1)) %>%                #filter out entire AKI1 encounters
+          dplyr::mutate(y=as.numeric(y>=2)) %>%
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else if(pred_task=="stg3"){
         dat_i %<>%
-          # filter(!(y %in% c(1,2))) %>% # remove stage 1,2
+          group_by(ENCOUNTERID) %>%
+          dplyr::mutate(last_stg=max(y)) %>% ungroup %>% 
+          dplyr::filter(!((last_stg==2&y==0)|               #filter earlier days of AKI=3
+                           last_stg %in% c(1,2))) %>%                #filter out entire AKI1,2 encounters
           dplyr::mutate(y=as.numeric(y>2)) %>%
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else{
@@ -111,10 +125,8 @@ for(pred_in_d in pred_in_d_opt){
                     dplyr::mutate(cv10_idx=sample(1:10,n(),replace=T)))
       
       #--ETL variables
-      X_surv<-c()
-      y_surv<-c()
-      var_etl_bm<-c()
       for(v in seq_along(var_type)){
+        var_etl_bm<-c()
         start_v<-Sys.time()
         
         #extract
@@ -151,26 +163,29 @@ for(pred_in_d in pred_in_d_opt){
         var_etl_bm<-c(var_etl_bm,paste0(lapse_v,units(lapse_v)))
         cat("\n......finished ETL",var_type[v],"for year chunk",i,"in",lapse_v,units(lapse_v),".\n")
       }
-      var_by_yr[[i]]<-list(X_surv=X_surv,
-                           y_surv=y_surv)
-      
+
       lapse_i<-Sys.time()-start_i
       var_etl_bm<-c(var_etl_bm,paste0(lapse_i,units(lapse_i)))
       cat("\n...finished variabl collection for year chunk",i,"in",lapse_i,units(lapse_i),".\n")
       
-      var_bm[[i]]<-data.frame(bm_nm=c(var_type,"overall"),
-                              bm_time=var_etl_bm,
-                              stringsAsFactors = F)
+      proc_bm %<>%
+        bind_rows(data.frame(bm_nm=c(var_type,"overall"),
+                             bm_time=var_etl_bm,
+                             chunk=i,
+                             stringsAsFactors = F))
     }
     
     #--save preprocessed data
-    saveRDS(rsample_idx,file=paste0("./data/preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda"))
-    saveRDS(var_by_yr,file=paste0("./data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
-    saveRDS(var_bm,file=paste0("./data/preproc/",pred_in_d,"d_var_bm",pred_task,".rda"))
-    
+    data_ds[[pred_task]]<-list(rsample_idx,
+                               list(X_surv=X_surv,y_surv=y_surv),
+                               proc_bm)
     #---------------------------------------------------------------------------------------------
     lapse_tsk<-Sys.time()-start_tsk
     cat("\nFinish variable ETL for task:",pred_task,"in",pred_in_d,"days",",in",lapse_tsk,units(lapse_tsk),".\n")
   }
+  
+  saveRDS(data_ds,file=paste0("./data/preproc/data_ds_",pred_in_d,"d.rda"))
 }
+
+
 

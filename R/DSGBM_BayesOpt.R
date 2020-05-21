@@ -1,3 +1,6 @@
+##################################
+#### Bayesion Opt DSGBM Model ####
+##################################
 rm(list=ls())
 gc()
 
@@ -17,10 +20,10 @@ require_libraries(c("tidyr",
 pred_end<-7
 
 #-----prediction point
-pred_in_d_opt<-c(1,2)
+pred_in_d_opt<-c(2,1)
 
 #-----prediction tasks
-pred_task_lst<-c("stg1up","stg2up","stg3")
+pred_task_lst<-c("stg2up","stg1up","stg3")
 
 #-----feature selection type
 fs_type_opt<-c("no_fs","rm_scr_bun")
@@ -216,7 +219,7 @@ for(pred_in_d in pred_in_d_opt){
                                                     subsample = c(0.5,0.8)),
                                       init_grid_dt = NULL,
                                       init_points = 10,
-                                      n_iter = 10,
+                                      n_iter = 100,
                                       acq = "ucb",
                                       kappa = 2.576,
                                       eps = 0.0,

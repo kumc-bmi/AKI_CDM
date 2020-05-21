@@ -1,4 +1,7 @@
-############################## evaluation prediction performance ###################################
+#############################################
+##### evaluation prediction performance #####
+#############################################
+
 rm(list=ls())
 
 source("./R/util.R")
@@ -313,7 +316,8 @@ for(pred_in_d in pred_in_d_opt){
 }
 
 
-##--- View results ---
+
+##--- spot check results ---
 readRDS("./data/model_ref/kumc_perfsumm_2d.rda") %>%
   View
 
