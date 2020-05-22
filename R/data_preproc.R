@@ -44,8 +44,8 @@ tbl1<-readRDS("./data/Table1.rda") %>%
 enc_yr<-tbl1 %>%
   dplyr::select(yr) %>%
   unique %>% arrange(yr) %>%
-  filter(yr>2009) %>%
-  dplyr::mutate(chunk=ceiling((yr-2009)/(n()/n_chunk)))
+  filter(yr>2011) %>%
+  dplyr::mutate(chunk=ceiling((yr-2011)/(n()/n_chunk)))
 
 #--by variable type
 var_type<-c("demo","vital","lab","dx","px","med")
@@ -110,7 +110,7 @@ for(pred_in_d in pred_in_d_opt){
           group_by(ENCOUNTERID) %>%
           dplyr::mutate(last_stg=max(y)) %>% ungroup %>% 
           dplyr::filter(!((last_stg==2&y==0)|               #filter earlier days of AKI=3
-                           last_stg %in% c(1,2))) %>%                #filter out entire AKI1,2 encounters
+                           last_stg %in% c(1,2))) %>%       #filter out entire AKI1,2 encounters
           dplyr::mutate(y=as.numeric(y>2)) %>%
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else{
@@ -125,8 +125,8 @@ for(pred_in_d in pred_in_d_opt){
                     dplyr::mutate(cv10_idx=sample(1:10,n(),replace=T)))
       
       #--ETL variables
+      var_etl_bm<-c()
       for(v in seq_along(var_type)){
-        var_etl_bm<-c()
         start_v<-Sys.time()
         
         #extract
@@ -165,13 +165,13 @@ for(pred_in_d in pred_in_d_opt){
       }
 
       lapse_i<-Sys.time()-start_i
-      var_etl_bm<-c(var_etl_bm,paste0(lapse_i,units(lapse_i)))
+      var_etl_bm<-c(var_etl_bm,paste0(round(lapse_i,2),units(lapse_i)))
       cat("\n...finished variabl collection for year chunk",i,"in",lapse_i,units(lapse_i),".\n")
       
       proc_bm %<>%
         bind_rows(data.frame(bm_nm=c(var_type,"overall"),
                              bm_time=var_etl_bm,
-                             chunk=i,
+                             chunk=rep(i,length(var_type)+1),
                              stringsAsFactors = F))
     }
     
