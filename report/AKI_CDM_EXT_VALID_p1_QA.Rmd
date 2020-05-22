@@ -59,7 +59,8 @@ require_libraries(c("DBI",
                     "ggrepel",
                     "RCurl",
                     "XML",
-                    "openxlsx"))
+                    "openxlsx",
+                    "diagram"),verb=F)
 
 ```
 

@@ -518,7 +518,6 @@ collect_cdm<-function(conn,
 
 
 consort_diag<-function(consort_tbl){
-  require_libraries("diagram")
   tbl<-data.frame(CNT_TYPE=c("Initial",
                              "Has_at_least_2_SCr",
                              "Initial_GFR_below_15",
