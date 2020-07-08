@@ -36,8 +36,6 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '3097-3','44734-2','BUN_SCR')
 
 #-----number of data chunks
-n_chunk<-4
-
 for(pred_in_d in pred_in_d_opt){
   
   for(pred_task in pred_task_lst){
@@ -50,31 +48,23 @@ for(pred_in_d in pred_in_d_opt){
     
     start_tsk_i<-Sys.time()
     #--prepare training and testing set
-    X_tr<-c()
-    X_ts<-c()
-    y_tr<-c()
-    y_ts<-c()
-    rsample_idx<-readRDS(paste0("./data/preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda"))
-    var_by_task<-readRDS(paste0("./data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
-    for(i in seq_len(n_chunk)){
-      var_by_yr<-var_by_task[[i]]
-      
-      X_tr %<>% bind_rows(var_by_yr[["X_surv"]]) %>%
-        semi_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
-                  by="ENCOUNTERID")
-      
-      y_tr %<>% bind_rows(var_by_yr[["y_surv"]] %>%
-                            inner_join(rsample_idx %>% filter(cv10_idx<=6 & yr<2017),
-                                      by="ENCOUNTERID"))
-      
-      X_ts %<>% bind_rows(var_by_yr[["X_surv"]]) %>%
-        semi_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
-                  by="ENCOUNTERID")
-      
-      y_ts %<>% bind_rows(var_by_yr[["y_surv"]] %>%
-                            inner_join(rsample_idx %>% filter(cv10_idx>6 | yr>=2017),
-                                      by="ENCOUNTERID"))
-    }
+    dat_ds<-paste0("./data/preproc/data_ds_",pred_in_d,"d/",pred_task,".rda")
+    X_tr<-dat_ds[[2]][["X_surv"]] %>%
+      semi_join(dat_ds[[1]] %>% filter(cv10_idx<=7 & yr<2017),
+                by="ENCOUNTERID")
+    
+    y_tr<-dat_ds[[2]][["y_surv"]] %>%
+      inner_join(dat_ds[[1]] %>% filter(cv10_idx<=7 & yr<2017),
+                 by="ENCOUNTERID")
+    
+    X_ts<-dat_ds[[2]][["X_surv"]] %>%
+      semi_join(dat_ds[[1]] %>% filter(cv10_idx>7 | yr>=2017),
+                by="ENCOUNTERID")
+    
+    y_ts<-dat_ds[[2]][["y_surv"]] %>%
+      inner_join(dat_ds[[1]] %>% filter(cv10_idx>7 | yr>=2017),
+                 by="ENCOUNTERID")
+    
     lapse_i<-Sys.time()-start_tsk_i
     bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
     bm_nm<-c(bm_nm,"prepare data")
