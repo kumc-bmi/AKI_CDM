@@ -35,7 +35,7 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
 
 
 # collect and format variables on daily basis 
-n_chunk<-4
+n_chunk<-8
 
 tbl1<-readRDS("./data/Table1.rda") %>%
   dplyr::mutate(yr=as.numeric(format(strptime(ADMIT_DATE, "%Y-%m-%d %H:%M:%S"),"%Y")))
@@ -165,7 +165,7 @@ for(pred_in_d in pred_in_d_opt){
       }
 
       lapse_i<-Sys.time()-start_i
-      var_etl_bm<-c(var_etl_bm,paste0(round(lapse_i,2),units(lapse_i)))
+      var_etl_bm<-c(var_etl_bm,paste0(lapse_i,units(lapse_i)))
       cat("\n...finished variabl collection for year chunk",i,"in",lapse_i,units(lapse_i),".\n")
       
       proc_bm %<>%
@@ -176,15 +176,16 @@ for(pred_in_d in pred_in_d_opt){
     }
     
     #--save preprocessed data
-    data_ds[[pred_task]]<-list(rsample_idx,
-                               list(X_surv=X_surv,y_surv=y_surv),
-                               proc_bm)
+    data_ds<-list(rsample_idx,
+                  list(X_surv=X_surv,y_surv=y_surv),
+                  proc_bm)
+    
+    saveRDS(data_ds,file=paste0("./data/preproc/data_ds_",pred_in_d,"d/",pred_task,".rda"))
+    
     #---------------------------------------------------------------------------------------------
     lapse_tsk<-Sys.time()-start_tsk
     cat("\nFinish variable ETL for task:",pred_task,"in",pred_in_d,"days",",in",lapse_tsk,units(lapse_tsk),".\n")
   }
-  
-  saveRDS(data_ds,file=paste0("./data/preproc/data_ds_",pred_in_d,"d.rda"))
 }
 
 
