@@ -9,7 +9,7 @@ archive/
 R_beta/
 report_local/
 logs/
-data/
+*data/
 data_local/
 data/model_ref_local/
 data/model_kumc_local/
