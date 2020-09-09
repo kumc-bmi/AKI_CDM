@@ -35,7 +35,7 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
 
 
 # collect and format variables on daily basis 
-n_chunk<-4
+n_chunk<-8
 
 tbl1<-readRDS("./data/Table1.rda") %>%
   dplyr::mutate(yr=as.numeric(format(strptime(ADMIT_DATE, "%Y-%m-%d %H:%M:%S"),"%Y")))
@@ -44,8 +44,8 @@ tbl1<-readRDS("./data/Table1.rda") %>%
 enc_yr<-tbl1 %>%
   dplyr::select(yr) %>%
   unique %>% arrange(yr) %>%
-  filter(yr>2009) %>%
-  dplyr::mutate(chunk=ceiling((yr-2009)/(n()/n_chunk)))
+  filter(yr>2011) %>%
+  dplyr::mutate(chunk=ceiling((yr-2011)/(n()/n_chunk)))
 
 #--by variable type
 var_type<-c("demo","vital","lab","dx","px","med")
@@ -110,7 +110,7 @@ for(pred_in_d in pred_in_d_opt){
           group_by(ENCOUNTERID) %>%
           dplyr::mutate(last_stg=max(y)) %>% ungroup %>% 
           dplyr::filter(!((last_stg==2&y==0)|               #filter earlier days of AKI=3
-                           last_stg %in% c(1,2))) %>%                #filter out entire AKI1,2 encounters
+                           last_stg %in% c(1,2))) %>%       #filter out entire AKI1,2 encounters
           dplyr::mutate(y=as.numeric(y>2)) %>%
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else{
@@ -125,8 +125,8 @@ for(pred_in_d in pred_in_d_opt){
                     dplyr::mutate(cv10_idx=sample(1:10,n(),replace=T)))
       
       #--ETL variables
+      var_etl_bm<-c()
       for(v in seq_along(var_type)){
-        var_etl_bm<-c()
         start_v<-Sys.time()
         
         #extract
@@ -171,20 +171,21 @@ for(pred_in_d in pred_in_d_opt){
       proc_bm %<>%
         bind_rows(data.frame(bm_nm=c(var_type,"overall"),
                              bm_time=var_etl_bm,
-                             chunk=i,
+                             chunk=rep(i,length(var_type)+1),
                              stringsAsFactors = F))
     }
     
     #--save preprocessed data
-    data_ds[[pred_task]]<-list(rsample_idx,
-                               list(X_surv=X_surv,y_surv=y_surv),
-                               proc_bm)
+    data_ds<-list(rsample_idx,
+                  list(X_surv=X_surv,y_surv=y_surv),
+                  proc_bm)
+    
+    saveRDS(data_ds,file=paste0("./data/preproc/data_ds_",pred_in_d,"d/",pred_task,".rda"))
+    
     #---------------------------------------------------------------------------------------------
     lapse_tsk<-Sys.time()-start_tsk
     cat("\nFinish variable ETL for task:",pred_task,"in",pred_in_d,"days",",in",lapse_tsk,units(lapse_tsk),".\n")
   }
-  
-  saveRDS(data_ds,file=paste0("./data/preproc/data_ds_",pred_in_d,"d.rda"))
 }
 
 

@@ -787,22 +787,26 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
       dplyr::mutate(df=length(unique(timestamp))-1) %>%
       dplyr::mutate(sd=ifelse(df>0,sd(value),0))
     
-    bp_slp_obj<-bp_slp_eligb %>%
+    bp_slp<-bp_slp_eligb %>%
       filter(df > 1 & sd >= 1e-2) %>%
-      do(fit_val=glm(value ~ timestamp,data=.))
+      nest(data=c(timestamp,value,df,sd)) %>%
+      mutate(
+        fit_val=map(data, ~ lm(value ~ timestamp, data=.x)),
+        tidied=map(fit_val,tidy)
+      ) %>%
+      unnest(tidied)
     
-    bp_slp<-tidy(bp_slp_obj,fit_val) %>%
+    bp_slp %<>%
       filter(term=="timestamp") %>%
       dplyr::rename(value=estimate) %>%
-      ungroup %>%
       mutate(value=ifelse(p.value>0.5 | is.nan(p.value),0,value)) %>%
       dplyr::select(ENCOUNTERID,key,dsa,value) %>%
-      bind_rows(bp_slp_eligb %>% 
+      bind_rows(bp_slp_eligb %>%
                   filter(df<=1 | sd < 1e-2) %>% mutate(value=0) %>%
                   dplyr::select(ENCOUNTERID,key,value,dsa) %>%
                   ungroup %>% unique) %>%
-      bind_rows(bind_rows(bp_slp_eligb %>% 
-                            filter(df==1 & sd >= 1e-2) %>% 
+      bind_rows(bind_rows(bp_slp_eligb %>%
+                            filter(df==1 & sd >= 1e-2) %>%
                             mutate(value=round((max(value)-min(value))/(max(timestamp)-min(timestamp)),2)) %>%
                             dplyr::select(ENCOUNTERID,key,value,dsa) %>%
                             ungroup %>% unique)) %>%

@@ -11,19 +11,18 @@ require_libraries(c("tidyr",
                     "stringr",
                     "broom",
                     "Matrix",
-                    "xgboost",
-                    "ggplot2",
-                    "rBayesianOptimization"))
+                    "sparsio",
+                    "h2o",
+                    "ggplot2"))
 
 # experimental design parameters
-#----prediction ending point
-pred_end<-7
-
 #-----prediction point
 pred_in_d_opt<-c(2,1)
 
 #-----prediction tasks
-pred_task_lst<-c("stg2up","stg1up","stg3")
+pred_task_lst<-c("stg2up",
+                 "stg1up",
+                 "stg3")
 
 #-----feature selection type
 fs_type_opt<-c("no_fs","rm_scr_bun")
@@ -35,9 +34,13 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '48642-3','48643-1', #eGFR
           '3097-3','44734-2','BUN_SCR')
 
+#--initialize h2o
+h2o.init(nthreads=-1)
+
 #-----number of data chunks
 for(pred_in_d in pred_in_d_opt){
   
+  dat_ds<-readRDS(paste0("../AKI_Discover_Cohort/data/preproc/data_ds_",pred_in_d,"d.rda"))
   for(pred_task in pred_task_lst){
     bm<-c()
     bm_nm<-c()
@@ -47,8 +50,8 @@ for(pred_in_d in pred_in_d_opt){
     #---------------------------------------------------------------------------------------------
     
     start_tsk_i<-Sys.time()
-    #--prepare training and testing set
     dat_ds<-paste0("./data/preproc/data_ds_",pred_in_d,"d/",pred_task,".rda")
+    #--prepare training and testing set
     X_tr<-dat_ds[[2]][["X_surv"]] %>%
       semi_join(dat_ds[[1]] %>% filter(cv10_idx<=7 & yr<2017),
                 by="ENCOUNTERID")
@@ -155,8 +158,27 @@ for(pred_in_d in pred_in_d_opt){
       }
       
       #--covert to xgb data frame
-      dtrain<-xgb.DMatrix(data=X_tr_sp,label=y_tr_sp$y)
-      dtest<-xgb.DMatrix(data=X_ts_sp,label=y_ts_sp$y)
+      train_mt<-cbind(X_tr_sp,fold=y_tr_sp$cv10_idx)
+      test_mt<-cbind(X_ts_sp,fold=y_ts_sp$cv10_idx)
+      
+      #key indices
+      pred_idx<-which(!colnames(train_mt) %in% c("fold"))
+      fold_idx<-which(colnames(train_mt)=="fold")
+      
+      #foreign symbol in variable names may cause issue
+      col_encode<-data.frame(col_name=colnames(train_mt),
+                             col_code=paste0("C",1:ncol(train_mt)),
+                             stringsAsFactors = F)
+      colnames(train_mt)<-col_encode$col_code
+      colnames(test_mt)<-col_encode$col_code
+      
+      #for more efficient conversion to h2o format
+      write_svmlight(x = train_mt, y=y_tr_sp$y,
+                     file = "./data/train_svmlite.txt",
+                     zero_based = FALSE)
+      write_svmlight(x = test_mt, y=y_ts_sp$y,
+                     file = "./data/test_svmlite.txt",
+                     zero_based = FALSE)
       
       lapse_i<-Sys.time()-start_tsk_i
       bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
@@ -167,102 +189,45 @@ for(pred_in_d in pred_in_d_opt){
       
       #-----------------------
       start_tsk_i<-Sys.time()
-      #--get indices for k folds
-      folds<-list()
-      for(fd in seq_len(max(y_tr$cv10_idx))){
-        fd_df<-y_tr %>% 
-          filter(cv10_idx==fd) %>%
-          dplyr::select(row_idx)
-        folds[[fd]]<-fd_df$row_idx
-      }
       
-      #--tune hyperparameter (less rounds, early stopping)
-      xgb_cv_bayes <- function(max_depth, min_child_weight, subsample, 
-                               eta=0.05,colsample_bytree=0.8,lambda=1,alpha=0,gamma=1) {
-        cv <- xgb.cv(params = list(booster = "gbtree",
-                                   max_depth = max_depth,
-                                   min_child_weight = min_child_weight,
-                                   subsample = subsample, 
-                                   eta = eta,
-                                   colsample_bytree = colsample_bytree,
-                                   lambda = lambda,
-                                   alpha = alpha,
-                                   gamma = gamma,
-                                   objective = "binary:logistic",
-                                   eval_metric = "auc"),
-                     data = dtrain,
-                     nround = 100,
-                     folds = folds,
-                     prediction = TRUE,
-                     showsd = TRUE,
-                     early_stopping_rounds = 5,
-                     maximize = TRUE,
-                     verbose = 0)
-        
-        list(Score = cv$evaluation_log$test_auc_mean[cv$best_iteration],
-             Pred = cv$pred)
-      }
-      
-      OPT_Res <- BayesianOptimization(xgb_cv_bayes,
-                                      bounds = list(max_depth = c(4L,10L),
-                                                    min_child_weight = c(1L,10L),
-                                                    subsample = c(0.5,0.8)),
-                                      init_grid_dt = NULL,
-                                      init_points = 10,
-                                      n_iter = 100,
-                                      acq = "ucb",
-                                      kappa = 2.576,
-                                      eps = 0.0,
-                                      verbose = TRUE)
-      saveRDS(OPT_Res,file="./data/bayes_opt_eta.rda")
-      
-      #--determine number of trees, or steps (more rounds, early stopping)
-      bst <- xgb.cv(param=data.frame(max_depth=OPT_Res$Best_Par[1],
-                                     min_child_weight=OPT_Res$Best_Par[2],
-                                     subsample=OPT_Res$Best_Par[3],
-                                     eta=0.05,
-                                     colsample_bytree=0.8,
-                                     lambda=1,
-                                     alpha=0,
-                                     gamma=1),
-                    dtrain,
-                    objective = "binary:logistic",
-                    metrics = "auc",
-                    maximize = TRUE,
-                    nrounds=1000,
-                    folds = folds,
-                    early_stopping_rounds = 50,
-                    print_every_n = 50,
-                    prediction = F) 
-      steps<-which(bst$evaluation_log$test_auc_mean==max(bst$evaluation_log$test_auc_mean))
-
-      lapse_i<-Sys.time()-start_tsk_i
-      bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
-      bm_nm<-c(bm_nm,"tune model")
-      
-      cat(paste0(c(pred_in_d,pred_task,fs_type),collapse = ","),
-          "...finish model tunning.\n")
+      #--training
+      h2o.removeAll()
+      train_h2o<-h2o.importFile("./data/train_svmlite.txt", parse = TRUE)
+      fit_lasso<-h2o.glm(x=pred_idx+1,
+                         y=1,  
+                         training_frame=train_h2o,
+                         family="binomial",
+                         solver="COORDINATE_DESCENT",   #same optimization method as glmnet
+                         fold_column = paste0("C",fold_idx+1),
+                         ignore_const_cols = TRUE,
+                         lambda_search=TRUE,
+                         early_stopping = TRUE,
+                         standardize = TRUE,
+                         alpha=1, #lasso
+                         # missing_values_handling="Skip",
+                         remove_collinear_columns=TRUE)
       
       #-----------------------
       start_tsk_i<-Sys.time()  
       #--validation
-      xgb_tune<-xgb.train(data=dtrain,
-                          max_depth=OPT_Res$Best_Par[1],
-                          min_child_weight=OPT_Res$Best_Par[2],
-                          subsample=OPT_Res$Best_Par[3],
-                          maximize = TRUE,
-                          eta=0.01,
-                          nrounds=steps,
-                          eval_metric="auc",
-                          objective="binary:logistic",
-                          verbose = 0)
-      
-      valid<-data.frame(y_ts,
-                        pred = predict(xgb_tune,dtest),
+      test_h2o<-h2o.importFile("./data/test_svmlite.txt", parse = TRUE)
+      fitted<-h2o.predict(fit_lasso,newdata=test_h2o[,-1])
+      valid<-data.frame(y_ts_sp,
+                        pred = as.data.frame(fitted)$p1,
                         stringsAsFactors = F)
       
       #--feature importance
-      feat_imp<-xgb.importance(colnames(X_tr_sp),model=xgb_tune)
+      feat_imp<-h2o.getModel(fit_lasso@model_id)@model$coefficients_table %>%
+        inner_join(h2o.varimp(fit_lasso) %>% select(variable,scaled_importance) %>%
+                     mutate(variable=as.character(variable)),
+                   by=c("names"="variable")) %>%
+        left_join(col_encode,by=c("names"="col_code")) %>%
+        dplyr::filter(coefficients != 0) %>%
+        dplyr::select(col_name,scaled_importance,
+                      coefficients,standardized_coefficients) %>%
+        dplyr::rename(Feature=col_name) %>%
+        arrange(desc(scaled_importance)) %>%
+        dplyr::mutate(rank=1:n())
       
       lapse_i<-Sys.time()-start_tsk_i
       bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
@@ -273,11 +238,11 @@ for(pred_in_d in pred_in_d_opt){
       
       #-----------------------
       #--save model and other results
-      result<-list(hyper=c(OPT_Res$Best_Par,steps),
-                   model=xgb_tune,
+      result<-list(model=fit_lasso,
                    valid=valid,
                    feat_imp=feat_imp)
-      saveRDS(result,file=paste0("./data/model_ref/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
+      
+      saveRDS(result,file=paste0("./data/model_glm/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
       
       #-------------------------------------------------------------------------------------------------------------
       lapse_tsk<-Sys.time()-start_tsk
@@ -291,9 +256,11 @@ for(pred_in_d in pred_in_d_opt){
     #benchmark
     bm<-data.frame(bm_nm=bm_nm,bm_time=bm,
                    stringsAsFactors = F)
-    saveRDS(bm,file=paste0("./data/model_ref/",pred_in_d,"d_bm_gbm_",pred_task,".rda"))
+    saveRDS(bm,file=paste0("./data/model_glm/",pred_in_d,"d_bm_gbm_",pred_task,".rda"))
   }
 }
+
+h2o.shutdown(prompt = FALSE)
 
 
 
