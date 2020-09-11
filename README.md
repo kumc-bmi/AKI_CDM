@@ -30,6 +30,10 @@ Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affe
 [GPC#711]: https://informatics.gpcnetwork.org/trac/Project/ticket/711
 [GPC#742]: https://informatics.gpcnetwork.org/trac/Project/ticket/742
 
+* **Aim 3**: Interpreting the AKI prediction model by analyzing and visualizing top important predictors    
+
+* **Aim 4**: Developing the adjMMD measure to infer model transportability    
+
 ***
 
 ## Requirement
@@ -158,6 +162,12 @@ The following instructions are for extracting cohort and generating final report
       -- b. AKI_CDM_EXT_VALID_p2_2_Retrain_TBL.xlsx - excel with full summary tables          
       
 *Remark: As along as Part I is completed, Part II.1 and Part II.2 can be run independently, based on each site's memory and disk availability.   
+
+
+### Part III: Calculate adjMMD and joint KL-divergence for top importance variables
+
+Run the `distribution_analysis.R` script to calculate the adjMMD and joint KL-divergence of distribution hetergenity among top important variables of each model. adjMMD is an effective metric which can be used to assess and explain model transportability. 
+
 
 
 ***
