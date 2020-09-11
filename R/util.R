@@ -989,7 +989,7 @@ get_dsurv_temporal<-function(dat,censor,tw,pred_in_d=1,carry_over=T){
 }
 
 
-## convert long mastrix to wide sparse matrix
+## convert long matrix to wide sparse matrix
 long_to_sparse_matrix<-function(df,id,variable,val,binary=FALSE){
   if(binary){
     x_sparse<-with(df,
@@ -1012,146 +1012,8 @@ long_to_sparse_matrix<-function(df,id,variable,val,binary=FALSE){
 
 
 
-## compress dataframe into a condensed format
-compress_df<-function(dat,tbl=c("DEMO","VITAL","LAB","DX","PX","MED","DRG"),save=F){
-  if(tbl=="DEMO"){
-    tbl_zip<-dat %>% 
-      filter(key %in% c("AGE","HISPANIC","RACE","SEX")) 
-    
-    idx_map<-tbl_zip %>% dplyr::select(key) %>%
-      mutate(idx=paste0("demo",dense_rank(key))) %>% 
-      unique %>% arrange(idx)
-    
-    tbl_zip %<>%
-      spread(key,value,fill=0) %>% #impute 0 for alignment
-      unite("fstr",c("AGE","HISPANIC","RACE","SEX"),sep="_")
-  }else if(tbl=="VITAL"){
-    tbl_zip<-dat %>%
-      filter(key %in% c("HT","WT","BMI",
-                        "BP_SYSTOLIC","BP_DIASTOLIC",
-                        "SMOKING","TOBACCO","TOBACCO_TYPE")) %>%
-      mutate(key=recode(key,
-                        HT="1HT",
-                        WT="2WT",
-                        BMI="3BMI",
-                        SMOKING="4SMOKING",
-                        TOBACCO="5TOBACCO",
-                        TOBACCO_TYPE="6TOBACCO_TYPE",
-                        BP_SYSTOLIC="7BP_SYSTOLIC",
-                        BP_DIASTOLIC="8BP_DIASTOLIC")) %>%
-      mutate(add_time=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="mins")) %>%
-      mutate(dsa=dsa+round(as.numeric(add_time)/(24*60),2)) %>%
-      arrange(key,dsa) 
-    
-    idx_map<-tbl_zip %>% dplyr::select(key) %>%
-      mutate(idx=paste0("vital",dense_rank(key))) %>% 
-      unique %>% arrange(idx)
-    
-    tbl_zip %<>% unique %>%
-      unite("val_date",c("value","dsa"),sep=",") %>%
-      group_by(ENCOUNTERID,key) %>%
-      dplyr::summarize(fstr=paste(val_date,collapse=";")) %>%
-      ungroup %>%
-      spread(key,fstr,fill=0) %>% #impute 0 for alignment
-      unite("fstr",c("1HT","2WT","3BMI",
-                     "4SMOKING","5TOBACCO","6TOBACCO_TYPE",
-                     "7BP_SYSTOLIC","8BP_DIASTOLIC"),sep="_")
-  }else if(tbl=="LAB"){
-    tbl_zip<-dat %>%
-      mutate(idx=paste0("lab",dense_rank(key)))
-    
-    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
-      unique %>% arrange(idx)
-    
-    tbl_zip %<>%
-      arrange(ENCOUNTERID,idx,dsa) %>%
-      unite("val_unit_date",c("value","unit","dsa"),sep=",") %>%
-      group_by(ENCOUNTERID,idx) %>%
-      dplyr::summarize(fstr=paste(val_unit_date,collapse=";")) %>%
-      ungroup %>%
-      unite("fstr2",c("idx","fstr"),sep=":") %>%
-      group_by(ENCOUNTERID) %>%
-      dplyr::summarize(fstr=paste(fstr2,collapse="_")) %>%
-      ungroup
-  }else if(tbl=="DRG"){
-    tbl_zip<-dat %>%
-      mutate(idx=paste0("dx",dense_rank(key2))) 
-    
-    idx_map<-tbl_zip %>% dplyr::select(key2,idx) %>%
-      unique %>% arrange(idx) %>% dplyr::rename(key=key2)
-    
-    tbl_zip %<>%
-      group_by(ENCOUNTERID,key1,idx) %>%
-      dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
-      ungroup %>%
-      unite("fstr",c("idx","dsa"),sep=":") %>%
-      group_by(ENCOUNTERID,key1) %>%
-      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
-      ungroup %>%
-      spread(key1,fstr,fill=0) %>%
-      unite("fstr",c("ADMIT_DRG","COMMORB_DRG"),sep="|") %>%
-      unique
-  }else if(tbl=="DX"){
-    tbl_zip<-dat %>%
-      group_by(ENCOUNTERID,key) %>%
-      arrange(dsa) %>%
-      dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
-      ungroup %>%
-      mutate(idx=paste0("ccs",key))
-    
-    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
-      unique %>% arrange(key)
-    
-    tbl_zip %<>%
-      unite("fstr",c("idx","dsa"),sep=":") %>%
-      group_by(ENCOUNTERID) %>%
-      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
-      ungroup %>% unique
-  }else if(tbl=="PX"){
-    tbl_zip<-dat %>%
-      mutate(idx=paste0("px",dense_rank(key))) 
-    
-    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
-      unique %>% arrange(idx)
-    
-    tbl_zip %<>%
-      group_by(ENCOUNTERID,idx) %>%
-      arrange(dsa) %>%
-      dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
-      ungroup %>%
-      unite("fstr",c("idx","dsa"),sep=":") %>%
-      group_by(ENCOUNTERID) %>%
-      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
-      ungroup %>% unique
-  }else if(tbl=="MED"){
-    tbl_zip<-dat %>%
-      mutate(idx=paste0("med",dense_rank(key))) 
-    
-    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
-      unique %>% arrange(idx)
-    
-    tbl_zip %<>%
-      transform(value=strsplit(value,","),
-                dsa=strsplit(dsa,",")) %>%
-      unnest %>%
-      unite("val_date",c("value","dsa"),sep=",") %>%
-      group_by(ENCOUNTERID,idx) %>%
-      dplyr::summarize(fstr=paste(val_date,collapse=";")) %>%
-      ungroup %>%
-      unite("fstr2",c("idx","fstr"),sep=":") %>%
-      group_by(ENCOUNTERID) %>%
-      dplyr::summarize(fstr=paste(fstr2,collapse="_")) %>%
-      ungroup
-  }else{
-    warning("data elements not considered!")
-  }
-  if(save){
-    save(tbl_zip,file=paste0("./data/",tbl,"_zip.Rdata"))
-  }
-  
-  zip_out<-list(tbl_zip=tbl_zip,idx_map=idx_map)
-  return(zip_out)
-}
+
+
 
 
 get_perf_summ<-function(pred,real,keep_all_cutoffs=F){
@@ -1277,4 +1139,123 @@ get_calibr<-function(pred,real,n_bin=20){
                   binCI_upper = pred_p+1.96*sqrt(y_p*(1-y_p)/expos))
   
   return(calib)
+}
+
+get_recalibr<-function(pred,real,p=0.5,n_bin=20){
+  re_calib_in<-get_calibr(pred=pred,real=real) %>%
+    mutate(grp_idx=sample(1:2,n(),prob=c(p,1-p),replace = TRUE)) %>%
+    select(y_agg,pred_p,pred_bin, expos, grp_idx) %>%
+    gather(overall_mear,meas_med,-pred_bin,-expos,-grp_idx) %>%
+  
+  re_calib_in1<-re_calib_in %>% filter(grp_idx==1)
+  re_calib_in2<-re_calib_in %>% filter(grp_idx==2)
+  
+  re_calib_in_lm<- re_calib_in %>% filter(grp_idx==1) %>%
+    group_by(pred_bin) %>%
+    dplyr::summarize(expos=round(mean(expos)),
+                     meas_med=median(meas_med),
+                     .groups="drop") %>%
+    spread(overall_meas,meas_med) %>%
+    group_by(pred_in_d,pred_task,fs_type,grp) %>%
+    do(recalib=lm(y_p ~ pred_p,data=.))
+  
+  re_calib_in_coef<-tidy(re_calib_in_lm,recalib) %>%
+    select(term,estimate) %>%
+    mutate(term=recode(term,
+                       "(Intercept)"="a",
+                       "pred_p"="b")) %>%
+    spread(term,estimate) %>%
+    ungroup
+  
+  int_calib<-re_calib_in %>% filter(grp_idx==2) %>%
+    group_by(pred_bin) %>%
+    dplyr::summarize(expos=round(mean(expos)),
+                     meas_med=median(meas_med),
+                     .groups="drop") %>%
+    spread(overall_meas,meas_med) %>% mutate(k=1)
+    left_join(re_calib_in_coef %>% mutate(k=1),by="k") %>%
+    mutate(pred_p_adj=pred_p*b+a) %>% # simple re-calibration
+    dplyr::rename("real_pos"="y_agg") %>%
+    mutate(real_neg=expos-real_pos,
+           pred_pos=round(expos*pred_p),
+           pred_pos_adj=round(expos*pred_p_adj),
+           pred_neg=expos-pred_pos,
+           pred_neg_adj=expos-pred_pos_adj) %>%
+    filter(pred_pos>0&pred_neg>0&pred_pos_adj>0&pred_neg_adj>0) %>%
+    mutate(pos_term=((real_pos-pred_pos)^2)/pred_pos,
+           neg_term=((real_neg-pred_neg)^2)/pred_neg,
+           pos_adj_term=((real_pos-pred_pos_adj)^2)/pred_pos_adj,
+           neg_adj_term=((real_neg-pred_neg_adj)^2)/pred_neg_adj)
+  
+  int_calib_pvt<-int_calib %>% 
+    select(pred_bin,pred_p,pred_p_adj,expos) %>%
+    left_join(int_calib %>% select(pred_bin,real_pos),
+              by="pred_bin") %>%
+    unique %>% mutate(y_p=real_pos/expos)
+  
+  int_calib_hl<-int_calib %>%
+    dplyr::summarize(chi_sq=sum(pos_term)+sum(neg_term),
+                     chi_sq_adj=sum(pos_adj_term)+sum(neg_adj_term),
+                     df=max(3,length(unique(pred_bin)))-2,
+                     groups="drop") %>%
+    mutate(p_val=pchisq(chi_sq,df=df,lower.tail = F),
+           p_val_adj=pchisq(chi_sq_adj,df=df,lower.tail = F))
+  
+  return(list(int_calib_pvt=int_calib_pvt,
+              int_calib_hl=int_calib_hl))
+}
+
+bin_fd<-function(x){
+  n<-length(x)
+  k<-length(unique(x))
+  x<-x[order(x)]
+  
+  #remove outliers (middle 95%)
+  lb<-quantile(x,probs=0.025,na.rm=T)
+  ub<-quantile(x,probs=0.975,na.rm=T)
+  x<-x[x>=lb&x<=ub]
+  
+  #https://www.answerminer.com/blog/binning-guide-ideal-histogram
+  if(IQR(x,na.rm=T)!=0){
+    n_bin<-(max(x,na.rm=T)-min(x,na.rm=T))/(2*IQR(x,na.rm=T)/(k^(1/3)))
+  }else{
+    n_bin<-(max(x,na.rm=T)-min(x,na.rm=T))/(3.5*sd(x,na.rm=T)/(k^(1/3)))
+  }
+  brk<-levels(cut(x,n_bin,include.lowest = T,right=F))
+  lb<-c(-Inf,as.numeric(gsub("(,).*","",gsub("\\[","",brk))))
+  ub<-c(lb[-1],Inf)
+  
+  return(data.frame(bin=seq_len(length(lb)),brk_lb=lb,brk_ub=ub))
+}
+
+get_ks<-function(x,y,unbiased=T,rs=0.6){
+  x_rs<-sample(x,round(length(x)*rs))
+  y_rs<-sample(y,round(length(y)*rs))
+  
+  #broadcast x_rs
+  # x_mt<-t(replicate(length(y),x_rs)) #slow
+  x_mt<-x_rs %*% t(rep(1,length(y_rs))) 
+  #get pair-wise gaussian kernel matrix
+  gauss_k<-exp(-(x_mt-y_rs)^2/2)
+  #nullify the diagnoal
+  gauss_k[row(gauss_k) == col(gauss_k)] <- NA
+  #take the average
+  if(unbiased==T){
+    xyk<-sum(gauss_k,na.rm=T)/(length(x_rs)*(length(y_rs)-1)) 
+  }else{
+    xyk<-sum(gauss_k,na.rm=T)/(length(x_rs)*length(y_rs))
+  }
+  return(xyk)
+}
+
+penalize_sample<-function(x,n,alpha=0.99){
+  #kernel density estimation
+  gk<-density(x)
+  #get cumulative distribution
+  fk<-scales::rescale(cumsum(gk$y),c(0,1))
+  #unlikely value range
+  bias_pool<-c(gk$x[c(which(fk>=alpha),(fk<=(1-alpha)))])
+  #generate noises
+  bias_rs<-sample(bias_pool,n,replace=T)
+  return(bias_rs)
 }
