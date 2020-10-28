@@ -140,8 +140,32 @@ where p.RXNORM_CUI is not null and
 order by PATID, ENCOUNTERID, RXNORM_CUI, RX_START_DATE
 ;
 
+/*Dispensing Table*/
+-- Note: for sites don't populate this table, please skip
+create table AKI_DMED as
+select distinct
+       pat.PATID
+      ,pat.ENCOUNTERID
+      ,d.PRESCRIBINGID
+      ,d.DISPENSING_DATE
+      ,d.NDC
+      ,d.DISPENSE_SOURCE
+      ,d.DISPENSE_SUP
+      ,d.DISPENSE_AMT
+      ,d.DISPENSE_DOSE_DISP
+      ,d.DISPENSE_DOSE_DISP_UNIT
+      ,d.DISPENSE_ROUTE
+      ,round(d.DISPENSING_DATE-pat.ADMIT_DATE,2) DAYS_SINCE_ADMIT
+from AKI_onsets pat
+join &&cdm_db_schema.DISPENSING d
+on pat.PATID = d.PATID
+where d.NDC is not null and
+      d.DISPENSING_DATE between pat.ADMIT_DATE-30 and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE)
+;
+
 
 /*Med Admin Table*/
+-- Note: for sites don't populate this table, please skip
 create table AKI_AMED as
 select distinct
        pat.PATID
@@ -170,12 +194,15 @@ where m.MEDADMIN_CODE is not null and
 ;
 
 -------------------------------------------------------------------------------
-/* eyeball several lines and export the following tables as :
+/* eyeball several lines and export the following tables as .csv files. Please 
+   skip the tables that are not populated. 
+   
  - AKI_DEMO
  - AKI_VITAL
  - AKI_PX
  - AKI_DX
  - AKI_LAB
- - AKI_PMED
+ - AKI_PMED 
  - AKI_AMED
+ - AKI_DMED
 ------------------------------------------------------------------------------------
