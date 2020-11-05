@@ -229,11 +229,10 @@ We used [Shapely Additive exPlanations (SHAP)] values to evaluate the marginal e
 [SHAP value dashboard]: https://sxinger.shinyapps.io/AKI_shap_dashbd/
 
 ## Adjusted Maxinum Mean Discrepancy (adjMMD)
-The [Maximum Mean Discrepancy (MMD)] has been widely used in transfer learning studies for maximizing the similarity among distributions of different domains. Here we modified the classic MMD by taking the missing pattern and feature importance into consideration, which is used to measure the similarities of distributions for the same feature between training and validation sites. We have also calculated KL-divergence metric for joint distribution comparison.    
+The [Maximum Mean Discrepancy (MMD)] has been widely used in transfer learning studies for maximizing the similarity among distributions of different domains. Here we modified the classic MMD by taking the missing pattern and feature importance into consideration, which is used to measure the similarities of distributions for the same feature between training and validation sites. Visit our paper [Cross-Site Transportability of an Explainable Artificial Intelligence Model for Acute Kidney Injury Prediction] (DOI:10.1038/s41467-020-19551-w) for more details. 
 
 [Maximum Mean Discrepancy (MMD)]: https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=6751384 
 
-
-
+[Cross-Site Transportability of an Explainable Artificial Intelligence Model for Acute Kidney Injury Prediction]: http://www.nature.com/ncomm/10.1038/s41467-020-19551-w
 
 *updated 11/04/2020*
