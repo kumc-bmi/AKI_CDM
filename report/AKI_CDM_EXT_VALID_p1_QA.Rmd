@@ -160,15 +160,20 @@ In this section, we will collect variables from PCORNET_CDM tables: *DEMOGRAPHIC
 Demographic variables include *Age (calculated from Birth_Date)*, *Sex*, *Race*, *Ethnicity*.  
 
 ```{r demo, include=F}
-## demographic
+#complete the paramstrized sql script for collecting CDM demographic table
 sql<-parse_sql(paste0("./src/",params$DBMS_type,"/collect_demo.sql"),
                            cdm_db_link=config_file$cdm_db_link,
                            cdm_db_name=config_file$cdm_db_name,
                            cdm_db_schema=config_file$cdm_db_schema)
 
+#send completed sql script over to database via established connection
 demo<-execute_single_sql(conn,
                          statement=sql$statement,
-                         write=(sql$action=="write")) %>%
+                         write=(sql$action=="write")) 
+
+
+#perform some preliminary data cleaning and covert to long skinny format
+demo %<>%
   mutate(AGE_GRP=case_when(AGE<= 25 ~ "18-25",
                            AGE >= 26 & AGE <= 35 ~ "26-35",
                            AGE >= 36 & AGE <= 45 ~ "36-45",
