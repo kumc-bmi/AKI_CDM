@@ -69,7 +69,9 @@ The initial feature set contained more than 30,000 distinct features. We perform
 5) when measurements are missing for a certain time interval, we performed a common sampling practice called sample-and-hold which carried the earlier available observation over; 
 6) introduced additional features such as lab value changes since last observation or daily blood pressure trends, which have been shown to be predictive of AKI10.
 
-The discrete-time survival model ([DTSA]) required converting the encounter-level data into an Encounter-Period data set with discrete time interval indicator (i.e. day1, day2, day3,...). More details about this conversion can be found in the `format_data()` and `get_dsurv_temporal()` functions from `/R/util.R`. As shown in ![Figure1-Data Preprocess.](/figure/preproc_demo.png), AKI patient at days of AKI onset contributed to positive outcomes, while earlier non-AKI days of AKI patients as well as daily outcomes of truely non-AKI patients (i.e. who never progressed to any stage of AKI) contributed to nefative outcomes. 
+The discrete-time survival model ([DTSA]) required converting the encounter-level data into an Encounter-Period data set with discrete time interval indicator (i.e. day1, day2, day3,...). More details about this conversion can be found in the `format_data()` and `get_dsurv_temporal()` functions from `/R/util.R`. As shown in ![Figure1-Data Preprocess.](/figure/preproc_demo.png), 
+
+AKI patient at days of AKI onset contributed to positive outcomes, while earlier non-AKI days of AKI patients as well as daily outcomes of truely non-AKI patients (i.e. who never progressed to any stage of AKI) contributed to nefative outcomes. 
 
 
 [DTSA]: https://www.jstor.org/stable/1165085?seq=1#metadata_info_tab_contents
