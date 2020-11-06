@@ -26,7 +26,7 @@ Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affe
 * **Aim 2 -  GPC**: Validating predictive models on multi-site data. We will implement an automated analytic package with built in data extraction and predictive modeling from Aim 1 for distributed execution within two PCORnet clinical data research networks (CDRNs), namely GPC led by Dr. Waitman and Veterans Health Administration (VHA) site led by Dr. Matheny in pSCANNER. All prototyping will be done on the KUMC CDM.    
       * Task 2.1: deploying R-markdown implementation codes for quanlity check, and reporting results to KUMC         
       * Task 2.2: deploying R-markdown implementation codes or stand-along SQL codes to extract line-item data and transfer to KUMC       
-              * Alternatively, site can choose to re-use [GROUSE] data without performing any local extractions.        
+            --- Alternatively, site can choose to re-use [GROUSE] data without performing any local extractions.        
       * Task 2.3 (distributed analytics): deploying R-markdown implementaion codes for external validations of predictive models ( _Not fully tested yet_ )         
       
 [GPC#711]: https://informatics.gpcnetwork.org/trac/Project/ticket/711
@@ -69,7 +69,7 @@ The initial feature set contained more than 30,000 distinct features. We perform
 5) when measurements are missing for a certain time interval, we performed a common sampling practice called sample-and-hold which carried the earlier available observation over; 
 6) introduced additional features such as lab value changes since last observation or daily blood pressure trends, which have been shown to be predictive of AKI10.
 
-The discrete-time survival model ([DTSA]) required converting the encounter-level data into an Encounter-Period data set with discrete time interval indicator (i.e. day1, day2, day3,...). More details about this conversion can be found in the `format_data()` and `get_dsurv_temporal()` functions from `/R/util.R`. As shown in ![Figure1-Data Preprocess.](/figure/preproc_demo.png), 
+The discrete-time survival model ([DTSA]) required converting the encounter-level data into an Encounter-Period data set with discrete time interval indicator (i.e. day1, day2, day3,...). More details about this conversion can be found in the `format_data()` and `get_dsurv_temporal()` functions from `/R/util.R`. As shown in the figure below: ![Figure1-Data Preprocess.](/figure/preproc_demo.png), 
 
 AKI patient at days of AKI onset contributed to positive outcomes, while earlier non-AKI days of AKI patients as well as daily outcomes of truely non-AKI patients (i.e. who never progressed to any stage of AKI) contributed to nefative outcomes. 
 
