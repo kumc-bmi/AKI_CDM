@@ -33,15 +33,15 @@ Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affe
 [GPC#742]: https://informatics.gpcnetwork.org/trac/Project/ticket/742
 [GROUSE]: http://gpcnetwork.org/?q=GROUSE
 
-* **Aim 3 - KUMC**: Interpreting the AKI prediction model by analyzing and visualizing top important predictors 
-      * Task 3.1: rank features based on their importance in improving model performance 
-      * Task 3.2: use [SHAP] value to evaluate marginal effects of top important predictors 
-      * Task 3.3: create dashboard for visualizing feature ranking and marginal plots
+* **Aim 3 - KUMC**: Interpreting the AKI prediction model by analyzing and visualizing top important predictors       
+      * Task 3.1: rank features based on their importance in improving model performance        
+      * Task 3.2: use [SHAP] value to evaluate marginal effects of top important predictors         
+      * Task 3.3: create dashboard for visualizing feature ranking and marginal plots         
 
-* **Aim 4 - KUMC**: Developing joint KL-divergence and adjMMD metrics to infer model transportability and potentially identify reasons imparing model transportability
-      * Task 4.1: identify overlapped and site-specific feature space
-      * Task 4.2: develop metrics, [joint KL-divergence] and [adjMMD], to quantify joint distribution hetergenity, considering missing value patterns
-      * Task 4.3: invetigate the usability of the new metrics 
+* **Aim 4 - KUMC**: Developing joint KL-divergence and adjMMD metrics to infer model transportability and potentially identify reasons imparing model transportability          
+      * Task 4.1: identify overlapped and site-specific feature space         
+      * Task 4.2: develop metrics, [joint KL-divergence] and [adjMMD], to quantify joint distribution hetergenity, considering missing value patterns   
+      * Task 4.3: invetigate the usability of the new metrics         
       
 [SHAP]: https://papers.nips.cc/paper/7062-a-unified-approach-to-interpreting-model-predictions.pdf 
 [joint KL-divergence]: https://projecteuclid.org/euclid.aoms/1177729694
