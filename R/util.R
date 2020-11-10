@@ -750,8 +750,8 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
                   mutate(value=ifelse((key=="HT" & (value>95 | value<=0))|
                                         (key=="WT" & (value>1400 | value<=0))|
                                         (key=="BMI" & (value>70 | value<=0)),NA,value)) %>%
-                  dplyr::summarize(value=median(as.numeric(value),na.rm=T)) %>%
-                  ungroup %>% mutate(dsa=-1))
+                  dplyr::summarize(value=median(as.numeric(value),na.rm=T),.groups="drop") %>%
+                  mutate(dsa=-1))
     
     #multiple bp are aggregated by taking: lowest & slope
     bp<-dat %>% dplyr::select(-PATID) %>%
@@ -773,8 +773,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
     #--minimal bp
     bp_min<-bp %>%
       group_by(ENCOUNTERID,key,dsa) %>%
-      dplyr::summarize(value_lowest=min(value,na.rm=T)) %>%
-      ungroup %>%
+      dplyr::summarize(value_lowest=min(value,na.rm=T),.groups="drop") %>%
       mutate(key=paste0(key,"_min")) %>%
       dplyr::rename(value=value_lowest)
     
@@ -833,8 +832,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
       mutate(key_cp=key,unit_cp=unit) %>%
       unite("key_unit",c("key_cp","unit_cp"),sep="@") %>%
       group_by(ENCOUNTERID,key,unit,key_unit,dsa) %>%
-      dplyr::summarize(value=mean(value,na.rm=T)) %>%
-      ungroup
+      dplyr::summarize(value=mean(value,na.rm=T),.groups="drop")
     
     #calculated new features: BUN/SCr ratio (same-day)
     bun_scr_ratio<-dat_out %>% 
@@ -847,8 +845,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
       filter((toupper(unit) %in% c("MG/DL","MG/MG")) & 
                (key_agg %in% c("SCR","BUN","BUN_SCR"))) %>%
       group_by(ENCOUNTERID,key_agg,dsa) %>%
-      dplyr::summarize(value=mean(value,na.rm=T)) %>%
-      ungroup %>%
+      dplyr::summarize(value=mean(value,na.rm=T),.groups="drop") %>%
       spread(key_agg,value) %>%
       filter(!is.na(SCR)&!is.na(BUN)) %>%
       mutate(BUN_SCR = round(BUN/SCR,2)) %>%
@@ -868,7 +865,8 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
                        p25=quantile(lab_cnt,probs=0.25,na.rm=T),
                        med=median(lab_cnt,na.rm=T),
                        p75=quantile(lab_cnt,probs=0.75,na.rm=T),
-                       p95=quantile(lab_cnt,probs=0.95,na.rm=T))
+                       p95=quantile(lab_cnt,probs=0.95,na.rm=T),
+                       .groups="drop")
     
     #--collect changes of lab only for those are regularly repeated (floor(pred_end/2))
     freq_lab<-lab_delta_eligb %>% filter(med>=(floor(pred_end/2)))
@@ -897,8 +895,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
     #multiple records resolved as "present (1) or absent (0)"
     dat_out<-dat %>% dplyr::select(-PATID) %>%
       group_by(ENCOUNTERID,key,dsa) %>%
-      dplyr::summarize(value=(n() >= 1)*1) %>%
-      ungroup %>%
+      dplyr::summarize(value=(n() >= 1)*1,.groups="drop") %>%
       group_by(ENCOUNTERID,key) %>%
       top_n(n=1L,wt=dsa) %>%
       ungroup %>% 
@@ -909,8 +906,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
     #multiple records resolved as "present (1) or absent (0)"
     dat_out<-dat %>% dplyr::select(-PATID) %>%
       group_by(ENCOUNTERID,key,dsa) %>%
-      dplyr::summarize(value=(n() >= 1)*1) %>%
-      ungroup %>% 
+      dplyr::summarize(value=(n() >= 1)*1,.groups="drop") %>%
       dplyr::select(ENCOUNTERID,key,value,dsa)
     
   }else if(type=="med"){
@@ -1108,7 +1104,8 @@ get_perf_summ<-function(pred,real,keep_all_cutoffs=F){
                                  npv_m=mean(npv,na.rm=T),
                                  acc_m=mean(acc,na.rm=T),
                                  fscore_m=mean(fscore,na.rm=T),
-                                 mcc_m=mean(mcc,na.rm=T)) %>%
+                                 mcc_m=mean(mcc,na.rm=T),
+                                 .groups="drop") %>%
                 gather(overall_meas,meas_val))
   
   out<-list(perf_summ=perf_summ)
@@ -1133,7 +1130,8 @@ get_calibr<-function(pred,real,n_bin=20){
                      bin_upper=max(pred),
                      bin_mid=median(pred),
                      y_agg = sum(y),
-                     pred_p = mean(pred)) %>%
+                     pred_p = mean(pred),
+                     .groups="drop") %>%
     dplyr::mutate(y_p=y_agg/expos) %>%
     dplyr::mutate(binCI_lower = pmax(0,pred_p-1.96*sqrt(y_p*(1-y_p)/expos)),
                   binCI_upper = pred_p+1.96*sqrt(y_p*(1-y_p)/expos))
@@ -1197,7 +1195,7 @@ get_recalibr<-function(pred,real,p=0.5,n_bin=20){
     dplyr::summarize(chi_sq=sum(pos_term)+sum(neg_term),
                      chi_sq_adj=sum(pos_adj_term)+sum(neg_adj_term),
                      df=max(3,length(unique(pred_bin)))-2,
-                     groups="drop") %>%
+                     .groups="drop") %>%
     mutate(p_val=pchisq(chi_sq,df=df,lower.tail = F),
            p_val_adj=pchisq(chi_sq_adj,df=df,lower.tail = F))
   

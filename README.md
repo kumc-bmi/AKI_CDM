@@ -102,7 +102,10 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 * [RCurl]: for linkable descriptions (when uploading giant mapping tables are not feasible)
 * [XML]: for linkable descriptions (when uploading giant mapping tables are not feasible)
 * [xgboost]: for effectively training the gradient boosting machine   
-
+* [pROC]: for calculating receiver operating curve 
+* [PRROC]: for calculating precision recall curve
+* [ParBayesianOptimization]: a parallel implementation for baysian optimizaion for xgboost
+* [doParallel]: provide backend for parallelization
 
 
 [R Program]: https://www.r-project.org/
@@ -126,7 +129,10 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 [RCurl]: https://cran.r-project.org/web/packages/RCurl/RCurl.pdf
 [XML]: https://cran.r-project.org/web/packages/XML/XML.pdf
 [xgboost]:https://xgboost.readthedocs.io/en/latest/   
-
+[pROC]: https://cran.r-project.org/web/packages/pROC/pROC.pdf
+[PRROC]: https://cran.r-project.org/web/packages/PRROC/PRROC.pdf
+[ParBayesianOptimization]: https://cran.r-project.org/web/packages/ParBayesianOptimization/ParBayesianOptimization.pdf 
+[doParallel]: https://cran.r-project.org/web/packages/doParallel/doParallel.pdf
 
 ***
 
