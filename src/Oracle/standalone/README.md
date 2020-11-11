@@ -1,7 +1,5 @@
-External Validation for AKI Predictive Models using PCORnet CDM data
+Standalone PL/SQL scripts for local data extraction out of PCORnet CDM
 ====================================================================
-
-These standalone PL/SQL scripts are for local data extraction out of PCORnet CDM
 
 by Xing Song, with Mei Liu, Russ Waitman
 [Medical Informatics Division, Univeristy of Kansas Medical Center][MI]
