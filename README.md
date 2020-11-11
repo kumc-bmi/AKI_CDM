@@ -192,11 +192,13 @@ The following instructions are for extracting cohort and generating final report
 
 1. Validate the given predictive model trained on KUMC's data   
 
-    i) **download** the predictive model package, "AKI_model_kumc.zip", from the securefile link shared by KUMC. Unzip the file and save everything under `./data/model_kumc` (remark: make sure to save the files under the correct directory, as they will be called later using the corresponding path)   
+    i) **download** the predictive model package, "AKI_model_kumc.zip", from the securefile link shared by KUMC. Unzip the file and save everything under `./data/model_kumc` (remark: make sure to save the files under the correct directory, as they will be called later using the corresponding path)  
     
-    ii) **continue to run** *Part II.1* of the r script `render_report.R` after completing *Part I*. *Part II.1* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
+    ii) **continue to run** *Part II.0* of the r script `render_report.R` after completing *Part I*. *Part II.0* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/raw/...`), no parameter needs to be set up.        
+    
+    iii) **continue to run** *Part II.1* of the r script `render_report.R` after completing *Part II.0*. *Part II.1* will only depend on tables already extracted from *Part II.0* (saved locally in the folder `./data/preproc...`), no parameter needs to be set up.     
 
-    iii) **collect and report** the two new output files from `/output` folder           
+    iv) **collect and report** the two new output files from `/output` folder           
       -- a. AKI_CDM_EXT_VALID_p2_1_Benchmark.html - html report with description, figures and partial tables       
       -- b. AKI_CDM_EXT_VALID_p2_1_Benchmark_TBL.xlsx - excel with full summary tables          
 
@@ -204,9 +206,11 @@ The following instructions are for extracting cohort and generating final report
 
     i) **download** the data dictionary, "feature_dict.csv", from the securefile link shared by KUMC and save the file under "./ref/" (remark: make sure to save the file under the correct directory, as it will be called later using the corresponding path)   
 
-    ii) **continue to run** *Part II.2* of the r script `render_report.R` after completing *Part I*. *Part II.2* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
+    ii) **continue to run** (optionally, if already run for Part II.1) *Part II.0* of the r script `render_report.R` after completing *Part I*. *Part II.0* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/raw/...`), no parameter needs to be set up.        
 
-    iii) **collect and report** the two new output files from `/output` folder           
+    iii) **continue to run** *Part II.2* of the r script `render_report.R` after completing *Part I*. *Part II.2* will only depend on tables already extracted from *Part II.0* (saved locally in the folder `./data/preproc/...`), no parameter needs to be set up.     
+
+    iv) **collect and report** the two new output files from `/output` folder           
       -- a. AKI_CDM_EXT_VALID_p2_2_Retrain.html - html report with description, figures and partial tables       
       -- b. AKI_CDM_EXT_VALID_p2_2_Retrain_TBL.xlsx - excel with full summary tables          
       
@@ -221,9 +225,11 @@ Run the `distribution_analysis.R` script to calculate the adjMMD and joint KL-di
 ### Benchmarking
 a. It takes about **2 ~ 3 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of output for Part I is about **6MB**.
 
-b. It takes about **25 ~ 30 hours** to complete Part II.1 (AKI_CDM_EXT_VALID_p2_Benchmark.Rmd). At peak time, it will use about **40 ~ 50GB memory**, especially at the preprocessing stage. Total size of intermediate tables and output for Part II.1 is about **600MB**.
+b. It takes about **60 ~ 70 hours** (6hr/task) to complete Part II.0 (AKI_CDM_EXT_VALID_p2_0_Preprocess.Rmd). At peak time, it will use about **50 ~ 60GB memory**, especially at the preprocessing stage. Total size of intermediate tables and output for Part II.0 is about **2GB**.
 
-c. It takes about **40 ~ 50 hours** to complete Part II.2 (AKI_CDM_EXT_VALID_p2_Retrain.Rmd). At peak time, it will use about **50 ~ 60GB memory**, especially at the preprocessing stage. Total size of intermediate tables and output for Part II.1 is about **800MB**.
+c. It takes about **25 ~ 30 hours** to complete Part II.1 (AKI_CDM_EXT_VALID_p2_Benchmark.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially at the preprocessing stage. Total size of intermediate tables and output for Part II.1 is about **600MB**.
+
+d. It takes about **40 ~ 50 hours** to complete Part II.2 (AKI_CDM_EXT_VALID_p2_Retrain.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially at the preprocessing stage. Total size of intermediate tables and output for Part II.2 is about **800MB**.
 
 ***
 
