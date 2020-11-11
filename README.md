@@ -196,7 +196,7 @@ The following instructions are for extracting cohort and generating final report
     
     ii) **continue to run** *Part II.0* of the r script `render_report.R` after completing *Part I*. *Part II.0* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/raw/...`), no parameter needs to be set up.        
     
-    iii) **continue to run** *Part II.1* of the r script `render_report.R` after completing *Part II.0*. *Part II.1* will only depend on tables already extracted from *Part II.0* (saved locally in the folder `./data/preproc...`), no parameter needs to be set up.     
+    iii) **continue to run** *Part II.1* of the r script `render_report.R` after completing *Part II.0*. *Part II.1* will only depend on tables already extracted from *Part II.0* (saved locally in the folder `./data/preproc/...`), no parameter needs to be set up.     
 
     iv) **collect and report** the two new output files from `/output` folder           
       -- a. AKI_CDM_EXT_VALID_p2_1_Benchmark.html - html report with description, figures and partial tables       
@@ -247,4 +247,6 @@ The [Maximum Mean Discrepancy (MMD)] has been widely used in transfer learning s
 
 [Cross-Site Transportability of an Explainable Artificial Intelligence Model for Acute Kidney Injury Prediction]: http://www.nature.com/ncomm/10.1038/s41467-020-19551-w
 
-*updated 11/04/2020*
+*updated 11/10/2020*
+
+
