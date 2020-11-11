@@ -24,24 +24,24 @@ Acute Kidney Injury (**AKI**) is a common and highly lethal health problem, affe
       * Task 1.4: developing new models         
  
 * **Aim 2 -  GPC**: Validating predictive models on multi-site data. We will implement an automated analytic package with built in data extraction and predictive modeling from Aim 1 for distributed execution within two PCORnet clinical data research networks (CDRNs), namely GPC led by Dr. Waitman and Veterans Health Administration (VHA) site led by Dr. Matheny in pSCANNER. All prototyping will be done on the KUMC CDM.    
-      * Task 2.1: deploying R-markdown implementation codes for quanlity check, and reporting results to KUMC 
-      * Task 2.2: deploying R-markdown implementation codes or stand-along SQL codes to extract line-item data and transfer to KUMC
-          * Alternatively, site can choose to re-use [GROUSE] data without performing any local extractions. 
+      * Task 2.1: deploying R-markdown implementation codes for quanlity check, and reporting results to KUMC         
+      * Task 2.2: deploying R-markdown implementation codes or stand-along SQL codes to extract line-item data and transfer to KUMC       
+            --- Alternatively, site can choose to re-use [GROUSE] data without performing any local extractions.        
       * Task 2.3 (distributed analytics): deploying R-markdown implementaion codes for external validations of predictive models ( _Not fully tested yet_ )         
       
 [GPC#711]: https://informatics.gpcnetwork.org/trac/Project/ticket/711
 [GPC#742]: https://informatics.gpcnetwork.org/trac/Project/ticket/742
 [GROUSE]: http://gpcnetwork.org/?q=GROUSE
 
-* **Aim 3 - KUMC**: Interpreting the AKI prediction model by analyzing and visualizing top important predictors 
-      * Task 3.1: rank features based on their importance in improving model performance 
-      * Task 3.2: use [SHAP] value to evaluate marginal effects of top important predictors 
-      * Task 3.3: create dashboard for visualizing feature ranking and marginal plots
+* **Aim 3 - KUMC**: Interpreting the AKI prediction model by analyzing and visualizing top important predictors       
+      * Task 3.1: rank features based on their importance in improving model performance        
+      * Task 3.2: use [SHAP] value to evaluate marginal effects of top important predictors         
+      * Task 3.3: create dashboard for visualizing feature ranking and marginal plots         
 
-* **Aim 4 - KUMC**: Developing joint KL-divergence and adjMMD metrics to infer model transportability and potentially identify reasons imparing model transportability
-      * Task 4.1: identify overlapped and site-specific feature space
-      * Task 4.2: develop metrics, [joint KL-divergence] and [adjMMD], to quantify joint distribution hetergenity, considering missing value patterns
-      * Task 4.3: invetigate the usability of the new metrics 
+* **Aim 4 - KUMC**: Developing joint KL-divergence and adjMMD metrics to infer model transportability and potentially identify reasons imparing model transportability          
+      * Task 4.1: identify overlapped and site-specific feature space         
+      * Task 4.2: develop metrics, [joint KL-divergence] and [adjMMD], to quantify joint distribution hetergenity, considering missing value patterns   
+      * Task 4.3: invetigate the usability of the new metrics         
       
 [SHAP]: https://papers.nips.cc/paper/7062-a-unified-approach-to-interpreting-model-predictions.pdf 
 [joint KL-divergence]: https://projecteuclid.org/euclid.aoms/1177729694
@@ -69,7 +69,7 @@ The initial feature set contained more than 30,000 distinct features. We perform
 5) when measurements are missing for a certain time interval, we performed a common sampling practice called sample-and-hold which carried the earlier available observation over; 
 6) introduced additional features such as lab value changes since last observation or daily blood pressure trends, which have been shown to be predictive of AKI10.
 
-The discrete-time survival model ([DTSA]) required converting the encounter-level data into an Encounter-Period data set with discrete time interval indicator (i.e. day1, day2, day3,...). More details about this conversion can be found in the `format_data()` and `get_dsurv_temporal()` functions from `/R/util.R`. As shown in ![Figure1-Data Preprocess.](/figure/preproc_demo.png), 
+The discrete-time survival model ([DTSA]) required converting the encounter-level data into an Encounter-Period data set with discrete time interval indicator (i.e. day1, day2, day3,...). More details about this conversion can be found in the `format_data()` and `get_dsurv_temporal()` functions from `/R/util.R`. As shown in the figure below: ![Figure1-Data Preprocess.](/figure/preproc_demo.png), 
 
 AKI patient at days of AKI onset contributed to positive outcomes, while earlier non-AKI days of AKI patients as well as daily outcomes of truely non-AKI patients (i.e. who never progressed to any stage of AKI) contributed to nefative outcomes. 
 
@@ -102,7 +102,10 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 * [RCurl]: for linkable descriptions (when uploading giant mapping tables are not feasible)
 * [XML]: for linkable descriptions (when uploading giant mapping tables are not feasible)
 * [xgboost]: for effectively training the gradient boosting machine   
-
+* [pROC]: for calculating receiver operating curve 
+* [PRROC]: for calculating precision recall curve
+* [ParBayesianOptimization]: a parallel implementation for baysian optimizaion for xgboost
+* [doParallel]: provide backend for parallelization
 
 
 [R Program]: https://www.r-project.org/
@@ -126,7 +129,10 @@ In order for sites to extract AKI cohort, run predictive models and generate fin
 [RCurl]: https://cran.r-project.org/web/packages/RCurl/RCurl.pdf
 [XML]: https://cran.r-project.org/web/packages/XML/XML.pdf
 [xgboost]:https://xgboost.readthedocs.io/en/latest/   
-
+[pROC]: https://cran.r-project.org/web/packages/pROC/pROC.pdf
+[PRROC]: https://cran.r-project.org/web/packages/PRROC/PRROC.pdf
+[ParBayesianOptimization]: https://cran.r-project.org/web/packages/ParBayesianOptimization/ParBayesianOptimization.pdf 
+[doParallel]: https://cran.r-project.org/web/packages/doParallel/doParallel.pdf
 
 ***
 
@@ -186,11 +192,13 @@ The following instructions are for extracting cohort and generating final report
 
 1. Validate the given predictive model trained on KUMC's data   
 
-    i) **download** the predictive model package, "AKI_model_kumc.zip", from the securefile link shared by KUMC. Unzip the file and save everything under `./data/model_kumc` (remark: make sure to save the files under the correct directory, as they will be called later using the corresponding path)   
+    i) **download** the predictive model package, "AKI_model_kumc.zip", from the securefile link shared by KUMC. Unzip the file and save everything under `./data/model_kumc` (remark: make sure to save the files under the correct directory, as they will be called later using the corresponding path)  
     
-    ii) **continue to run** *Part II.1* of the r script `render_report.R` after completing *Part I*. *Part II.1* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
+    ii) **continue to run** *Part II.0* of the r script `render_report.R` after completing *Part I*. *Part II.0* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/raw/...`), no parameter needs to be set up.        
+    
+    iii) **continue to run** *Part II.1* of the r script `render_report.R` after completing *Part II.0*. *Part II.1* will only depend on tables already extracted from *Part II.0* (saved locally in the folder `./data/preproc/...`), no parameter needs to be set up.     
 
-    iii) **collect and report** the two new output files from `/output` folder           
+    iv) **collect and report** the two new output files from `/output` folder           
       -- a. AKI_CDM_EXT_VALID_p2_1_Benchmark.html - html report with description, figures and partial tables       
       -- b. AKI_CDM_EXT_VALID_p2_1_Benchmark_TBL.xlsx - excel with full summary tables          
 
@@ -198,9 +206,11 @@ The following instructions are for extracting cohort and generating final report
 
     i) **download** the data dictionary, "feature_dict.csv", from the securefile link shared by KUMC and save the file under "./ref/" (remark: make sure to save the file under the correct directory, as it will be called later using the corresponding path)   
 
-    ii) **continue to run** *Part II.2* of the r script `render_report.R` after completing *Part I*. *Part II.2* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/...`), no parameter needs to be set up.     
+    ii) **continue to run** (optionally, if already run for Part II.1) *Part II.0* of the r script `render_report.R` after completing *Part I*. *Part II.0* will only depend on tables already extracted from *Part I* (saved locally in the folder `./data/raw/...`), no parameter needs to be set up.        
 
-    iii) **collect and report** the two new output files from `/output` folder           
+    iii) **continue to run** *Part II.2* of the r script `render_report.R` after completing *Part I*. *Part II.2* will only depend on tables already extracted from *Part II.0* (saved locally in the folder `./data/preproc/...`), no parameter needs to be set up.     
+
+    iv) **collect and report** the two new output files from `/output` folder           
       -- a. AKI_CDM_EXT_VALID_p2_2_Retrain.html - html report with description, figures and partial tables       
       -- b. AKI_CDM_EXT_VALID_p2_2_Retrain_TBL.xlsx - excel with full summary tables          
       
@@ -215,9 +225,11 @@ Run the `distribution_analysis.R` script to calculate the adjMMD and joint KL-di
 ### Benchmarking
 a. It takes about **2 ~ 3 hours** to complete Part I (AKI_CDM_EXT_VALID_p1_QA.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially when large tables like Precribing or Lab tables are loaded in. Total size of output for Part I is about **6MB**.
 
-b. It takes about **25 ~ 30 hours** to complete Part II.1 (AKI_CDM_EXT_VALID_p2_Benchmark.Rmd). At peak time, it will use about **40 ~ 50GB memory**, especially at the preprocessing stage. Total size of intermediate tables and output for Part II.1 is about **600MB**.
+b. It takes about **60 ~ 70 hours** (6hr/task) to complete Part II.0 (AKI_CDM_EXT_VALID_p2_0_Preprocess.Rmd). At peak time, it will use about **50 ~ 60GB memory**, especially at the preprocessing stage. Total size of intermediate tables and output for Part II.0 is about **2GB**.
 
-c. It takes about **40 ~ 50 hours** to complete Part II.2 (AKI_CDM_EXT_VALID_p2_Retrain.Rmd). At peak time, it will use about **50 ~ 60GB memory**, especially at the preprocessing stage. Total size of intermediate tables and output for Part II.1 is about **800MB**.
+c. It takes about **25 ~ 30 hours** to complete Part II.1 (AKI_CDM_EXT_VALID_p2_Benchmark.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially at the preprocessing stage. Total size of intermediate tables and output for Part II.1 is about **600MB**.
+
+d. It takes about **40 ~ 50 hours** to complete Part II.2 (AKI_CDM_EXT_VALID_p2_Retrain.Rmd). At peak time, it will use about **30 ~ 40GB memory**, especially at the preprocessing stage. Total size of intermediate tables and output for Part II.2 is about **800MB**.
 
 ***
 
@@ -235,4 +247,6 @@ The [Maximum Mean Discrepancy (MMD)] has been widely used in transfer learning s
 
 [Cross-Site Transportability of an Explainable Artificial Intelligence Model for Acute Kidney Injury Prediction]: http://www.nature.com/ncomm/10.1038/s41467-020-19551-w
 
-*updated 11/04/2020*
+*updated 11/10/2020*
+
+

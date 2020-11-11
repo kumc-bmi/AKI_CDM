@@ -33,7 +33,7 @@ render_report(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
 #render the rmarkdown report with the following expected outputs:
 # 1. AKI_CDM_EXT_VALID_p2_1_Benchmark.html
 # 2. AKI_CDM_EXT_VALID_p2_1_Benchmark_TBL.xlsx
-render_report(which_report="./report/AKI_CDM_EXT_VALID_p2_1_Benchmark.Rmd")
+# render_report(which_report="./report/AKI_CDM_EXT_VALID_p2_1_Benchmark.Rmd")
 
 
 #===============generate report for Part II.2 =========================#
@@ -41,6 +41,6 @@ render_report(which_report="./report/AKI_CDM_EXT_VALID_p2_1_Benchmark.Rmd")
 #render the rmarkdown report with the following expected outputs:
 # 1. AKI_CDM_EXT_VALID_p2_2_Retrain.html
 # 2. AKI_CDM_EXT_VALID_p2_2_Retrain_TBL.xlsx
-render_report(which_report="./report/AKI_CDM_EXT_VALID_p2_2_Retrain.Rmd")
+# render_report(which_report="./report/AKI_CDM_EXT_VALID_p2_2_Retrain.Rmd")
 
 

@@ -1,5 +1,5 @@
 /********************************************************************************/
-/*@file collect_med.sql
+/*@file collect_med_admin.sql
 /*
 /*in: AKI_onsets
 /*

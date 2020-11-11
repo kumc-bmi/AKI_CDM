@@ -10,6 +10,7 @@ require_libraries(c("tidyr",
                     "magrittr",
                     "stringr",
                     "broom",
+                    "purrr",
                     "Matrix"))
 
 
@@ -18,10 +19,10 @@ require_libraries(c("tidyr",
 pred_end<-7
 
 #-----prediction point
-pred_in_d_opt<-c(1,2)
+pred_in_d_opt<-c(2,1)
 
 #-----prediction tasks
-pred_task_lst<-c("stg1up","stg2up","stg3")
+pred_task_lst<-c("stg2up","stg1up","stg3")
 
 #-----feature selection type
 fs_type_opt<-c("no_fs","rm_scr_bun")
@@ -35,17 +36,17 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
 
 
 # collect and format variables on daily basis 
-n_chunk<-8
+n_chunk<-4 # adjust for better efficiency
 
-tbl1<-readRDS("./data/Table1.rda") %>%
+tbl1<-readRDS("./data/raw/Table1.rda") %>%
   dplyr::mutate(yr=as.numeric(format(strptime(ADMIT_DATE, "%Y-%m-%d %H:%M:%S"),"%Y")))
 
 #--by chunks: encounter year
 enc_yr<-tbl1 %>%
   dplyr::select(yr) %>%
   unique %>% arrange(yr) %>%
-  filter(yr>2011) %>%
-  dplyr::mutate(chunk=ceiling((yr-2011)/(n()/n_chunk)))
+  filter(yr>2009) %>%
+  dplyr::mutate(chunk=ceiling((yr-2009)/(n()/n_chunk)))
 
 #--by variable type
 var_type<-c("demo","vital","lab","dx","px","med")
@@ -92,8 +93,8 @@ for(pred_in_d in pred_in_d_opt){
       if(pred_task=="stg1up"){
         dat_i %<>%
           group_by(ENCOUNTERID) %>%
-          dplyr::mutate(last_stg=max(y)) %>% ungroup %>% #filter out earlier days of AKI>=1
-          dplyr::filter(!(last_stg>=1&y==0)) %>%       
+          dplyr::mutate(last_stg=max(y)) %>% ungroup %>% 
+          # dplyr::filter(!(last_stg>=1&y==0)) %>%            #filter out earlier days of AKI>=1     
           dplyr::mutate(y=as.numeric(y>0)) %>%
           
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
@@ -101,16 +102,16 @@ for(pred_in_d in pred_in_d_opt){
         dat_i %<>%
           group_by(ENCOUNTERID) %>%
           dplyr::mutate(last_stg=max(y)) %>% ungroup %>% 
-          dplyr::filter(!((last_stg>=2&y==0)|               #filter out earlier days of AKI>=2
-                           last_stg==1)) %>%                #filter out entire AKI1 encounters
+          # dplyr::filter(!((last_stg>=2&y==0)|               #filter out earlier days of AKI>=2
+          #                  last_stg==1)) %>%                #filter out entire AKI1 encounters
           dplyr::mutate(y=as.numeric(y>=2)) %>%
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else if(pred_task=="stg3"){
         dat_i %<>%
           group_by(ENCOUNTERID) %>%
           dplyr::mutate(last_stg=max(y)) %>% ungroup %>% 
-          dplyr::filter(!((last_stg==2&y==0)|               #filter earlier days of AKI=3
-                           last_stg %in% c(1,2))) %>%       #filter out entire AKI1,2 encounters
+          # dplyr::filter(!((last_stg==2&y==0)|               #filter earlier days of AKI=3
+          #                  last_stg %in% c(1,2))) %>%       #filter out entire AKI1,2 encounters
           dplyr::mutate(y=as.numeric(y>2)) %>%
           group_by(ENCOUNTERID) %>% top_n(n=1L,wt=dsa_y) %>% ungroup
       }else{
@@ -130,7 +131,7 @@ for(pred_in_d in pred_in_d_opt){
         start_v<-Sys.time()
         
         #extract
-        var_v<-readRDS(paste0("./data/AKI_",toupper(var_type[v]),".rda")) %>%
+        var_v<-readRDS(paste0("./data/raw/AKI_",toupper(var_type[v]),".rda")) %>%
           semi_join(dat_i,by="ENCOUNTERID")
         
         if(var_type[v] != "demo"){
@@ -180,7 +181,7 @@ for(pred_in_d in pred_in_d_opt){
                   list(X_surv=X_surv,y_surv=y_surv),
                   proc_bm)
     
-    saveRDS(data_ds,file=paste0("./data/preproc/data_ds_",pred_in_d,"d/",pred_task,".rda"))
+    saveRDS(data_ds,file=paste0("./data/preproc/data_ds_",pred_in_d,"d_",pred_task,".rda"))
     
     #---------------------------------------------------------------------------------------------
     lapse_tsk<-Sys.time()-start_tsk
