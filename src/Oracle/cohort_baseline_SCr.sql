@@ -26,5 +26,5 @@ select scrb.PATID
 from scr_enc1 scrb
 join AKI_Initial init
 on scrb.ENCOUNTERID = init.ENCOUNTERID
-group by scrb.PATID,scrb.ENCOUNTERID,init.ADMIT_DATE_TIME,scrb.LAB_ORDER_DATE,scrb.SPECIMEN_DATE_TIME,scrb.RESULT_DATE_TIME
+group by scrb.PATID,scrb.ENCOUNTERID,init.ADMIT_DATE_TIME,init.DISCHARGE_DATE_TIME, scrb.LAB_ORDER_DATE,scrb.SPECIMEN_DATE_TIME,scrb.RESULT_DATE_TIME
 

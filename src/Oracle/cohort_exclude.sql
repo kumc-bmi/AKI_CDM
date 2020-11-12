@@ -51,17 +51,17 @@ where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
                       (   dx.DX like 'V45.1%'
                        or dx.DX like 'V56.%'
                        or dx.DX like 'V42.0%'
-                       or dx.DX like '996.81%'
+                       or dx.DX like '996.81%')
                       ) or
                     -- ICD10 for RRT or dialysis
                      (dx.DX_TYPE = '10' and
                       (   dx.DX like 'Z49.31%'
                        or dx.DX like 'Z99.2%'
                        or dx.DX like 'Z94.0%'
-                       or dx.DX in ('T86.10', 'T86.11', 'T86.12')
+                       or dx.DX in ('T86.10', 'T86.11', 'T86.12'))
                        )
                       ) and
-                    dx.ADMIT_DATE < date_trunc('day',aki.ADMIT_DATE_TIME::timestamp)
+                    dx.ADMIT_DATE < trunc(aki.ADMIT_DATE_TIME)
                 )
 union all
 select aki.ENCOUNTERID
@@ -136,7 +136,7 @@ where exists (select 1 from &&cdm_db_schema.PROCEDURES px
                        )
                       )
                      ) and
-                     px.PX_DATE < scr48.time_bd and px.PX_DATE >= admit_date
+                     px.PX_DATE < scr48.time_bd and px.PX_DATE >= scr48.admit_date
               )
 )
 -- Burn Patients
@@ -179,7 +179,7 @@ where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
                        or dx.DX like 'T32.%')
                        )
                       ) and  
-                      dx.ADMIT_DATE = trunc(init.ADMIT_DATE_TIME) and
+                      dx.ADMIT_DATE = trunc(aki.ADMIT_DATE_TIME) and
                       dx.DX_SOURCE = 'AD'
                 )
 )

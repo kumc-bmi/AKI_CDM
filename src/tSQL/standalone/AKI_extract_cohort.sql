@@ -113,9 +113,11 @@ where age_at_Scr >= 18
  2 SCr records
 ******************************************************************************/
 with multi_match as (
-select scr.*
+select scr.*,aki.ADMIT_DATE_TIME
 from #All_Scr_eGFR scr
-where exists (select 1 from #AKI_Initial aki where scr.ENCOUNTERID = aki.ENCOUNTERID)
+join #AKI_Initial aki 
+on scr.ENCOUNTERID = aki.ENCOUNTERID
+where scr.LAB_ORDER_DATE between aki.ADMIT_DATE_TIME and aki.DISCHARGE_DATE_TIME
 union all
 select aki.PATID
       ,aki.ENCOUNTERID
@@ -124,6 +126,7 @@ select aki.PATID
       ,scr.LAB_ORDER_DATE
       ,scr.SPECIMEN_DATE_TIME
       ,scr.RESULT_DATE_TIME
+      ,aki.ADMIT_DATE_TIME
 from #All_Scr_eGFR scr
 join #AKI_Initial aki
 on scr.PATID = aki.PATID and scr.ENCOUNTERID <> aki.ENCOUNTERID and
@@ -137,6 +140,7 @@ select distinct
       ,mm.LAB_ORDER_DATE
       ,mm.SPECIMEN_DATE_TIME
       ,mm.RESULT_DATE_TIME
+      ,mm.ADMIT_DATE_TIME
       ,dense_rank() over (partition by mm.ENCOUNTERID order by mm.LAB_ORDER_DATE,mm.SPECIMEN_DATE_TIME) rn      
 into #AKI_Scr_eGFR
 from multi_match mm
@@ -352,7 +356,7 @@ where exists (select 1 from [&&cdm_db_name].[&&cdm_db_schema].PROCEDURES px
                        )
                       )
                      ) and
-                    px.PX_DATE < scr48.time_bd and px.PX_DATE >= admit_date
+                    px.PX_DATE < scr48.time_bd and px.PX_DATE >= scr48.admit_date
               )
 )
 -- Burn Patients
@@ -395,7 +399,7 @@ where exists (select 1 from [&&cdm_db_name].[&&cdm_db_schema].DIAGNOSIS dx
                        or dx.DX like 'T32.%')
                        )
                       ) and 
-                      dx.ADMIT_DATE = CONVERT(date, init.ADMIT_DATE_TIME) and
+                      dx.ADMIT_DATE = CONVERT(date, aki.ADMIT_DATE_TIME) and
                       dx.DX_SOURCE = 'AD'
                 )
 )
