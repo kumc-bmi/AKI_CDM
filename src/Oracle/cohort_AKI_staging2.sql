@@ -8,7 +8,38 @@
 /*action: write
 /********************************************************************************/
 create table AKI_stages_daily as
-with stage_aki as (
+with aki3_rrt as (
+-- identify 3-stage AKI based on existence of RRT
+select akie.PATID
+      ,akie.ENCOUNTERID
+      ,akie.ADMIT_DATE_TIME
+      ,akie.SERUM_CREAT_BASE
+      ,akie.SPECIMEN_DATE_TIME_BASE
+      ,min(px.PX_DATE) SPECIMEN_DATE_TIME
+from AKI_eligible akie
+join &&cdm_db_schema.PROCEDURES px
+on px.ENCOUNTERID = akie.ENCOUNTERID and
+   (
+    (px.PX_TYPE = 'CH' and 
+    (   px.px in ('50300','50320','50323','50325','50327','50328','50329',
+                  '50340','50360','50365','50370','50380') --RRT
+     )
+    ) or
+   -- ICD9 codes for RRT
+   (px.PX_TYPE = '09' and
+   (   px.px in ('55.51','55.52','55.53','55.54','55.61','55.69') --RRT
+     )
+    ) or
+   -- ICD10 codes for RRT
+   (px.PX_TYPE = '10' and
+   (  px.px in ('0TY00Z0','0TY00Z1','0TY00Z2','0TY10Z0','0TY10Z1','0TY10Z2',
+                '0TB00ZZ','0TB10ZZ','0TT00ZZ','0TT10ZZ','0TT20ZZ') -- RRT
+      )
+    )
+  )
+group by akie.PATID,akie.ENCOUNTERID,akie.ADMIT_DATE_TIME,akie.SERUM_CREAT_BASE,akie.SPECIMEN_DATE_TIME_BASE
+)
+     ,stage_aki as (
 -- a semi-cartesian join to identify all eligible 1-, 3-stages w.r.t rolling baseline
 select distinct
        s1.PATID

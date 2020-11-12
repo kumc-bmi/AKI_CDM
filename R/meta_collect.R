@@ -1,4 +1,7 @@
+##########################
 #### collect metadata ####
+##########################
+
 source("./R/util.R")
 
 require_libraries(c("DBI",
@@ -11,7 +14,7 @@ config_file_path<-"./config/config.csv"
 config_file<-read.csv(config_file_path,stringsAsFactors = F)
 conn<-connect_to_db("Oracle","OCI",config_file)
 
-#metadata - source I: PCORNET CDM website
+#====metadata - source I: PCORNET CDM website====
 cdm_metadata<-read.csv("./data/meta_data/cdm_metadata.csv",stringsAsFactors = F) %>%
   dplyr::mutate(FIELD_NAME2=FIELD_NAME,
                 VALUESET_ITEM2=VALUESET_ITEM) %>%
@@ -34,7 +37,7 @@ cdm_metadata<-read.csv("./data/meta_data/cdm_metadata.csv",stringsAsFactors = F)
               dplyr::mutate(VALUESET_ITEM2=VALUESET_ITEM))
 
 
-#metadata - source II: local metadata table
+#====metadata - source II: local metadata table====
 meta_sql<-parse_sql("./src/Oracle/metadata_i2b2.sql",
                     cdm_meta_schema=config_file$cdm_meta_schema)
 i2b2_metadata<-execute_single_sql(conn,
@@ -67,7 +70,7 @@ i2b2_metadata %<>%
   dplyr::select(TABLE_NAME,FIELD_NAME,VALUESET_ITEM,VALUESET_ITEM2,VALUESET_ITEM_DESCRIPTOR)
 
 
-#metadata - source III: CCS category
+#====metadata - source III: CCS category====
 ccs_ref<-readRDS("./data/meta_data/ccs_ref.rda") %>%
   dplyr::rename(VALUESET_ITEM_DESCRIPTOR=ccs_name) %>%
   dplyr::mutate(VALUESET_ITEM=as.character(ccs_code),
@@ -76,7 +79,7 @@ ccs_ref<-readRDS("./data/meta_data/ccs_ref.rda") %>%
   dplyr::select(TABLE_NAME,FIELD_NAME,VALUESET_ITEM,VALUESET_ITEM2,VALUESET_ITEM_DESCRIPTOR)
 
 
-#metadata - source IV: additional
+#====metadata - source IV: additional====
 add_ft<-data.frame(TABLE_NAME=rep("additional",8),
                    FIELD_NAME=rep("additional",8),
                    VALUESET_ITEM=c("BUN_SCR",

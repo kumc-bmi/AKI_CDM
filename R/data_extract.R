@@ -17,8 +17,6 @@ require_libraries(c("DBI",
                     "kableExtra",
                     "ggplot2",
                     "ggrepel",
-                    "RCurl",
-                    "XML",
                     "openxlsx"))
 
 params<-list(DBMS_type="Oracle",

@@ -9,10 +9,11 @@
 /********************************************************************************/
 create table AKI_Scr_eGFR as
 with multi_match as (
-select scr.*
+select scr.*,aki.ADMIT_DATE_TIME
 from All_Scr_eGFR scr
-where exists (select 1 from AKI_Initial aki where scr.ENCOUNTERID = aki.ENCOUNTERID and
-              scr.LAB_ORDER_DATE between aki.ADMIT_DATE_TIME and aki.DISCHARGE_DATE_TIME)
+join AKI_Initial aki 
+on scr.ENCOUNTERID = aki.ENCOUNTERID 
+where scr.LAB_ORDER_DATE between aki.ADMIT_DATE_TIME and aki.DISCHARGE_DATE_TIME
 union all
 select aki.PATID
       ,aki.ENCOUNTERID
@@ -21,6 +22,7 @@ select aki.PATID
       ,scr.LAB_ORDER_DATE
       ,scr.SPECIMEN_DATE_TIME
       ,scr.RESULT_DATE_TIME
+      ,aki.ADMIT_DATE_TIME
 from All_Scr_eGFR scr
 join AKI_Initial aki
 on scr.PATID = aki.PATID and scr.ENCOUNTERID <> aki.ENCOUNTERID and
@@ -34,6 +36,7 @@ select PATID
       ,LAB_ORDER_DATE
       ,SPECIMEN_DATE_TIME
       ,RESULT_DATE_TIME
+      ,ADMIT_DATE_TIME
       ,count(distinct SPECIMEN_DATE_TIME) over (partition by ENCOUNTERID) scr_tot
       ,dense_rank() over (partition by ENCOUNTERID order by LAB_ORDER_DATE,SPECIMEN_DATE_TIME) rn      
 from multi_match
@@ -46,6 +49,7 @@ select distinct
       ,LAB_ORDER_DATE
       ,SPECIMEN_DATE_TIME
       ,RESULT_DATE_TIME
+      ,ADMIT_DATE_TIME
       ,rn
 from scr_cnt
 where scr_tot > 1

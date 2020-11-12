@@ -9,8 +9,11 @@ by Xing Song, with Mei Liu, Russ Waitman
 Copyright (c) 2018 Univeristy of Kansas Medical Center  
 Share and Enjoy according to the terms of the MIT Open Source License.
 
-Dashboard public view: 
+Dashboard public viewer: 
 
 https://sxinger.shinyapps.io/AKI_shap_dashbd/
 
 https://sxinger.shinyapps.io/AKI_ishap_dashbd/
+
+
+TODO: merge two dashboards into one
