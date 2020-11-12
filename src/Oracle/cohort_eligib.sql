@@ -28,6 +28,7 @@ where not exists (select 1 from exclud_unique e
 select scr.PATID
       ,scr.ENCOUNTERID
       ,scrb.ADMIT_DATE_TIME
+      ,scrb.DISCHARGE_DATE_TIME
       ,scrb.SERUM_CREAT SERUM_CREAT_BASE
       ,scrb.SPECIMEN_DATE_TIME SPECIMEN_DATE_TIME_BASE
       ,scrb.RESULT_DATE_TIME RESULT_DATE_TIME_BASE

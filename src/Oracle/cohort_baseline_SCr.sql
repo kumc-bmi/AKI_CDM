@@ -17,6 +17,7 @@ where scr.rn = 1
 select scrb.PATID
       ,scrb.ENCOUNTERID
       ,init.ADMIT_DATE_TIME
+      ,init.DISCHARGE_DATE_TIME
       ,min(scrb.SERUM_CREAT) SERUM_CREAT
       ,max(scrb.eGFR) eGFR
       ,scrb.LAB_ORDER_DATE

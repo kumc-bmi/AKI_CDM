@@ -20,30 +20,26 @@ select akie.PATID
       ,min(px.PX_DATE) SPECIMEN_DATE_TIME
 from AKI_eligible akie
 join &&cdm_db_schema.PROCEDURES px
-on px.ENCOUNTERID = akie.ENCOUNTERID and
+on px.PATID = akie.PATID and
    (
-    (px.PX_TYPE = 'CH' and   
-     (   px.px in ('99512','90970','90989')
-      or regexp_like(px.px,'9092[0|1|4|5]')
-      or regexp_like(px.px,'9093[5|7]')
-      or regexp_like(px.px,'9094[5|7]')
-      or regexp_like(px.px,'9096[0|1|2|6]')
-      or regexp_like(px.px,'9099[3|9]')
+    (px.PX_TYPE = 'CH' and 
+    (   px.px in ('50300','50320','50323','50325','50327','50328','50329',
+                  '50340','50360','50365','50370','50380') --RRT
      )
     ) or
-   -- ICD9 codes
+   -- ICD9 codes for RRT
    (px.PX_TYPE = '09' and
-    (  regexp_like(px.px,'39\.9[3|5]')
-    or regexp_like(px.px,'54\.98')
+   (   px.px in ('55.51','55.52','55.53','55.54','55.61','55.69') --RRT
      )
     ) or
-   -- ICD10 codes
+   -- ICD10 codes for RRT
    (px.PX_TYPE = '10' and
-    (  regexp_like(px.px,'031[3|4|5|6|7|8|]0JD')
-    or regexp_like(px.px,'031[A|B|C|9]0JF')
-     )
+   (  px.px in ('0TY00Z0','0TY00Z1','0TY00Z2','0TY10Z0','0TY10Z1','0TY10Z2',
+                '0TB00ZZ','0TB10ZZ','0TT00ZZ','0TT10ZZ','0TT20ZZ') -- RRT
+      )
     )
-  )
+  ) and
+  px.PX_DATE between akie.ADMIT_DATE_TIME and akie.DISCHARGE_DATE_TIME
 group by akie.PATID,akie.ENCOUNTERID,akie.ADMIT_DATE_TIME,akie.SERUM_CREAT_BASE,akie.SPECIMEN_DATE_TIME_BASE
 )
   ,stage_aki as (
