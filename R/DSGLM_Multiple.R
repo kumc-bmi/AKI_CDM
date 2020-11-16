@@ -25,7 +25,7 @@ pred_task_lst<-c("stg2up",
                  "stg3")
 
 #-----feature selection type
-fs_type_opt<-c("no_fs","rm_scr_bun")
+fs_type_opt<-c("full","rm")
 rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
           '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9',
@@ -37,10 +37,8 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
 #--initialize h2o
 h2o.init(nthreads=-1)
 
-#-----number of data chunks
 for(pred_in_d in pred_in_d_opt){
   
-  dat_ds<-readRDS(paste0("../AKI_Discover_Cohort/data/preproc/data_ds_",pred_in_d,"d.rda"))
   for(pred_task in pred_task_lst){
     bm<-c()
     bm_nm<-c()
@@ -48,9 +46,9 @@ for(pred_in_d in pred_in_d_opt){
     start_tsk<-Sys.time()
     cat("Start build reference model for task",pred_task,"in",pred_in_d,"days",".\n")
     #---------------------------------------------------------------------------------------------
+    dat_ds<-readRDS(paste0("./data/preproc/data_ds_",pred_in_d,"d_",pred_task,".rda"))
     
     start_tsk_i<-Sys.time()
-    dat_ds<-paste0("./data/preproc/data_ds_",pred_in_d,"d/",pred_task,".rda")
     #--prepare training and testing set
     X_tr<-dat_ds[[2]][["X_surv"]] %>%
       semi_join(dat_ds[[1]] %>% filter(cv10_idx<=7 & yr<2017),
@@ -68,6 +66,15 @@ for(pred_in_d in pred_in_d_opt){
       inner_join(dat_ds[[1]] %>% filter(cv10_idx>7 | yr>=2017),
                  by="ENCOUNTERID")
     
+    #--pre-filter
+    if(fs_type=="rm"){
+      X_tr %<>%
+        filter(!(key %in% c(rm_key,paste0(rm_key,"_change"))))
+      
+      X_ts %<>%
+        filter(!(key %in% c(rm_key,paste0(rm_key,"_change"))))
+    }
+      
     lapse_i<-Sys.time()-start_tsk_i
     bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
     bm_nm<-c(bm_nm,"prepare data")
@@ -242,7 +249,7 @@ for(pred_in_d in pred_in_d_opt){
                    valid=valid,
                    feat_imp=feat_imp)
       
-      saveRDS(result,file=paste0("./data/model_glm/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
+      saveRDS(result,file=paste0("./data/model_glm/",pred_in_d,"d_",pred_task,"_",fs_type,".rda"))
       
       #-------------------------------------------------------------------------------------------------------------
       lapse_tsk<-Sys.time()-start_tsk

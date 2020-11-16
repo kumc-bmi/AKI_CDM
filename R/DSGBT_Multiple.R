@@ -21,18 +21,22 @@ N_CL<-4
 
 # experimental design parameters
 #-----prediction point
-# pred_in_d_opt<-c(2,1)
-pred_in_d_opt<-2
+pred_in_d_opt<-c(2,1)
 
 #-----prediction tasks
 pred_task_lst<-c("stg2up",
                  "stg1up",
                  "stg3")
-# pred_task_lst<-"stg2up"
 
-#-----feature selection type
-# fs_type_opt<-c("full","reduced")
-fs_type_opt<-"full"
+#-----feature pre-selection type
+fs_type_opt<-c("full","rm")
+rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
+          '16188-5','16189-3','59826-8','35591-7','50380-5','50381-3','35592-5',
+          '44784-7','11041-1','51620-3','72271-0','11042-9','51619-5','35203-9','14682-9',
+          '12966-8','12965-0','6299-2','59570-2','12964-3','49071-4','72270-2',
+          '11065-0','3094-0','35234-4','14937-7',
+          '48642-3','48643-1', #eGFR
+          '3097-3','44734-2','BUN_SCR')
 
 #-----model spec
 bounds <- list(
@@ -43,7 +47,7 @@ bounds <- list(
   # eta=c(0.05,0.1)
 )
 
-#-----number of data chunks
+
 for(pred_in_d in pred_in_d_opt){
   
   for(pred_task in pred_task_lst){
@@ -54,20 +58,129 @@ for(pred_in_d in pred_in_d_opt){
     cat("Start build reference model for task",pred_task,"in",pred_in_d,"days",".\n")
     #---------------------------------------------------------------------------------------------
     
+    dat_ds<-readRDS(paste0("./data/preproc/data_ds_",pred_in_d,"d_",pred_task,".rda"))
+    
     for(fs_type in fs_type_opt){
       #-----------training------------
       start_tsk_i<-Sys.time()
       
-      auxCol<-read.csv(paste0('./data/preproc/',pred_task,'_',pred_in_d,'d_',fs_type,'_auxCol_svmlite.csv'),stringsAsFactors = F)
-      pred_idx<-which(!auxCol$key %in% c("fold"))
-      train_mt<-read_svmlight(paste0('./data/preproc/',pred_task,'_',pred_in_d,'d_',fs_type,'_train_svmlite.txt'),
-                              zero_based = FALSE)
+      #--prepare training and testing set
+      X_tr<-dat_ds[[2]][["X_surv"]] %>%
+        semi_join(dat_ds[[1]] %>% filter(cv10_idx<=7 & yr<2017),
+                  by="ENCOUNTERID")
       
+      y_tr<-dat_ds[[2]][["y_surv"]] %>%
+        inner_join(dat_ds[[1]] %>% filter(cv10_idx<=7 & yr<2017),
+                   by="ENCOUNTERID")
+      
+      X_ts<-dat_ds[[2]][["X_surv"]] %>%
+        semi_join(dat_ds[[1]] %>% filter(cv10_idx>7 | yr>=2017),
+                  by="ENCOUNTERID")
+      
+      y_ts<-dat_ds[[2]][["y_surv"]] %>%
+        inner_join(dat_ds[[1]] %>% filter(cv10_idx>7 | yr>=2017),
+                   by="ENCOUNTERID")
+      
+      #--pre-filter
+      if(fs_type=="rm"){
+        X_tr %<>%
+          filter(!(key %in% c(rm_key,paste0(rm_key,"_change"))))
+        
+        X_ts %<>%
+          filter(!(key %in% c(rm_key,paste0(rm_key,"_change"))))
+      }
+      
+      lapse_i<-Sys.time()-start_tsk_i
+      bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
+      bm_nm<-c(bm_nm,"prepare data")
+      
+      #--transform training matrix
+      start_tsk_i<-Sys.time()
+      
+      y_tr_sp<-y_tr %>%
+        arrange(ENCOUNTERID,dsa_y) %>%
+        unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+        arrange(ROW_ID) %>%
+        unique
+      
+      X_tr_sp<-X_tr %>%
+        arrange(ENCOUNTERID,dsa_y) %>%
+        unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+        semi_join(y_tr_sp,by="ROW_ID") %>%
+        long_to_sparse_matrix(df=.,
+                              id="ROW_ID",
+                              variable="key",
+                              val="value")
+      
+      #--collect variables used in training
+      tr_key<-data.frame(key = unique(colnames(X_tr_sp)),
+                         stringsAsFactors = F)
+      
+      #--transform testing matrix
+      y_ts_sp<-y_ts %>%
+        filter(!is.na(cv10_idx)) %>%
+        arrange(ENCOUNTERID,dsa_y) %>%
+        unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+        arrange(ROW_ID) %>%
+        unique
+      
+      X_ts_sp<-X_ts %>% 
+        unite("ROW_ID",c("ENCOUNTERID","dsa_y")) %>%
+        semi_join(y_ts_sp,by="ROW_ID") %>%
+        semi_join(tr_key,by="key")
+      
+      x_add<-tr_key %>%
+        anti_join(data.frame(key = unique(X_ts$key),
+                             stringsAsFactors = F),
+                  by="key")
+      
+      #align with training
+      if(nrow(x_add)>0){
+        X_ts_sp %<>%
+          arrange(ROW_ID) %>%
+          bind_rows(data.frame(ROW_ID = rep("0_0",nrow(x_add)),
+                               dsa = -99,
+                               key = x_add$key,
+                               value = 0,
+                               stringsAsFactors=F))
+      }
+      X_ts_sp %<>%
+        long_to_sparse_matrix(df=.,
+                              id="ROW_ID",
+                              variable="key",
+                              val="value")
+      if(nrow(x_add)>0){
+        X_ts_sp<-X_ts_sp[-1,]
+      }
+      
+      #check alignment
+      if(!all(row.names(X_tr_sp)==y_tr_sp$ROW_ID)){
+        stop("row ids of traning set don't match!")
+      }
+      if(!all(row.names(X_ts_sp)==y_ts_sp$ROW_ID)){
+        stop("row ids of testing set don't match!")
+      }
+      if(!all(colnames(X_tr_sp)==colnames(X_ts_sp))){
+        stop("feature names don't match!")
+      }
+      
+      #--covert to xgb data frame
+      dtest<-xgb.DMatrix(data=X_ts_sp,label=y_ts_sp$y)
+      
+      lapse_i<-Sys.time()-start_tsk_i
+      bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))
+      bm_nm<-c(bm_nm,"transform data")
+      
+      cat(paste0(c(pred_in_d,pred_task,fs_type),collapse = ","),
+          "...finish formatting training and testing sets.\n")
+      
+      #-----------------------
+      start_tsk_i<-Sys.time()
       #--get indices for k folds
-      auxRow<-read.csv(paste0('./data/preproc/',pred_task,'_',pred_in_d,'d_',fs_type,'_auxRow.csv'),stringsAsFactors = F)
       folds<-list()
-      for(fd in seq_len(max(auxRow$cv10_idx))){
-        fd_df<-auxRow %>% 
+      y_tr_sp %<>% dplyr::mutate(row_idx = 1:n())
+      for(fd in seq_len(max(y_tr_sp$cv10_idx))){
+        fd_df<-y_tr_sp %>% 
           filter(cv10_idx==fd&!is.na(row_idx)) %>%
           dplyr::select(row_idx)
         folds[[fd]]<-fd_df$row_idx
@@ -77,8 +190,8 @@ for(pred_in_d in pred_in_d_opt){
       #--parallelization
       cl <- makeCluster(N_CL)
       registerDoParallel(cl)
-      clusterExport(cl,c('folds','train_mt','pred_idx')) # copying data to clusters (note:xgb.DMatrix is not compatible with parallelization)
-      clusterEvalQ(cl,expr= {                            # copying model to clusters
+      clusterExport(cl,c('folds','X_tr_sp','y_tr_sp')) # copying data to clusters (note:xgb.DMatrix is not compatible with parallelization)
+      clusterEvalQ(cl,expr= {               # copying model to clusters
         library(xgboost)
       })
       
@@ -86,7 +199,7 @@ for(pred_in_d in pred_in_d_opt){
       xgb_cv_bayes <- function(max_depth=10L, min_child_weight=1L, subsample=0.7,
                                eta=0.05,colsample_bytree=0.8,lambda=1,alpha=0,gamma=1) {
         
-        dtrain<-xgb.DMatrix(data=train_mt$x[,pred_idx],label=as.matrix(train_mt$y))
+        dtrain<-xgb.DMatrix(data=X_tr_sp,label=y_tr_sp$y)
         cv <- xgb.cv(params = list(booster = "gbtree",
                                    max_depth = max_depth,
                                    min_child_weight = min_child_weight,
@@ -120,7 +233,7 @@ for(pred_in_d in pred_in_d_opt){
         acq = "ucb",
         kappa = 2.576,
         eps = 0.0,
-        otherHalting = list(timeLimit = 18000) #--limit maximal running time for better efficiency-- <5hr
+        otherHalting = list(timeLimit = 1800) #--limit maximal running time for better efficiency-- <5hr
       )
       
       Best_Par<-getBestPars(OPT_Res)
@@ -199,7 +312,7 @@ for(pred_in_d in pred_in_d_opt){
                    valid=valid,
                    feat_imp=feat_imp)
       
-      saveRDS(result,file=paste0("./data/model_ref/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
+      saveRDS(result,file=paste0("./data/model_ref/",pred_in_d,"d_",pred_task,"_",fs_type,".rda"))
       
       #-------------------------------------------------------------------------------------------------------------
       lapse_tsk<-Sys.time()-start_tsk
