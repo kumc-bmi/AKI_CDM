@@ -52,6 +52,8 @@ bounds <- list(
   # eta=c(0.05,0.1)
 )
 
+bm<-c()
+bm_nm<-c()
 
 #-----------load data----------
 start_tsk<-Sys.time()
@@ -239,6 +241,7 @@ stopCluster(cl)
 registerDoSEQ()
 
 #--determine number of trees, or steps (more rounds, early stopping)
+dtrain<-xgb.DMatrix(data=X_tr_sp,label=y_tr_sp$y)
 bst <- xgb.cv(params = list(booster = "gbtree",
                             max_depth = Best_Par$max_depth,
                             min_child_weight = Best_Par$min_child_weight,
@@ -286,14 +289,12 @@ xgb_tune<-xgb.train(data=dtrain,
                     objective="binary:logistic",
                     verbose = 0)
 
-test_mt<-read_svmlight(paste0('./data/preproc/',pred_task,'_',pred_in_d,'d_',fs_type,'_test_svmlite.txt'))
-dtest<-xgb.DMatrix(data=test_mt$x[,pred_idx],label=test_mt$y)
-valid<-data.frame(auxRow %>% filter(part_idx=="V") %>% select(-row_idx),
+valid<-data.frame(y_ts_sp,
                   pred = predict(xgb_tune,dtest),
                   stringsAsFactors = F)
 
 #--feature importance
-feat_imp<-xgb.importance(auxCol$key[!auxCol$key %in% c("fold")],model=xgb_tune)
+feat_imp<-xgb.importance(model=xgb_tune)
 
 lapse_i<-Sys.time()-start_tsk_i
 bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))

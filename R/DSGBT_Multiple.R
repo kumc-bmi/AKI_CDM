@@ -288,14 +288,12 @@ for(pred_in_d in pred_in_d_opt){
                           objective="binary:logistic",
                           verbose = 0)
       
-      test_mt<-read_svmlight(paste0('./data/preproc/',pred_task,'_',pred_in_d,'d_',fs_type,'_test_svmlite.txt'))
-      dtest<-xgb.DMatrix(data=test_mt$x[,pred_idx],label=test_mt$y)
-      valid<-data.frame(auxRow %>% filter(part_idx=="V") %>% select(-row_idx),
+      valid<-data.frame(y_ts_sp,
                         pred = predict(xgb_tune,dtest),
                         stringsAsFactors = F)
       
       #--feature importance
-      feat_imp<-xgb.importance(auxCol$key[!auxCol$key %in% c("fold")],model=xgb_tune)
+      feat_imp<-xgb.importance(model=xgb_tune)
       
       lapse_i<-Sys.time()-start_tsk_i
       bm<-c(bm,paste0(round(lapse_i,1),units(lapse_i)))

@@ -978,10 +978,43 @@ get_dsurv_temporal<-function(dat,censor,tw,pred_in_d=1,carry_over=T){
     
   }
   
-  Xy_surv<-list(X_surv = X_surv,
-                y_surv = y_surv)
+  Xy_surv<-list(X = X_surv,
+                y = y_surv)
   
   return(Xy_surv)
+}
+
+#identify initial stage of and collect most recent values
+get_most_recent<-function(dat,censor,pred_in_d=1,obs_tw=0){
+  
+  y_mr<-censor %>%
+    group_by(ENCOUNTERID) %>%
+    arrange(desc(dsa_y),desc(y)) %>%
+    dplyr::slice(1:1) %>%
+    ungroup %>%
+    select(ENCOUNTERID,dsa_y,y)
+  
+  force_censor<-y_mr %>%
+    filter(y==1) %>% summarise(censor_end=median(dsa_y)) %>% unlist
+  
+  X_mr<-dat %>% left_join(y_mr,by="ENCOUNTERID") %>%
+    filter((dsa < dsa_y-(pred_in_d-1-obs_tw))|  # y==1, prediction point is at least "pred_in_d" days before endpoint
+           (y==0& dsa <= force_censor)          # y==0, censored at median days of AKI occurrence in AKI patients
+           ) %>% 
+    group_by(ENCOUNTERID,key) %>%
+    top_n(n=1,wt=dsa) %>% # take latest value (carry over)
+    ungroup %>%
+    dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value) %>%
+    bind_rows(y_mr %>% 
+                mutate(dsa=dsa_y-1,
+                       key=paste0("day",(dsa_y-1)),
+                       value=1) %>%
+                dplyr::select(ENCOUNTERID,dsa_y,dsa,key,value))
+  
+  Xy_mr<-list(X=X_mr,
+              y=y_mr)
+  
+  return(Xy_mr)
 }
 
 
