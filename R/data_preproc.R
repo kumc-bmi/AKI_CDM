@@ -38,6 +38,7 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
 # pred_end<-7
 
 proc_method<-"mrv"  #most recent value
+pred_end<-999
 
 
 # collect and format variables on daily basis 
