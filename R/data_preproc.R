@@ -24,17 +24,21 @@ pred_task_lst<-c("stg02up","stg01","stg12up")
 
 
 #------data preprocessing method
+# location of pre-processed data
+data_file_path<-"~/data/raw"
+
+# parameters for data preprocessing
+# proc_param<-list(proc_method="mrv", #most recent value
+#                  pred_end=999)
+
 proc_param<-list(proc_method="ds",  #discrete survival
                  pred_end=7)
-
-proc_param<-list(proc_method="mrv", #most recent value
-                 pred_end=999)
 
 
 # collect and format variables on daily basis 
 n_chunk<-4 # adjust for better efficiency
 
-tbl1<-readRDS("./data/raw/Table1.rda") %>%
+tbl1<-readRDS(paste0(data_file_path,"/Table1.rda")) %>%
   dplyr::mutate(yr=as.numeric(format(strptime(ADMIT_DATE, "%Y-%m-%d %H:%M:%S"),"%Y")))
 
 #--by chunks: encounter year
@@ -49,9 +53,9 @@ var_type<-c("demo","vital","lab","dx","px","med")
 
 for(pred_in_d in pred_in_d_opt){
   
-  if (proc_method=="ds"){
+  if (proc_param$proc_method=="ds"){
     #--determine update time window
-    tw<-as.double(seq(0,pred_end))
+    tw<-as.double(seq(0,proc_param$pred_end))
     if(pred_in_d>1){
       tw<-tw[-seq_len(pred_in_d-1)]
     } 
@@ -159,7 +163,7 @@ for(pred_in_d in pred_in_d_opt){
         start_v<-Sys.time()
         
         #extract
-        var_v<-readRDS(paste0("./data/raw/AKI_",toupper(var_type[v]),".rda")) %>%
+        var_v<-readRDS(paste0(data_file_path,"/AKI_",toupper(var_type[v]),".rda")) %>%
           semi_join(dat_i,by="ENCOUNTERID")
         
         if(var_type[v] != "demo"){
@@ -171,21 +175,21 @@ for(pred_in_d in pred_in_d_opt){
               dplyr::mutate(value=as.numeric(value),
                             dsa=as.numeric(dsa))
           }
-          var_v %<>% filter(dsa <= pred_end)
+          var_v %<>% filter(dsa <= proc_param$pred_end)
         }
         
         #transform
         var_v<-format_data(dat=var_v,
                            type=var_type[v],
-                           pred_end=pred_end)
+                           pred_end=proc_param$pred_end)
         
-        if(proc_method=="ds"){
+        if(proc_param$proc_method=="ds"){
           Xy_proc<-get_dsurv_temporal(dat=var_v,
                                       censor=dat_i,
                                       tw=tw,
                                       pred_in_d=pred_in_d)
         }else 
-          if(proc_method=="mrv"){
+          if(proc_param$proc_method=="mrv"){
             Xy_proc<-get_most_recent(dat=var_v,
                                      censor=dat_i,
                                      pred_in_d=pred_in_d)
@@ -219,7 +223,7 @@ for(pred_in_d in pred_in_d_opt){
                   list(X_proc=X_proc,y_proc=y_proc),
                   proc_bm)
     
-    saveRDS(data_ds,file=paste0("./data/preproc/data_",proc_method,"_",pred_in_d,"d_",pred_task,".rda"))
+    saveRDS(data_ds,file=paste0("./data/preproc/data_",proc_param$proc_method,"_",pred_in_d,"d_",pred_task,".rda"))
     
     #---------------------------------------------------------------------------------------------
     lapse_tsk<-Sys.time()-start_tsk

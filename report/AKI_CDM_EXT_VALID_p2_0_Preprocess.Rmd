@@ -12,7 +12,7 @@ At this preparation stage, the raw data tables will be cleaned and transformed t
 
 ```{r setup, include=F}
 #source utility functions
-source("./R/util.R")
+source("../R/util.R")
 
 require_libraries(c("tidyr",
                     "dplyr",
@@ -79,7 +79,7 @@ In this section, the raw data tables will be cleaned and transformed to a discre
 # collect and format variables on daily basis 
 n_chunk<-4 #memory-efficient
 
-tbl1<-readRDS("./data//Table1.rda") %>%
+tbl1<-readRDS("../data//Table1.rda") %>%
   dplyr::mutate(yr=as.numeric(format(strptime(ADMIT_DATE, "%Y-%m-%d %H:%M:%S"),"%Y")))
 
 #--by chunks: encounter year
@@ -167,7 +167,7 @@ for(pred_in_d in pred_in_d_opt){
         start_v<-Sys.time()
         
         #extract
-        var_v<-readRDS(paste0("./data/AKI_",toupper(var_type[v]),".rda")) %>%
+        var_v<-readRDS(paste0("../data/AKI_",toupper(var_type[v]),".rda")) %>%
           semi_join(dat_i,by="ENCOUNTERID")
         
         if(var_type[v] != "demo"){
@@ -214,7 +214,7 @@ for(pred_in_d in pred_in_d_opt){
     saveRDS(list(Xy_task=list(X_surv,y_surv),
                  rsample_idx=rsample_idx,
                  benchmark=var_etl_bm),
-            file=paste0("./data/preproc/",pred_in_d,"d_",pred_task,".rda"))
+            file=paste0("../data/preproc/",pred_in_d,"d_",pred_task,".rda"))
     
     #---------------------------------------------------------------------------------------------
     lapse_tsk<-Sys.time()-start_tsk
