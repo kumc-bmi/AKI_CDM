@@ -45,6 +45,7 @@ AKI Stages are defined based on [KDIGO](http://www.kdigo.org/clinical_practice_g
 ##### Implementation: Extracting AKI Study Cohort
 ```{r setup, include=F}
 #source utility functions
+#note: need to change "./" to "../" if directly knit this report
 source("./R/util.R")
 
 #load libraries

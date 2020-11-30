@@ -248,7 +248,7 @@ The final preprocessed intermediate tables from this code chunk should be found 
 
 #### Objective 2.2: Benchmark Model Validation
 
-After receiving the `model_kumc.zip` from KUMC via securefile, unzip the data and save under `.../data/model_kumc`. The model will be validated on the overall cohort from the site by generating a AKI risk score for different AKI stages. The validation progress will be reported as follows:
+After receiving the `model_kumc.zip` from KUMC via securefile, unzip the data and save under `../data/model_kumc`. The model will be validated on the overall cohort from the site by generating a AKI risk score for different AKI stages. The validation progress will be reported as follows:
 
 ```{r benchmark, echo=F, eval=F}
 rm(list=c("X_surv","y_surv", "Xy_surv","dat_i","var_v",
