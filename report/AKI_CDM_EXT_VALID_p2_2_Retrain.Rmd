@@ -14,7 +14,7 @@ In this experiment, we will retrain the benchmark predictive model by quasi-repl
 
 ```{r setup, include=F}
 #source utility functions
-source("../R/util.R")
+source("./R/util.R")
 
 require_libraries(c("tidyr",
                     "dplyr",
@@ -51,7 +51,7 @@ rm_key<-c('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8',
           '48642-3','48643-1', #eGFR
           '3097-3','44734-2','BUN_SCR')
 
-tbl1<-readRDS("../data/Table1.rda") %>%
+tbl1<-readRDS("./data/Table1.rda") %>%
   dplyr::mutate(yr=as.numeric(format(strptime(ADMIT_DATE, "%Y-%m-%d %H:%M:%S"),"%Y")))
 ```
 
@@ -86,7 +86,7 @@ In this section, the raw data tables will be cleaned and transformed to a discre
 # collect and format variables on daily basis 
 n_chunk<-4
 
-tbl1<-readRDS("../data//Table1.rda") %>%
+tbl1<-readRDS("./data//Table1.rda") %>%
   dplyr::mutate(yr=as.numeric(format(strptime(ADMIT_DATE, "%Y-%m-%d %H:%M:%S"),"%Y")))
 
 #--by chunks: encounter year
@@ -174,7 +174,7 @@ for(pred_in_d in pred_in_d_opt){
         start_v<-Sys.time()
         
         #extract
-        var_v<-readRDS(paste0("../data/AKI_",toupper(var_type[v]),".rda")) %>%
+        var_v<-readRDS(paste0("./data/AKI_",toupper(var_type[v]),".rda")) %>%
           semi_join(dat_i,by="ENCOUNTERID")
         
         if(var_type[v] != "demo"){
@@ -220,9 +220,9 @@ for(pred_in_d in pred_in_d_opt){
     }
     
     #--save preprocessed data
-    saveRDS(rsample_idx,file=paste0("../data/preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda"))
-    saveRDS(var_by_yr,file=paste0("../data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
-    saveRDS(var_bm,file=paste0("../data/preproc/",pred_in_d,"d_var_bm",pred_task,".rda"))
+    saveRDS(rsample_idx,file=paste0("./data/preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda"))
+    saveRDS(var_by_yr,file=paste0("./data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
+    saveRDS(var_bm,file=paste0("./data/preproc/",pred_in_d,"d_var_bm",pred_task,".rda"))
     
     #---------------------------------------------------------------------------------------------
     lapse_tsk<-Sys.time()-start_tsk
@@ -283,8 +283,8 @@ for(pred_in_d in pred_in_d_opt){
     X_ts<-c()
     y_tr<-c()
     y_ts<-c()
-    rsample_idx<-readRDS(paste0("../data/preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda"))
-    var_by_task<-readRDS(paste0("../data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
+    rsample_idx<-readRDS(paste0("./data/preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda"))
+    var_by_task<-readRDS(paste0("./data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
     for(i in seq_len(n_chunk)){
       var_by_yr<-var_by_task[[i]]
       
@@ -492,7 +492,7 @@ for(pred_in_d in pred_in_d_opt){
                    model=xgb_tune,
                    valid=valid,
                    feat_imp=feat_imp)
-      saveRDS(result,file=paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
+      saveRDS(result,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))
 
       #-------------------------------------------------------------------------------------------------------------
       lapse_tsk<-Sys.time()-start_tsk
@@ -505,7 +505,7 @@ for(pred_in_d in pred_in_d_opt){
       #benchmark
       bm<-data.frame(bm_nm=bm_nm,bm_time=bm,
                      stringsAsFactors = F)
-      saveRDS(bm,file=paste0("../data/model_ref/pred_in_",pred_in_d,"d_bm_gbm_",fs_type,"_",pred_task,".rda"))
+      saveRDS(bm,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_bm_gbm_",fs_type,"_",pred_task,".rda"))
     }
   }
 }
@@ -543,7 +543,7 @@ for(pred_in_d in pred_in_d_opt){
     calib_tbl<-c()
     varimp_tbl<-c()
     for(i in seq_along(pred_task_lst)){
-      valid_out<-readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))
+      valid_out<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))
       valid<-valid_out$valid
       
       #overall summary
@@ -584,7 +584,7 @@ for(pred_in_d in pred_in_d_opt){
                    varimp_tbl=varimp_tbl)
     
     #save results as r data.frame
-    saveRDS(perf_out,file=paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))
+    saveRDS(perf_out,file=paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))
   }
 }
 
@@ -593,14 +593,14 @@ for(pred_in_d in pred_in_d_opt){
 
 ```{r data_dict, include=F}
 # plot variable importance
-data_dict<-read.csv("../ref/feature_dict.csv") %>%
+data_dict<-read.csv("./ref/feature_dict.csv") %>%
   dplyr::select(FIELD_NAME,VALUESET_ITEM,VALUESET_ITEM_DESCRIPTOR) %>%
   mutate(VALUESET_ITEM_DESCRIPTOR=as.character(VALUESET_ITEM_DESCRIPTOR)) %>%
   mutate(VALUESET_ITEM=gsub("'","",VALUESET_ITEM))
 
-tbl1<-readRDS("../data/Table1.rda") %>%
+tbl1<-readRDS("./data/Table1.rda") %>%
   dplyr::select(ENCOUNTERID,SERUM_CREAT_BASE) %>%
-  inner_join(readRDS("../data/AKI_DEMO.rda") %>%
+  inner_join(readRDS("./data/AKI_DEMO.rda") %>%
               filter(key=="AGE") %>%
               dplyr::select(ENCOUNTERID,key,value) %>%
               spread(key,value) %>%
@@ -631,7 +631,7 @@ fs_type_opt<-c("no_fs","rm_scr_bun")
 perf_overall<-c()
 for(fs_type in fs_type_opt){
   perf_overall %<>%
-    bind_rows(readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>%
+    bind_rows(readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>%
                 filter(overall_meas %in% perf_metrics) %>%
                 dplyr::mutate(grp_type="Overall",
                               subgrp=fs_type))
@@ -641,7 +641,7 @@ for(fs_type in fs_type_opt){
 fs_type<-"no_fs"
 subgrp_age<-c()
 for(i in seq_along(pred_task_lst)){
-      valid<-readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -667,7 +667,7 @@ for(i in seq_along(pred_task_lst)){
   #subgroup-scr
   subgrp_scr<-c()
   for(i in seq_along(pred_task_lst)){
-      valid<-readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -744,7 +744,7 @@ pred24_cutoff_plot<-list()
 for(fs_type_i in seq_along(fs_type_opt)){
   fs_type<-fs_type_opt[fs_type_i]
   
-  perf_cutoff<-readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl_full %>%
+  perf_cutoff<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl_full %>%
     dplyr::select(cutoff,rec_sens,spec,ppv,npv,pred_task) %>%
     mutate(bin=cut(cutoff,breaks=brks,include.lowest=T,label=F)) %>%
     group_by(bin,pred_task) %>%
@@ -796,7 +796,7 @@ pred24_calib_plot<-list()
 for(fs_type_i in seq_along(fs_type_opt)){
   fs_type<-fs_type_opt[fs_type_i]
   
-  calib_tbl<-readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$calib_tbl %>%
+  calib_tbl<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$calib_tbl %>%
     mutate(pred_task=recode(pred_task,
                           `stg1up`="a.AKI>=1",
                           `stg2up`="b.AKI>=2",
@@ -825,7 +825,7 @@ pred24_varimp_plot<-list()
 for(fs_type_i in seq_along(fs_type_opt)){
   fs_type<-fs_type_opt[fs_type_i]
   
-  varimp<-readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$varimp_tbl %>%
+  varimp<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$varimp_tbl %>%
   dplyr::mutate(suffix=gsub("_","",str_extract(Feature,"((\\_min)|(\\_slope)|(\\_change)|(\\_cum))+"))) %>%
   dplyr::mutate(feat=gsub("((\\_min)|(\\_slope)|(\\_change)|(\\_cum))+","",Feature)) %>%
   left_join(data_dict,by=c("feat"="VALUESET_ITEM")) %>%
@@ -876,7 +876,7 @@ fs_type_opt<-c("no_fs","rm_scr_bun")
 perf_overall<-c()
 for(fs_type in fs_type_opt){
   perf_overall %<>%
-    bind_rows(readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>%
+    bind_rows(readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl %>%
                 filter(overall_meas %in% perf_metrics) %>%
                 dplyr::mutate(grp_type="Overall",
                               subgrp=fs_type))
@@ -886,7 +886,7 @@ for(fs_type in fs_type_opt){
 fs_type<-"no_fs"
 subgrp_age<-c()
 for(i in seq_along(pred_task_lst)){
-      valid<-readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -912,7 +912,7 @@ for(i in seq_along(pred_task_lst)){
   #subgroup-scr
   subgrp_scr<-c()
   for(i in seq_along(pred_task_lst)){
-      valid<-readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
+      valid<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_",pred_task_lst[i],".rda"))$valid %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         inner_join(tbl1,by="ENCOUNTERID") %>%
@@ -989,7 +989,7 @@ brks<-unique(c(0,seq(0.001,0.01,by=0.001),seq(0.02,0.1,by=0.01),seq(0.2,1,by=0.1
 for(fs_type_i in seq_along(fs_type_opt)){
   fs_type<-fs_type_opt[fs_type_i]
   
-  perf_cutoff<-readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl_full %>%
+  perf_cutoff<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$perf_tbl_full %>%
   dplyr::select(cutoff,size,rec_sens,spec,ppv,npv,pred_task) %>%
   mutate(bin=cut(cutoff,breaks=brks,include.lowest=T,label=F)) %>%
   group_by(bin,pred_task) %>%
@@ -1047,7 +1047,7 @@ pred48_calib_plot<-list()
 for(fs_type_i in seq_along(fs_type_opt)){
   fs_type<-fs_type_opt[fs_type_i]
   
-  calib_tbl<-readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$calib_tbl %>%
+  calib_tbl<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$calib_tbl %>%
   mutate(pred_task=recode(pred_task,
                           `stg1up`="a.AKI>=1",
                           `stg2up`="b.AKI>=2",
@@ -1075,7 +1075,7 @@ pred48_varimp_plot<-list()
 for(fs_type_i in seq_along(fs_type_opt)){
   fs_type<-fs_type_opt[fs_type_i]
   
-  varimp<-readRDS(paste0("../data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$varimp_tbl %>%
+  varimp<-readRDS(paste0("./data/model_ref/pred_in_",pred_in_d,"d_",fs_type,"_baseline_model_perf.rda"))$varimp_tbl %>%
     dplyr::mutate(suffix=gsub("_","",str_extract(Feature,"((\\_min)|(\\_slope)|(\\_change)|(\\_cum))+"))) %>%
     dplyr::mutate(feat=gsub("((\\_min)|(\\_slope)|(\\_change)|(\\_cum))+","",Feature)) %>%
     left_join(data_dict,by=c("feat"="VALUESET_ITEM")) %>%
@@ -1112,11 +1112,11 @@ print(pred48_varimp_plot[[2]])
 ***
 
 ```{r final, include=F}
-write.xlsx(final_out,file="../output/AKI_CDM_EXT_VALID_p2_2_Retrain_TBL.xlsx")
+write.xlsx(final_out,file="./output/AKI_CDM_EXT_VALID_p2_2_Retrain_TBL.xlsx")
 
 # ggplot sometimes create some unwanted empty .pdf file and want to clean it up
-if(file.exists("../Rplots.pdf")){
-  file.remove("../Rplots.pdf")
+if(file.exists("./Rplots.pdf")){
+  file.remove("./Rplots.pdf")
 }
 
 rm(list=ls())

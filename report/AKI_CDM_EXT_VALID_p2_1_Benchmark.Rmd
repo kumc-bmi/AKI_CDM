@@ -14,7 +14,7 @@ In this experiment, we will validate the benchmark predictive model by quasi-rep
 
 ```{r setup, include=F}
 #source utility functions
-source("../R/util.R")
+source("./R/util.R")
 
 require_libraries(c("tidyr",
                     "dplyr",
@@ -84,7 +84,7 @@ In this section, the raw data tables will be cleaned and transformed to a discre
 # collect and format variables on daily basis 
 n_chunk<-4 #memory-efficient
 
-tbl1<-readRDS("../data//Table1.rda") %>%
+tbl1<-readRDS("./data//Table1.rda") %>%
   dplyr::mutate(yr=as.numeric(format(strptime(ADMIT_DATE, "%Y-%m-%d %H:%M:%S"),"%Y")))
 
 #--by chunks: encounter year
@@ -172,7 +172,7 @@ for(pred_in_d in pred_in_d_opt){
         start_v<-Sys.time()
         
         #extract
-        var_v<-readRDS(paste0("../data/AKI_",toupper(var_type[v]),".rda")) %>%
+        var_v<-readRDS(paste0("./data/AKI_",toupper(var_type[v]),".rda")) %>%
           semi_join(dat_i,by="ENCOUNTERID")
         
         if(var_type[v] != "demo"){
@@ -218,9 +218,9 @@ for(pred_in_d in pred_in_d_opt){
     }
     
     #--save preprocessed data
-    saveRDS(rsample_idx,file=paste0("../data/preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda"))
-    saveRDS(var_by_yr,file=paste0("../data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
-    saveRDS(var_bm,file=paste0("../data/preproc/",pred_in_d,"d_var_bm",pred_task,".rda"))
+    saveRDS(rsample_idx,file=paste0("./data/preproc/",pred_in_d,"d_rsample_idx_",pred_task,".rda"))
+    saveRDS(var_by_yr,file=paste0("./data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
+    saveRDS(var_bm,file=paste0("./data/preproc/",pred_in_d,"d_var_bm",pred_task,".rda"))
     
     #---------------------------------------------------------------------------------------------
     lapse_tsk<-Sys.time()-start_tsk
@@ -248,7 +248,7 @@ The final preprocessed intermediate tables from this code chunk should be found 
 
 #### Objective 2.2: Benchmark Model Validation
 
-After receiving the `model_kumc.zip` from KUMC via securefile, unzip the data and save under `.../data/model_kumc`. The model will be validated on the overall cohort from the site by generating a AKI risk score for different AKI stages. The validation progress will be reported as follows:
+After receiving the `model_kumc.zip` from KUMC via securefile, unzip the data and save under `../data/model_kumc`. The model will be validated on the overall cohort from the site by generating a AKI risk score for different AKI stages. The validation progress will be reported as follows:
 
 ```{r benchmark, echo=F, eval=F}
 rm(list=c("X_surv","y_surv", "Xy_surv","dat_i","var_v",
@@ -263,7 +263,7 @@ for(pred_in_d in pred_in_d_opt){
   for(pred_task in pred_task_lst){
     start_tsk<-Sys.time()
     #---------------------------------------------------------------------------------------------
-    var_by_task<-readRDS(paste0("../data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
+    var_by_task<-readRDS(paste0("./data/preproc/",pred_in_d,"d_var_by_yr_",pred_task,".rda"))
     
     for(fs_type in fs_type_opt){
       #--prepare testing set
@@ -283,7 +283,7 @@ for(pred_in_d in pred_in_d_opt){
       }
       
       #--collect variables used in training
-      ref_mod<-readRDS(paste0("../data/model_kumc/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))$model
+      ref_mod<-readRDS(paste0("./data/model_kumc/",pred_in_d,"d_",fs_type,"_",pred_task,".rda"))$model
       tr_key<-data.frame(key = ref_mod$feature_names,
                          stringsAsFactors = F)
       
@@ -343,7 +343,7 @@ for(pred_in_d in pred_in_d_opt){
                         stringsAsFactors = F)
       
       #--save model and other results
-      saveRDS(valid,file=paste0("../data/model_kumc/",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda"))
+      saveRDS(valid,file=paste0("./data/model_kumc/",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda"))
       #-------------------------------------------------------------------------------------------------------------
       lapse_tsk<-Sys.time()-start_tsk
       cat("\nFinish validating benchmark models for task:",pred_task,"in",pred_in_d,"with",fs_type,",in",lapse_tsk,units(lapse_tsk),".\n")
@@ -381,9 +381,9 @@ perf_metrics<-c("roauc",
 boots<-20
 
 #------auxiliary table (for subgroup analysis)
-tbl1<-readRDS("../data/Table1.rda") %>%
+tbl1<-readRDS("./data/Table1.rda") %>%
   dplyr::select(ENCOUNTERID,SERUM_CREAT_BASE) %>%
-  inner_join(readRDS("../data/AKI_DEMO.rda") %>%
+  inner_join(readRDS("./data/AKI_DEMO.rda") %>%
               filter(key=="AGE") %>%
               dplyr::select(ENCOUNTERID,key,value) %>%
               spread(key,value) %>%
@@ -411,7 +411,7 @@ for(pred_task in pred_task_lst){
     
     for(fs_type in fs_type_opt){
       
-      valid_orig<-readRDS(paste0("../data/model_kumc/",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda")) %>%
+      valid_orig<-readRDS(paste0("./data/model_kumc/",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda")) %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         left_join(tbl1,by="ENCOUNTERID") %>%
@@ -667,7 +667,7 @@ for(pred_task in pred_task_lst){
     
     for(fs_type in fs_type_opt){
       
-      valid_orig<-readRDS(paste0("../data/model_kumc/",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda")) %>%
+      valid_orig<-readRDS(paste0("./data/model_kumc/",pred_in_d,"d_valid_gbm_",fs_type,"_",pred_task,".rda")) %>%
         mutate(ENCOUNTERID=gsub("_.*","",ROW_ID),
                day_at=as.numeric(gsub(".*_","",ROW_ID))) %>%
         left_join(tbl1,by="ENCOUNTERID") %>%
@@ -906,11 +906,11 @@ print(pred48_calib_plot[[2]])
 ***
 
 ```{r final, include=F}
-saveRDA(final_out,file="../output/AKI_CDM_EXT_VALID_p2_1_Benchmark_TBL.rda")
+saveRDA(final_out,file="./output/AKI_CDM_EXT_VALID_p2_1_Benchmark_TBL.rda")
 
 # ggplot sometimes create some unwanted empty .pdf file and want to clean it up
-if(file.exists("../Rplots.pdf")){
-  file.remove("../Rplots.pdf")
+if(file.exists("./Rplots.pdf")){
+  file.remove("./Rplots.pdf")
 }
 
 rm(list=ls())

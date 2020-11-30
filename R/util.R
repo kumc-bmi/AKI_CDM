@@ -746,11 +746,12 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
     dat_out %<>%
       bind_rows(dat %>% dplyr::select(-PATID) %>%
                   filter(key %in% c("HT","WT","BMI")) %>%
+                  mutate(value=as.numeric(value)) %>%
                   group_by(ENCOUNTERID,key) %>%
                   mutate(value=ifelse((key=="HT" & (value>95 | value<=0))|
                                         (key=="WT" & (value>1400 | value<=0))|
                                         (key=="BMI" & (value>70 | value<=0)),NA,value)) %>%
-                  dplyr::summarize(value=median(as.numeric(value),na.rm=T),.groups="drop") %>%
+                  dplyr::summarize(value=median(value,na.rm=T),.groups="drop") %>%
                   mutate(dsa=-1))
     
     #multiple bp are aggregated by taking: lowest & slope
