@@ -617,7 +617,7 @@ get_loinc_ref<-function(loinc){
 }
 
 
-## pring link for RXNORM codes search result
+## get drug names for RXNORM by scraping REST API
 get_rxcui_nm<-function(rxcui){
   #url link to REST API
   rx_url<-paste0("https://rxnav.nlm.nih.gov/REST/rxcui/",rxcui,"/")
@@ -629,36 +629,36 @@ get_rxcui_nm<-function(rxcui){
   #extract name
   rxcui_name<-xpathApply(rxcui_content, "//body//rxnormdata//idgroup//name", xmlValue)
   
-  if (length(rxcui_name)==0){
-    rxcui_name<-NA
-  }else{
-    rxcui_name<-unlist(rxcui_name)
-  }
-  return(rxcui_name)
+  return(unlist(rxcui_name))
 }
 
+## get drug names for NDC by scraping REST API
 get_ndc_nm<-function(ndc){
+  
+  parse_nm<-function(rx_obj){
+    rx_content<-htmlParse(rx_obj)
+    rx_attr<-xpathApply(rx_content, "//tbody//td[@data-title]",xmlAttrs)
+    rx_name<-xpathApply(rx_content, "//tbody//td[@data-title]",xmlValue)[which(rx_attr=="Proprietary Name")]
+    rx_name<-unique(unlist(rx_name))
+    return(rx_name)
+  }
+  
   #url link to REST API
   rx_url<-paste0("https://ndclist.com/?s=",ndc)
   
   #get and parse html object
   rx_obj<-getURL(url = rx_url)
-  if (rx_obj==""){
-    rx_name<-NA
-  }else{
-    #extract name
-    rx_content<-htmlParse(rx_obj)
-    rx_attr<-xpathApply(rx_content, "//tbody//td[@data-title]",xmlAttrs)
-    rx_name<-xpathApply(rx_content, "//tbody//td[@data-title]",xmlValue)[which(rx_attr=="Proprietary Name")]
-    rx_name<-unlist(rx_name)
-    
-    if(length(rx_name) > 1){
-      rx_name<-rx_url
-    }
-  }
-  return(rx_name)
+  
+  return(parse_nm(rx_obj)[1])
 }
 
+## get drug names for either NDC or RXNORM codes
+get_drug_nm<-function(code,type){
+  case_when(
+    grepl("^ND",type) ~ get_ndc_nm(code),
+    TRUE ~ get_rxcui_nm(code)
+  )
+}
 
 #ref: https://www.r-bloggers.com/web-scraping-google-urls/
 google_code<-function(code,nlink=1){
