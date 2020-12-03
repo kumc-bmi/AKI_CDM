@@ -929,12 +929,13 @@ if(nrow(med_temp)>0){
   
   med_report<-med_temp %>%
     separate(key,c("key2","type","route"),":",extra="merge",fill="right") %>%
-    mutate(key2=trimws(key2),
+    mutate(rx_name=trimws(key2),
            type=trimws(type)) %>%
     arrange(desc(enc_cnt)) %>%
-    dplyr::select(key2,type) %>% 
-    unique %>% dplyr::slice(1:3) %>%
-    mutate(rx_name=lapply(key2, get_drug_nm, type))
+    dplyr::select(key2,type,route) %>% unique %>%
+    mutate(rx_name=lapply(key2,get_ndc_nm)) %>%
+    # mutate(rx_name=lapply(key2,get_rxcui_nm)) %>%
+    select(-key2)
   
   freq_med<-c()
   for(k in 1:nrow(med_report)){
@@ -942,12 +943,14 @@ if(nrow(med_temp)>0){
   }
   
   med_report<-med_temp %>%
-    separate(key,c("rx_name","type","route"),":",extra="merge",fill="right") %>%
-    mutate(rx_name=trimws(rx_name),
+    separate(key,c("key2","type","route"),":",extra="merge",fill="right") %>%
+    mutate(rx_name=trimws(key2),
            type=trimws(type)) %>%
-    arrange(desc(enc_cnt)) %>%
-    dplyr::select(rx_name,type) %>% 
-    mutate_at(vars(rx_name), get_drug_nm,.$type)
+    arrange(desc(median_expos)) %>%
+    dplyr::select(key2,type,route) %>% unique %>%
+    mutate(rx_name=lapply(key2,get_ndc_nm)) %>%
+    # mutate(rx_name=lapply(key2,get_rxcui_nm)) %>%
+    select(-key2)
   
   intens_med<-c()
   for(k in 1:nrow(med_report)){

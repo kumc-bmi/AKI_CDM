@@ -628,8 +628,10 @@ get_rxcui_nm<-function(rxcui){
   
   #extract name
   rxcui_name<-xpathApply(rxcui_content, "//body//rxnormdata//idgroup//name", xmlValue)
+  rxcui_name<-unique(unlist(rxcui_name))
   
-  return(unlist(rxcui_name))
+  if(length(rxcui_name)>0) rxcui_name[1]
+  else rxcui
 }
 
 ## get drug names for NDC by scraping REST API
@@ -643,22 +645,22 @@ get_ndc_nm<-function(ndc){
     return(rx_name)
   }
   
+  #ndc is at least 11-digits
+  ndc<-case_when(
+    nchar(ndc) <= 11 ~ str_pad(ndc,side="left",11,pad="0"),
+    TRUE ~ ndc
+  )
+  
   #url link to REST API
   rx_url<-paste0("https://ndclist.com/?s=",ndc)
   
   #get and parse html object
   rx_obj<-getURL(url = rx_url)
   
-  return(parse_nm(rx_obj)[1])
+  if(!length(rx_obj) %in% c("",NULL)) parse_nm(rx_obj)[1]
+  else ndc
 }
 
-## get drug names for either NDC or RXNORM codes
-get_drug_nm<-function(code,type){
-  case_when(
-    grepl("^ND",type) ~ get_ndc_nm(code),
-    TRUE ~ get_rxcui_nm(code)
-  )
-}
 
 #ref: https://www.r-bloggers.com/web-scraping-google-urls/
 google_code<-function(code,nlink=1){
