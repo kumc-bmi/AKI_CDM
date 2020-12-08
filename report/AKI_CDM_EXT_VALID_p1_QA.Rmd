@@ -928,11 +928,14 @@ if(nrow(med_temp)>0){
   print(p1) #need print() to demonstrate the plot in top-layer expression(e.g. ifelse)
   
   med_report<-med_temp %>%
-    mutate(key=gsub(".*_","",trimws(gsub("\\:.*","",key),"both"))) %>%
+    separate(key,c("key2","type","route"),":",extra="merge",fill="right") %>%
+    mutate(rx_name=trimws(key2),
+           type=trimws(type)) %>%
     arrange(desc(enc_cnt)) %>%
-    dplyr::select(key) %>% 
-    unique %>% dplyr::slice(1:3) %>%
-    mutate(rx_name=lapply(key,get_rxcui_nm))
+    dplyr::select(key2,type,route) %>% unique %>%
+    mutate(rx_name=lapply(key2,get_ndc_nm)) %>%
+    # mutate(rx_name=lapply(key2,get_rxcui_nm)) %>%
+    select(-key2)
   
   freq_med<-c()
   for(k in 1:nrow(med_report)){
@@ -940,11 +943,14 @@ if(nrow(med_temp)>0){
   }
   
   med_report<-med_temp %>%
-    mutate(key=gsub(".*_","",trimws(gsub("\\:.*","",key),"both"))) %>%
+    separate(key,c("key2","type","route"),":",extra="merge",fill="right") %>%
+    mutate(rx_name=trimws(key2),
+           type=trimws(type)) %>%
     arrange(desc(median_expos)) %>%
-    dplyr::select(key) %>%
-    unique %>% dplyr::slice(1:3) %>%
-    mutate(rx_name=lapply(key,get_rxcui_nm))
+    dplyr::select(key2,type,route) %>% unique %>%
+    mutate(rx_name=lapply(key2,get_ndc_nm)) %>%
+    # mutate(rx_name=lapply(key2,get_rxcui_nm)) %>%
+    select(-key2)
   
   intens_med<-c()
   for(k in 1:nrow(med_report)){
@@ -955,7 +961,7 @@ if(nrow(med_temp)>0){
                       It helps identify typical medciations administered during the course of stay. 
                       (e.g. the typical medications identified are ",paste(freq_med,collapse=","),
                       "; while drugs such as ",paste(intens_med,collapse=","), 
-                      "are used with a relative longer exposure than the others).")
+                      " are used with a relative longer exposure than the others).")
 }else{
   description<-"Medication exposure are too low as no medication identifier has a coverage of more than 0.1% of the study population."
 }
