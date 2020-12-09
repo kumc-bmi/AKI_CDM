@@ -19,7 +19,8 @@ Share and Enjoy according to the terms of the MIT Open Source License.
 
 [inclusion and exclusion criteria]: https://github.com/kumc-bmi/AKI_CDM/blob/master/report/AKI_CDM_EXT_VALID_p1_QA.Rmd
 
-   **1.1 Script walkthrough**
+
+---------------------------------------**Script walkthrough**-----------------------------------------------------------
 
 
 *  AKI_Initial: include all inpatient visit ('EI','IP','IS') satisfying the following conditions: 
