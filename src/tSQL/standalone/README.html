@@ -196,7 +196,7 @@ Share and Enjoy according to the terms of the MIT Open Source License.</p>
 </ul></li>
 </ol>
 <ul>
-<li><p>1.1 Script walkthrough:</p>
+<li><p>1.1 Script walkthrough</p>
 <ul>
 <li><p>#AKI_Initial: include all inpatient visit (‘EI’,‘IP’,‘IS’) satisfying the following conditions:</p>
 <ul>
@@ -205,7 +205,7 @@ Share and Enjoy according to the terms of the MIT Open Source License.</p>
 </li>
 <li>age at visits &gt;= 18 years old</li>
 </ul>
-<p>  </p></li>
+<p> </p></li>
 <li><p>#All_Scr_eGFR: collected all serum creatinine records and their timestamps for all patients indentified in #AKI_Initial and calculated eGFR using MDRD formula</p>
 <ul>
 <li>serum creatinine (SCr) is identified by LOINC codes: ‘2160-0’,‘38483-4’,‘14682-9’,‘21232-4’,‘35203-9’,‘44784-7’,‘59826-8’</li>
@@ -214,7 +214,7 @@ Share and Enjoy according to the terms of the MIT Open Source License.</p>
 <li>Scr_all: collect all eligible SCr records from LAB_RESULT_CM table</li>
 </ul></li>
 </ul>
-<p>  </p></li>
+<p> </p></li>
 <li><p>#AKI_Scr_eGFR: merge multiple lab encounters in the same associated inpatient visit, and sort the labs within the same inpatient visit by date and time</p>
 <ul>
 <li>one intermediate tables is created:
@@ -222,7 +222,7 @@ Share and Enjoy according to the terms of the MIT Open Source License.</p>
 <li>multi_match: we noticed the issue of multiple encounterid for different lab orders within the same inpatient visit. This table is to merge such lab encounters into the associated inpatient encounter</li>
 </ul></li>
 </ul>
-<p>  </p></li>
+<p> </p></li>
 <li>#AKI_Scr_base: identify baseline SCr value for each patient-encounter which is either a) most recent SCr value 2-days prior to admission; or b) the first SCr value on the day of admission
 <ul>
 <li>four intermediate tables are created:
@@ -233,7 +233,7 @@ Share and Enjoy according to the terms of the MIT Open Source License.</p>
 <li>scr_base_dup: combine two sources of baseline SCr. If someone has both a record prior to and at admission, use the prior one as the “real” baseline</li>
 </ul></li>
 </ul>
-<p>  </p></li>
+<p> </p></li>
 <li>#exclude_all: identify patient-encounters that satisfy the exclusion criteria.
 <ul>
 <li>seven intermediate tables are created:
@@ -247,9 +247,9 @@ Share and Enjoy according to the terms of the MIT Open Source License.</p>
 <li>AKI_EXCLD_BURN_EN: identiy patient-encounters who gets admitted due to burn</li>
 </ul></li>
 </ul>
-<p>  </p></li>
+<p> </p></li>
 <li><p>#AKI_Eligible: finalize the eligible patient cohort by making all the exclusions and attach baseline SCr values</p>
-<p>  </p></li>
+<p> </p></li>
 <li>#AKI_stages_daily: identify patients’ AKI stages at each day during hospitalization
 <ul>
 <li>four intermediate tables are created:
@@ -260,7 +260,7 @@ Share and Enjoy according to the terms of the MIT Open Source License.</p>
 <li>stage_uni: if there are multiple occurences of the same AKI stage, we will want to take the initial incidence (“onset” incidence)</li>
 </ul></li>
 </ul>
-<p>  </p></li>
+<p> </p></li>
 <li>#AKI_Onset: the final AKI_Onsets wide table with one patient-encounter per row
 <ul>
 <li><ul>
@@ -272,7 +272,7 @@ Share and Enjoy according to the terms of the MIT Open Source License.</p>
 </ul></li>
 </ul></li>
 </ul>
-<p>  </p>
+<p> </p>
 <ul>
 <li>#consort_diagram: collect counts from intermediate tables to create the consort diagram, which can help us to understand where does data attrition happen.This summary stats also gives an overall understanding of your local AKI cohort, in terms of cohort size and AKI incidence rates.</li>
 </ul></li>
