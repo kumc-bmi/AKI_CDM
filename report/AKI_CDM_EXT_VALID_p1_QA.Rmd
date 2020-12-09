@@ -44,6 +44,9 @@ AKI Stages are defined based on [KDIGO](http://www.kdigo.org/clinical_practice_g
 
 ##### Implementation: Extracting AKI Study Cohort
 ```{r setup, include=F}
+#markdown file printout setup
+knitr::opts_chunk$set(message=F,warning=F,include=F)
+
 #source utility functions
 #note: need to change "./" to "../" if directly knit this report
 source("./R/util.R")
@@ -787,7 +790,7 @@ A Total of `r length(unique(px_summ$key))` distinct total procedures codes have 
 ##### Medications
 ```{r med, include=F}
 ## medication
-sql<-parse_sql(paste0("./src/",params$DBMS_type,"/collect_med.sql"),
+sql<-parse_sql(paste0("./src/",params$DBMS_type,"/collect_amed.sql"),
                cdm_db_link=config_file$cdm_db_link,
                cdm_db_name=config_file$cdm_db_name,
                cdm_db_schema=config_file$cdm_db_schema)
