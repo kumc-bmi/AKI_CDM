@@ -109,8 +109,7 @@ where age_at_Scr >= 18
 ;
 
 /******************************************************************************
- Merge labs within the same encounter and filter out encounters with less than
- 2 SCr records
+ Merge labs within the same encounter
 ******************************************************************************/
 with multi_match as (
 select scr.*,aki.ADMIT_DATE_TIME
@@ -564,11 +563,7 @@ select PATID
       ,AKI_STAGE
       ,SPECIMEN_DATE_TIME
       ,datediff(hour,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME) HOUR_SINCE_ADMIT
-      ,datediff(dd,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME)*2 HDAY_SINCE_ADMIT
       ,datediff(dd,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME) DAY_SINCE_ADMIT
-      ,dense_rank() over (partition by PATID, ENCOUNTERID, datediff(hh,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME)/12
-                          order by datediff(dd,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME)*2 asc, 
-                                   AKI_STAGE desc, SERUM_CREAT desc, SERUM_CREAT_INC desc) rn_hday
       ,dense_rank() over (partition by PATID, ENCOUNTERID, datediff(dd,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME)
                           order by datediff(dd,ADMIT_DATE_TIME,SPECIMEN_DATE_TIME) asc,
                                    AKI_STAGE desc, SERUM_CREAT desc, SERUM_CREAT_INC desc) rn_day
