@@ -14,7 +14,10 @@
     - first set &&start_date = '2010-01-01' and &&end_date = '2019-12-31'
     - if taking too much memory and not feasible to pull out, reduce the time window
 ******************************************************************************/
-create table AKI_Initial as
+create SCHEMA if not exists GPC_aki_project;
+
+drop table if exists GPC_aki_project.aki_initial;
+create table GPC_aki_project.AKI_Initial as
 with age_at_admit as (
 select e.ENCOUNTERID
       ,e.PATID
@@ -43,7 +46,8 @@ where age_at_admit >= 18 and rn = 1
 /******************************************************************************
  Collect SCr and calculate eGFR for all eligible encounters
 ******************************************************************************/
-create table All_Scr_eGFR as
+drop table if exists GPC_aki_project.All_Scr_eGFR;
+create table GPC_aki_project.All_Scr_eGFR as
 with Scr_all as (
 select l.PATID
       ,avg(l.RESULT_NUM) RESULT_NUM 
@@ -57,12 +61,13 @@ where l.LAB_LOINC in ('2160-0','38483-4','14682-9','21232-4','35203-9','44784-7'
       (UPPER(l.RESULT_UNIT) = 'MG/DL' or UPPER(l.RESULT_UNIT) = 'MG') and /*there are variations of common units*/
       l.SPECIMEN_SOURCE <> 'URINE' and  /*only serum creatinine*/
       l.RESULT_NUM > 0 and /*value 0 could exist*/
-      exists (select 1 from AKI_Initial init where init.PATID = l.PATID)
+      exists (select 1 from GPC_aki_project.AKI_Initial init where init.PATID = l.PATID)
 group by l.PATID,l.ENCOUNTERID,l.LAB_ORDER_DATE,
          l.SPECIMEN_DATE,l.SPECIMEN_TIME,l.RESULT_DATE,l.RESULT_TIME
 )
     ,Scr_w_age as (
 select sa.PATID
+      ,sa.ENCOUNTERID
       ,DATE_PART('year',sa.LAB_ORDER_DATE::date) - DATE_PART('year',d.BIRTH_DATE::date) as age_at_Scr
       ,case when d.SEX = 'F' then 1 else 0 end as female_ind 
       ,case when d.RACE = '03' then 1 else 0 end as race_aa_ind /*03=Black or African American*/
@@ -76,13 +81,13 @@ from Scr_all sa
 join &&cdm_db_schema.DEMOGRAPHIC d
 on sa.PATID = d.PATID
 )
-select distinct 
+select distinct
        PATID
       ,RESULT_NUM SERUM_CREAT
-      ,cast(175*power(RESULT_NUM,-1.154)*power(age_at_Scr,-0.203)*(0.742*female_ind+(1-female_ind))*(1.212*race_aa_ind+(1-race_aa_ind)) as float4) eGFR 
+      ,cast(175*power(RESULT_NUM,-1.154)*power(age_at_Scr,-0.203)*(0.742*female_ind+(1-female_ind))*(1.212*race_aa_ind+(1-race_aa_ind)) as float4) eGFR
       ,LAB_ORDER_DATE
       ,(SPECIMEN_DATE::date + SPECIMEN_TIME::time) SPECIMEN_DATE_TIME
-      ,(RESULT_DATE::date + RESULT_TIME::time) RESULT_DATE_TIME 
+      ,(RESULT_DATE::date + RESULT_TIME::time) RESULT_DATE_TIME
 from Scr_w_age
 where age_at_Scr >= 18
 ;
@@ -91,11 +96,12 @@ where age_at_Scr >= 18
  Merge labs within the same encounter and filter out encounters with less than
  2 SCr records
 ******************************************************************************/
-create table AKI_Scr_eGFR as
+drop table if exists GPC_aki_project.AKI_Scr_eGFR;
+create table GPC_aki_project.AKI_Scr_eGFR as
 with multi_match as (
 select scr.*,aki.ADMIT_DATE_TIME
-from All_Scr_eGFR scr
-join AKI_Initial aki 
+from GPC_aki_project.All_Scr_eGFR scr
+join GPC_aki_project.AKI_Initial aki 
 on scr.ENCOUNTERID = aki.ENCOUNTERID
 where scr.LAB_ORDER_DATE between aki.ADMIT_DATE_TIME and aki.DISCHARGE_DATE_TIME
 union
@@ -107,8 +113,8 @@ select aki.PATID
       ,scr.SPECIMEN_DATE_TIME
       ,scr.RESULT_DATE_TIME
       ,aki.ADMIT_DATE_TIME
-from All_Scr_eGFR scr
-join AKI_Initial aki
+from GPC_aki_project.All_Scr_eGFR scr
+join GPC_aki_project.AKI_Initial aki
 on scr.PATID = aki.PATID and
    scr.LAB_ORDER_DATE between aki.ADMIT_DATE_TIME and aki.DISCHARGE_DATE_TIME
 )
@@ -121,7 +127,6 @@ select PATID
       ,SPECIMEN_DATE_TIME
       ,RESULT_DATE_TIME
       ,ADMIT_DATE_TIME
-      ,count(distinct SPECIMEN_DATE_TIME) over (partition by ENCOUNTERID) scr_tot
       ,dense_rank() over (partition by ENCOUNTERID order by LAB_ORDER_DATE,SPECIMEN_DATE_TIME) rn      
 from multi_match
 )
@@ -135,48 +140,53 @@ select distinct
       ,RESULT_DATE_TIME
       ,ADMIT_DATE_TIME
       ,rn
-from scr_cnt
-where scr_tot > 1
+from scr_cnt s1
+where exists (select 1 from scr_cnt s2 where s1.encounterid = s2.encounterid and rn > 1)
 ;
+
 
 /******************************************************************************
  Calculate Baseline SCr: first SCr at encounter
 ******************************************************************************/
-create table AKI_Scr_base as
+drop table if exists GPC_aki_project.aki_scr_base;
+create table GPC_aki_project.AKI_Scr_base as
 --get first record within the encounter (baseline)
 with scr_enc1 as (
-select scr.* from AKI_Scr_eGFR scr
+select scr.* from GPC_aki_project.AKI_Scr_eGFR scr
 where scr.rn = 1
 )
 --looks like there exists multiple historical values on the same day 
 select scrb.PATID
       ,scrb.ENCOUNTERID
       ,init.ADMIT_DATE_TIME
+      ,init.DISCHARGE_DATE_TIME
       ,min(scrb.SERUM_CREAT) SERUM_CREAT
       ,max(scrb.eGFR) eGFR
       ,scrb.LAB_ORDER_DATE
       ,scrb.SPECIMEN_DATE_TIME
       ,scrb.RESULT_DATE_TIME
 from scr_enc1 scrb
-join AKI_Initial init
+join GPC_aki_project.AKI_Initial init
 on scrb.ENCOUNTERID = init.ENCOUNTERID
-group by scrb.PATID,scrb.ENCOUNTERID,init.ADMIT_DATE_TIME,scrb.LAB_ORDER_DATE,scrb.SPECIMEN_DATE_TIME,scrb.RESULT_DATE_TIME
+group by scrb.PATID,scrb.ENCOUNTERID,init.ADMIT_DATE_TIME,init.DISCHARGE_DATE_TIME,scrb.LAB_ORDER_DATE,scrb.SPECIMEN_DATE_TIME,scrb.RESULT_DATE_TIME
 ;
 
 /***************************************************
  Exclusion Criteria 
  ****************************************************/
-create table exclude_all as           
+
+drop table if exists GPC_aki_project.exclude_all;
+create table GPC_aki_project.exclude_all as           
 -- At CKD stage 4 or higher
 with AKI_EXCLD_L1GFR_EN as (
 select distinct ENCOUNTERID
-from AKI_Scr_eGFR
+from GPC_aki_project.AKI_Scr_eGFR
 where rn = 1 and eGFR < 15
 )
 -- update AKI_initial 
     ,AKI_init as (
-select * from AKI_Initial init
-where exists (select 1 from AKI_Scr_eGFR scr2
+select * from GPC_aki_project.AKI_Initial init
+where exists (select 1 from GPC_aki_project.AKI_Scr_eGFR scr2
               where scr2.ENCOUNTERID = init.ENCOUNTERID)
 )
 -- Pre-existing ESRD
@@ -194,7 +204,7 @@ where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
                       (   dx.DX like '%N18.6%')
                        )
                       ) and
-                    dx.ADMIT_DATE < trunc(aki.ADMIT_DATE_TIME)
+                    dx.ADMIT_DATE < date_trunc('day',aki.ADMIT_DATE_TIME)
                 )
 )
 -- Pre-existing dialysis or renal transplantation
@@ -229,7 +239,7 @@ where exists (select 1 from &&cdm_db_schema.PROCEDURES px
                     -- ref: https://www.cms.gov/Regulations-and-Guidance/Guidance/Transmittals/downloads/R1810B3.pdf
                     -- ref: https://www.outsourcestrategies.com/blog/coding-kidney-transplantation-overview.html 
                     (
-                     (px.PX_TYPE = 'CH' and   
+                     (px.PX_TYPE = 'CH' and
                       (   px.px in ('90935','90937') -- dialysis
                        or px.px like '9094%'
                        or px.px like '9095%'
@@ -266,8 +276,8 @@ where exists (select 1 from &&cdm_db_schema.PROCEDURES px
 -- Receive renal transplant withing 48 hr since 1st Scr (PX, DX)
     ,scr48 as (
 select PATID, ENCOUNTERID, date_trunc('day',aki.ADMIT_DATE_TIME::timestamp) admit_date,
-       SPECIMEN_DATE_TIME+2 time_bd
-from AKI_Scr_eGFR
+       SPECIMEN_DATE_TIME::date+2 time_bd
+from GPC_aki_project.AKI_Scr_eGFR
 where rn = 1
 )
     ,AKI_EXCLD_RT48_EN as (
@@ -342,24 +352,25 @@ where exists (select 1 from &&cdm_db_schema.DIAGNOSIS dx
                 )
 )
 -- collect all excluded encounters
-select cast(ENCOUNTERID as number) ENCOUNTERID, 'Initial_GFR_below_15' EXCLUD_TYPE from AKI_EXCLD_L1GFR_EN
+select ENCOUNTERID, 'Initial_GFR_below_15' EXCLUD_TYPE from AKI_EXCLD_L1GFR_EN
 union all 
-select cast(ENCOUNTERID as number) ENCOUNTERID, 'Pre_ESRD' EXCLUD_TYPE from AKI_EXCLD_PRF_EN
+select ENCOUNTERID, 'Pre_ESRD' EXCLUD_TYPE from AKI_EXCLD_PRF_EN
 union all
-select cast(ENCOUNTERID as number) ENCOUNTERID, 'Pre_RRT' EXCLUD_TYPE from AKI_EXCLD_PRRT_EN
+select ENCOUNTERID, 'Pre_RRT' EXCLUD_TYPE from AKI_EXCLD_PRRT_EN
 union all
-select cast(ENCOUNTERID as number) ENCOUNTERID, 'RRT_within_48hr' EXCLUD_TYPE from AKI_EXCLD_RT48_EN
+select ENCOUNTERID, 'RRT_within_48hr' EXCLUD_TYPE from AKI_EXCLD_RT48_EN
 union all
-select cast(ENCOUNTERID as number) ENCOUNTERID, 'Burn_patients' EXCLUD_TYPE from AKI_EXCLD_BURN_EN
+select ENCOUNTERID, 'Burn_patients' EXCLUD_TYPE from AKI_EXCLD_BURN_EN
 ;
 
 /*************************************************
  Finalize the Eligbile Encounters 
  *************************************************/
-create table AKI_eligible as
+drop table if exists GPC_aki_project.aki_eligible;
+create table GPC_aki_project.AKI_eligible as
 with exclud_unique as (
 select distinct ENCOUNTERID
-from exclude_all
+from GPC_aki_project.exclude_all
 )
 --perform exclusion
   ,scr_all as (
@@ -370,7 +381,7 @@ select a.PATID
       ,a.SPECIMEN_DATE_TIME
       ,a.RESULT_DATE_TIME
       ,a.rn
-from AKI_Scr_eGFR a
+from GPC_aki_project.AKI_Scr_eGFR a
 where not exists (select 1 from exclud_unique e
                   where e.ENCOUNTERID = a.ENCOUNTERID)
 )
@@ -387,7 +398,7 @@ select scr.PATID
       ,scr.RESULT_DATE_TIME
       ,scr.rn
 from scr_all scr
-join AKI_Scr_base scrb
+join GPC_aki_project.AKI_Scr_base scrb
 on scr.ENCOUNTERID = scrb.ENCOUNTERID
 order by scr.PATID, scr.ENCOUNTERID, scr.rn
 ;
@@ -395,7 +406,8 @@ order by scr.PATID, scr.ENCOUNTERID, scr.rn
 /******************************************************************************
  AKI Staging
 ******************************************************************************/
-create table AKI_stages_daily as
+drop table if exists GPC_aki_project.AKI_stages_daily
+create table GPC_aki_project.AKI_stages_daily as
 with aki3_rrt as (
 -- identify 3-stage AKI based on existence of RRT
 select akie.PATID
@@ -404,7 +416,7 @@ select akie.PATID
       ,akie.SERUM_CREAT_BASE
       ,akie.SPECIMEN_DATE_TIME_BASE
       ,min(px.PX_DATE) SPECIMEN_DATE_TIME
-from AKI_eligible akie
+from GPC_aki_project.AKI_eligible akie
 join &&cdm_db_schema.PROCEDURES px
 on px.PATID = akie.PATID and
    (
@@ -445,8 +457,8 @@ select distinct
        end as AKI_STAGE
       ,s2.SPECIMEN_DATE_TIME
       ,s2.RESULT_DATE_TIME
-from AKI_eligible s1
-join AKI_eligible s2
+from GPC_aki_project.AKI_eligible s1
+join GPC_aki_project.AKI_eligible s2
 on s1.ENCOUNTERID = s2.ENCOUNTERID
 --restrict s2 to be strictly after s1 and before s1+2d
 where EXTRACT(EPOCH FROM (s2.SPECIMEN_DATE_TIME -s1.SPECIMEN_DATE_TIME ))/3600 between 0.001 and 48
@@ -458,7 +470,7 @@ select distinct
       ,ADMIT_DATE_TIME
       ,SERUM_CREAT_BASE
       ,SPECIMEN_DATE_TIME_BASE SERUM_CREAT_BASE_DATE_TIME
-      ,null SERUM_CREAT_RBASE
+      ,null::numeric SERUM_CREAT_RBASE
       ,SERUM_CREAT
       ,round(SERUM_CREAT/SERUM_CREAT_BASE,1) SERUM_CREAT_INC
       ,case when round(SERUM_CREAT/SERUM_CREAT_BASE,1) between 1.5 and 1.9 then 1
@@ -477,9 +489,9 @@ select rrt.PATID
       ,rrt.ADMIT_DATE_TIME
       ,rrt.SERUM_CREAT_BASE
       ,rrt.SPECIMEN_DATE_TIME_BASE SERUM_CREAT_BASE_DATE_TIME
-      ,null SERUM_CREAT_RBASE
-      ,null SERUM_CREAT
-      ,null SERUM_CREAT_INC
+      ,null::numeric SERUM_CREAT_RBASE
+      ,null::numeric SERUM_CREAT
+      ,null::numeric SERUM_CREAT_INC
       ,3 as AKI_STAGE
       ,rrt.SPECIMEN_DATE_TIME
       ,null RESULT_DATE_TIME
@@ -527,7 +539,7 @@ select distinct
       ,SERUM_CREAT
       ,SERUM_CREAT_INC
       ,AKI_STAGE
-      ,date_trunc('day',init.SPECIMEN_DATE_TIME::timestamp) SPECIMEN_DATE
+      ,date_trunc('day',SPECIMEN_DATE_TIME::timestamp) SPECIMEN_DATE
       ,DAY_SINCE_ADMIT
       ,row_number() over (partition by ENCOUNTERID, AKI_STAGE order by DAY_SINCE_ADMIT) rn_asc
       ,row_number() over (partition by ENCOUNTERID, AKI_STAGE order by DAY_SINCE_ADMIT desc) rn_desc
@@ -536,14 +548,15 @@ from stage_uni
 order by PATID, ENCOUNTERID, AKI_STAGE, SPECIMEN_DATE
 ;
 
-create table AKI_onsets as
+drop table if exists GPC_aki_project.AKI_onsets;
+create table GPC_aki_project.AKI_onsets as
 with pat_enc as (
 select distinct 
        PATID 
       ,ENCOUNTERID 
       ,date_trunc('day',ADMIT_DATE_TIME::timestamp) ADMIT_DATE
       ,SERUM_CREAT_BASE
-from AKI_stages_daily
+from GPC_aki_project.AKI_stages_daily
 )
 --pivot table: https://www.postgresql.org/docs/9.1/tablefunc.html
    ,onsets as (
@@ -552,13 +565,13 @@ from crosstab(
  'select ENCOUNTERID
         ,AKI_STAGE
         ,SPECIMEN_DATE
-  from AKI_stages_daily
+  from GPC_aki_project.AKI_stages_daily
   where rn_asc = 1 and AKI_STAGE_max > 0 and AKI_STAGE > 0
   union all
   select ENCOUNTERID
         ,AKI_STAGE
         ,SPECIMEN_DATE
-  from AKI_stages_daily
+  from GPC_aki_project.AKI_stages_daily
   where rn_desc = 1 and AKI_STAGE_max = 0 and AKI_STAGE = 0
   order by ENCOUNTER_ID, AKI_STAGE',
   'VALUES (0), (1), (2), (3)'
@@ -575,13 +588,13 @@ from crosstab(
   'select ENCOUNTERID
          ,AKI_STAGE
          ,SERUM_CREAT
-   from AKI_stages_daily
+   from GPC_aki_project.AKI_stages_daily
    where rn_asc = 1 and AKI_STAGE_max > 0 and AKI_STAGE > 0
    union all
    select ENCOUNTERID
          ,AKI_STAGE
          ,SERUM_CREAT
-   from AKI_stages_daily
+   from GPC_aki_project.AKI_stages_daily
    where rn_desc = 1 and AKI_STAGE_max = 0 and AKI_STAGE = 0
    order by ENCOUNTER_ID, AKI_STAGE',
    'VALUES (0), (1), (2), (3)'
@@ -598,13 +611,13 @@ from crosstab(
   'select ENCOUNTERID
          ,AKI_STAGE
          ,SERUM_CREAT_INC
-   from AKI_stages_daily
+   from GPC_aki_project.AKI_stages_daily
    where rn_asc = 1 and AKI_STAGE_max > 0 and AKI_STAGE > 0
    union all
    select ENCOUNTERID
          ,AKI_STAGE
          ,SERUM_CREAT_INC
-   from AKI_stages_daily
+   from GPC_aki_project.AKI_stages_daily
    where rn_desc = 1 and AKI_STAGE_max = 0 and AKI_STAGE = 0
    order by ENCOUNTER_ID, AKI_STAGE',
    'VALUES (0), (1), (2), (3)'
@@ -622,23 +635,23 @@ select pe.PATID
       ,date_trunc('day',init.DISCHARGE_DATE_TIME::timestamp) DISCHARGE_DATE
       ,pe.SERUM_CREAT_BASE
       ,ons.NONAKI_ANCHOR
-      ,DATE_PART('day', ons.NONAKI_ANCHOR::date - pe.ADMIT_DATE::date) NONAKI_SINCE_ADMIT
+      ,ons.NONAKI_ANCHOR::date - pe.ADMIT_DATE::dateNONAKI_SINCE_ADMIT
       ,NON_AKI_SCR
       ,NON_AKI_INC
       ,ons.AKI1_ONSET
-      ,DATE_PART('day', ons.AKI1_ONSET::date - pe.ADMIT_DATE::date) AKI1_SINCE_ADMIT
+      ,ons.AKI1_ONSET::date - pe.ADMIT_DATE::date AKI1_SINCE_ADMIT
       ,scr.AKI1_SCR
       ,inc.AKI1_INC
       ,ons.AKI2_ONSET
-      ,DATE_PART('day', ons.AKI2_ONSET::date - pe.ADMIT_DATE::date) AKI2_SINCE_ADMIT
+      ,ons.AKI2_ONSET::date - pe.ADMIT_DATE::date AKI2_SINCE_ADMIT
       ,scr.AKI2_SCR
       ,inc.AKI2_INC
       ,ons.AKI3_ONSET
-      ,DATE_PART('day', ons.AKI3_ONSET::date - pe.ADMIT_DATE::date) AKI3_SINCE_ADMIT
+      ,ons.AKI3_ONSET::date - pe.ADMIT_DATE::date AKI3_SINCE_ADMIT
       ,scr.AKI3_SCR
       ,inc.AKI3_INC
 from pat_enc pe
-join AKI_Initial init
+join GPC_aki_project.AKI_Initial init
 on pe.ENCOUNTERID = init.ENCOUNTERID
 left join onsets ons
 on pe.ENCOUNTERID = ons.ENCOUNTERID
@@ -650,7 +663,7 @@ on pe.ENCOUNTERID = inc.ENCOUNTERID
 -- some pruning (recovering progress doesn't count)
 select distinct
        PATID
-      ,to_char(ENCOUNTERID) ENCOUNTERID
+      ,ENCOUNTERID
       ,ADMIT_DATE
       ,DISCHARGE_DATE
       ,SERUM_CREAT_BASE
@@ -662,17 +675,17 @@ select distinct
             else AKI1_ONSET end as AKI1_ONSET
       ,case when AKI1_SINCE_ADMIT >= AKI2_SINCE_ADMIT or AKI1_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null
             else AKI1_SINCE_ADMIT end as AKI1_SINCE_ADMIT
-      ,case when AKI1_SINCE_ADMIT >= AKI2_SINCE_ADMIT or AKI1_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null 
+      ,case when AKI1_SINCE_ADMIT >= AKI2_SINCE_ADMIT or AKI1_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null
             else AKI1_SCR end as AKI1_SCR
       ,case when AKI1_SINCE_ADMIT >= AKI2_SINCE_ADMIT or AKI1_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null
             else AKI1_INC end as AKI1_INC
-      ,case when AKI2_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null 
+      ,case when AKI2_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null
             else AKI2_ONSET end as AKI2_ONSET
-      ,case when AKI2_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null 
+      ,case when AKI2_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null
             else AKI2_SINCE_ADMIT end as AKI2_SINCE_ADMIT
-      ,case when AKI2_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null 
+      ,case when AKI2_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null
             else AKI2_SCR end as AKI2_SCR
-      ,case when AKI2_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null 
+      ,case when AKI2_SINCE_ADMIT >= AKI3_SINCE_ADMIT then null
             else AKI2_INC end as AKI2_INC
       ,AKI3_ONSET
       ,AKI3_SINCE_ADMIT
@@ -685,65 +698,66 @@ order by PATID, ENCOUNTERID
 /*************************
  Consort Diagram
 ***************************/
+drop table if exists GPC_aki_project.consort_diagam;
 create table consort_diagram as
 select 'Initial' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
-from AKI_Initial
+from GPC_aki_project.AKI_Initial
 union all
 select 'Has_at_least_2_SCr' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
-from AKI_Scr_eGFR
+from GPC_aki_project.AKI_Scr_eGFR
 union all
 select exclud_type CNT_TYPE,
        count(distinct encounterid) ENC_CNT
-from exclude_all
+from GPC_aki_project.exclude_all
 group by exclud_type
 union all
 select 'Total' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
-from AKI_onsets
+from GPC_aki_project.AKI_onsets
 union all
 select 'nonAKI' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
-from AKI_onsets
+from GPC_aki_project.AKI_onsets
 where AKI1_onset is null and
       AKI2_onset is null and
       AKI3_onset is null
 union all
 select 'AKI1' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
-from AKI_onsets
+from GPC_aki_project.AKI_onsets
 where AKI1_onset is not null
 union all
 select 'nonAKI_to_AKI2' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
-from AKI_onsets
+from GPC_aki_project.AKI_onsets
 where AKI1_onset is null and
       AKI2_onset is not null
 union all
 select 'AKI1_to_AKI2' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
-from AKI_onsets
+from GPC_aki_project.AKI_onsets
 where AKI1_onset is not null and
       AKI2_onset is not null
 union all
 select 'nonAKI_to_AKI3' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
-from AKI_onsets
+from GPC_aki_project.AKI_onsets
 where AKI1_onset is null and
       AKI2_onset is null and
       AKI3_onset is not null
 union all
 select 'nonAKI_to_AKI2_to_AKI3' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
-from AKI_onsets
+from GPC_aki_project.AKI_onsets
 where AKI1_onset is null and
       AKI2_onset is not null and
       AKI3_onset is not null
 union all
 select 'AKI1_to_AKI2_to_AKI3' CNT_TYPE,
        count(distinct encounterid) ENC_CNT
-from AKI_onsets
+from GPC_aki_project.AKI_onsets
 where AKI1_onset is not null and
       AKI2_onset is not null and
       AKI3_onset is not null

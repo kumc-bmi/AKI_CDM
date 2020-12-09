@@ -932,14 +932,17 @@ if(nrow(med_temp)>0){
     mutate(rx_name=trimws(key2),
            type=trimws(type)) %>%
     arrange(desc(enc_cnt)) %>%
-    dplyr::select(key2,type,route) %>% unique %>%
+    dplyr::select(key2,type) %>% unique %>%
     mutate(rx_name=lapply(key2,get_ndc_nm)) %>%
+    mutate(rx_name=trimws(rx_name)) %>%
     # mutate(rx_name=lapply(key2,get_rxcui_nm)) %>%
-    select(-key2)
+    group_by(rx_name) %>%
+    dplyr::summarise(key=paste(unique(key2),collapse = ",")) %>%
+    ungroup %>% filter(!is.null(rx_name)&!rx_name %in% c("NULL"))
   
   freq_med<-c()
   for(k in 1:nrow(med_report)){
-    freq_med<-c(freq_med,paste0(med_report$key[k],"(",med_report$rx_name[k],")")) 
+    freq_med<-c(freq_med,paste0(med_report$rx_name[k],"(",med_report$key[k],")")) 
   }
   
   med_report<-med_temp %>%
@@ -947,14 +950,17 @@ if(nrow(med_temp)>0){
     mutate(rx_name=trimws(key2),
            type=trimws(type)) %>%
     arrange(desc(median_expos)) %>%
-    dplyr::select(key2,type,route) %>% unique %>%
+    dplyr::select(key2,type) %>% unique %>%
     mutate(rx_name=lapply(key2,get_ndc_nm)) %>%
+    mutate(rx_name=trimws(rx_name)) %>%
     # mutate(rx_name=lapply(key2,get_rxcui_nm)) %>%
-    select(-key2)
+    group_by(rx_name) %>%
+    dplyr::summarise(key=paste(unique(key2),collapse = ",")) %>%
+    ungroup %>% filter(!is.null(rx_name)&!rx_name %in% c("NULL"))
   
   intens_med<-c()
   for(k in 1:nrow(med_report)){
-    intens_med<-c(intens_med,paste0(med_report$key[k],"(",med_report$rx_name[k],")")) 
+    intens_med<-c(intens_med,paste0(med_report$rx_name[k],"(",med_report$key[k],")")) 
   }
   
   description<-paste0("Figure4 demonstrates average exposures for drug starting at X days since admission. 
@@ -968,7 +974,7 @@ if(nrow(med_temp)>0){
 
 ```
 
-A Total of `r length(unique(med_summ$key))` distinct RXNORM medication concepts are discovered for the cohort and the overall medication (any) exposure for this cohort is `r paste0(round(med_density/enc_tot,2)*100,"%")`. `r description` 
+A Total of `r length(unique(med_summ$key))` distinct medication concepts (RXNORM and/or NDC) are discovered for the cohort and the overall medication (any) exposure for this cohort is `r paste0(round(med_density/enc_tot,2)*100,"%")`. `r description` 
 
 *Note that only rxnorms with coverage above 0.1% of the overall cohort are included in the plot, the complete distribution can be found in the accompanied excel file.*
 
