@@ -22,8 +22,7 @@ Share and Enjoy according to the terms of the MIT Open Source License.
 
 
 - 1.1 Script walkthrough
-      
-      
+
       *  #AKI_Initial: include all inpatient visit ('EI','IP','IS') satisfying the following conditions: 
           
           * more than LOS>=2; AND 
