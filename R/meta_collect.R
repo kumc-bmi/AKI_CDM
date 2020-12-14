@@ -1,102 +1,140 @@
 ##########################
 #### collect metadata ####
 ##########################
-
 source("./R/util.R")
-
 require_libraries(c("DBI",
-                    "ROracle",
                     "tidyr",
                     "dplyr",
-                    "magrittr"))
+                    "magrittr",
+                    "openxlsx"))
 
-config_file_path<-"./config/config.csv"
-config_file<-read.csv(config_file_path,stringsAsFactors = F)
-conn<-connect_to_db("Oracle","OCI",config_file)
+config_file<-read.csv("./config/config.csv",stringsAsFactors = F)
+conn<-connect_to_db("Oracle","JDBC",config_file)
+
+#====collect all exising variables=======
+pred_in_d_opt<-1
+pred_task_lst<-c("stg02up","stg01","stg12up")
+
+varlst<-c()
+for(pred_in_d in pred_in_d_opt){
+  
+  for(pred_task in pred_task_lst){
+    
+    dat_ds<-readRDS(paste0("./data/preproc/data_mrv_",pred_in_d,"d_",pred_task,".rda"))
+    
+    varlst<-unique(c(varlst,dat_ds[[2]][["X_proc"]]$key))
+    
+  }
+}
+
 
 #====metadata - source I: PCORNET CDM website====
-cdm_metadata<-read.csv("./data/meta_data/cdm_metadata.csv",stringsAsFactors = F) %>%
-  dplyr::mutate(FIELD_NAME2=FIELD_NAME,
-                VALUESET_ITEM2=VALUESET_ITEM) %>%
-  unite("VALUESET_ITEM2",c("FIELD_NAME2","VALUESET_ITEM2"),sep="_") %>%
+cdm_metadata<-read.xlsx("https://pcornet.org/wp-content/uploads/2020/06/2020-06-17-PCORnet-Common-Data-Model-v5dot1-parseable.xlsx", ##may be updated
+                        sheet = 6) %>%
+  mutate(key=paste0(FIELD_NAME,"_",VALUESET_ITEM),
+         descriptor=paste0(FIELD_NAME,",",VALUESET_ITEM_DESCRIPTOR)) %>%
   bind_rows(data.frame(TABLE_NAME=c("DEMOGRAPHIC",rep("VITAL",5)),
                        FIELD_NAME=c("DEMO",rep("VITAL",5)),
-                       VALUESET_ITEM=c("AGE",
-                                       "BP_DIASTOLIC",
-                                       "BP_SYSTOLIC",
-                                       "BMI",
-                                       "HT",
-                                       "WT"),
-                       VALUESET_ITEM_DESCRIPTOR=c("age",
-                                                  "diastolic blood pressure",
-                                                  "systolic blood pressure",
-                                                  "body mass index",
-                                                  "height",
-                                                  "weight"),
-                       stringsAsFactors=F) %>%
-              dplyr::mutate(VALUESET_ITEM2=VALUESET_ITEM))
+                       key=c("AGE",
+                             "BP_DIASTOLIC",
+                             "BP_SYSTOLIC",
+                             "BMI","HT","WT"),
+                       descriptor=c("age",
+                                    "diastolic blood pressure",
+                                    "systolic blood pressure",
+                                    "body mass index",
+                                    "height",
+                                    "weight"),
+                       stringsAsFactors=F)) %>%
+  select(TABLE_NAME,FIELD_NAME,key,descriptor)
 
 
-#====metadata - source II: local metadata table====
-meta_sql<-parse_sql("./src/Oracle/metadata_i2b2.sql",
-                    cdm_meta_schema=config_file$cdm_meta_schema)
-i2b2_metadata<-execute_single_sql(conn,
-                                  statement=meta_sql$statement,
-                                  write=(meta_sql$action=="write"),
-                                  table_name=toupper(sql$tbl_out))
+#====metadata - source II: use pcornet metadata tables====
+#--TODO: use UMLS as the master data dictionary
+meta_sql<-parse_sql("../AKI_CDM/src/Oracle/metadata.sql",
+                    cdm_meta_schema=config_file$cdm_meta_schema,
+                    i2b2_meta_schema=config_file$i2b2_meta_schema)
 
-# #save loinc
-# saveRDS(i2b2_metadata %>% filter(FIELD_NAME=="LOINC"),
-#         "./ref/loinc_metadata.rda")
+execute_single_sql(conn,
+                   statement=meta_sql$statement,
+                   write=(meta_sql$action=="write"),
+                   table_name=toupper(meta_sql$tbl_out))
 
-# #if breaks
-# i2b2_metadata<-readRDS("./data/meta_data/i2b2_metadata.rda")
-i2b2_metadata %<>%
-  mutate(VALUESET_ITEM2=case_when(FIELD_NAME=="DX"&ITEM_TYPE=="09" ~ paste0("ICD9:",VALUESET_ITEM),
-                                  FIELD_NAME=="DX"&ITEM_TYPE=="10" ~ paste0("ICD10:",VALUESET_ITEM),
-                                  FIELD_NAME=="RXNORM_CUI" ~ paste0(gsub(":.*",":01",VALUESET_ITEM)),
-                                  FIELD_NAME=="PX"&grepl("((^CPT\\:)|(^HCPCS\\:))+",VALUESET_ITEM) ~ gsub("((^CPT\\:)|(^HCPCS\\:))+","CH:",VALUESET_ITEM),
-                                  TRUE ~ VALUESET_ITEM)) %>%
-  bind_rows(i2b2_metadata %>% filter(FIELD_NAME=="RXNORM_CUI") %>%
-              mutate(VALUESET_ITEM2=ifelse(grepl("\\:",VALUESET_ITEM),
-                                           paste0(gsub(":.*",":01",VALUESET_ITEM)),
-                                           paste0(VALUESET_ITEM,":01"))))  %>%
-  bind_rows(i2b2_metadata %>% filter(FIELD_NAME=="RXNORM_CUI") %>%
-              mutate(VALUESET_ITEM2=ifelse(grepl("\\:",VALUESET_ITEM),
-                                           paste0(gsub(":.*",":02",VALUESET_ITEM)),
-                                           paste0(VALUESET_ITEM,":02"))))  %>%
-  bind_rows(i2b2_metadata %>% filter(FIELD_NAME=="RXNORM_CUI") %>%
-              mutate(VALUESET_ITEM2=paste0(gsub(":.*","",VALUESET_ITEM)))) %>%
-  dplyr::select(TABLE_NAME,FIELD_NAME,VALUESET_ITEM,VALUESET_ITEM2,VALUESET_ITEM_DESCRIPTOR)
+#chunk_load due to size of the table
+metadata<-chunk_load(conn=conn,dataset=meta_sql$tbl_out,chunk_size=5000)
+
+metadata %<>%
+  mutate(key=case_when(ITEM_TYPE=="09" ~ paste0("09:",VALUESET_ITEM),
+                       ITEM_TYPE=="10" ~ paste0("10:",VALUESET_ITEM),
+                       ITEM_TYPE %in% c("C4","HC","CPT")~ paste0("CH:",VALUESET_ITEM),
+                       TRUE ~ VALUESET_ITEM),
+         descriptor=VALUESET_ITEM_DESCRIPTOR) %>%
+  select(TABLE_NAME,FIELD_NAME,key,descriptor) %>%
+  bind_rows(pcori_metadata %>% filter(ITEM_TYPE=="RXNORM") %>%
+              mutate(TABLE_NAME="MED_ADMIN",
+                     FIELD_NAME="MEDADMIN_CODE",
+                     key=paste0(VALUESET_ITEM,":RX"),
+                     descriptor=paste0(VALUESET_ITEM_DESCRIPTOR,",administered")) %>%
+              select(TABLE_NAME,FIELD_NAME,key,descriptor)) %>%
+  bind_rows(pcori_metadata %>% filter(ITEM_TYPE=="NDC") %>%
+              mutate(TABLE_NAME="DISPENSING",
+                     FIELD_NAME="NDC",
+                     key=paste0(VALUESET_ITEM,":ND"),
+                     descriptor=paste0(VALUESET_ITEM_DESCRIPTOR,",dispensed")) %>%
+              select(TABLE_NAME,FIELD_NAME,key,descriptor)) %>%
+  bind_rows(pcori_metadata %>% filter(ITEM_TYPE=="RXNORM") %>%
+              mutate(TABLE_NAME="PRESCRIBING",
+                     FIELD_NAME="RXNORM_CUI",
+                     key=paste0(VALUESET_ITEM,":01"),
+                     descriptor=paste0(VALUESET_ITEM_DESCRIPTOR,",order to dispense")) %>%
+              select(TABLE_NAME,FIELD_NAME,key,descriptor)) %>%
+  bind_rows(pcori_metadata %>% filter(ITEM_TYPE=="NDC") %>%
+              mutate(TABLE_NAME="PRESCRIBING",
+                     FIELD_NAME="RXNORM_CUI",
+                     key=paste0(VALUESET_ITEM,":02"),
+                     descriptor=paste0(VALUESET_ITEM_DESCRIPTOR,",order to administer")) %>%
+              select(TABLE_NAME,FIELD_NAME,key,descriptor))
 
 
 #====metadata - source III: CCS category====
-ccs_ref<-readRDS("./data/meta_data/ccs_ref.rda") %>%
-  dplyr::rename(VALUESET_ITEM_DESCRIPTOR=ccs_name) %>%
-  dplyr::mutate(VALUESET_ITEM=as.character(ccs_code),
+ccs_ref<-readRDS("../AKI_CDM/ref/ccs_ref.rda") %>%
+  dplyr::rename(descriptor=ccs_name) %>%
+  dplyr::mutate(key=as.character(ccs_code),
                 FIELD_NAME="CCS",TABLE_NAME="DIAGNOSIS") %>%
-  dplyr::mutate(VALUESET_ITEM2=VALUESET_ITEM) %>%
-  dplyr::select(TABLE_NAME,FIELD_NAME,VALUESET_ITEM,VALUESET_ITEM2,VALUESET_ITEM_DESCRIPTOR)
+  dplyr::select(TABLE_NAME,FIELD_NAME,key,descriptor)
 
 
 #====metadata - source IV: additional====
-add_ft<-data.frame(TABLE_NAME=rep("additional",8),
-                   FIELD_NAME=rep("additional",8),
-                   VALUESET_ITEM=c("BUN_SCR",
-                                   paste0("day",0:6)),
-                   VALUESET_ITEM_DESCRIPTOR=c("BUN SCr ratio",
-                                              paste0("day",0:6)),
-                   stringsAsFactors = F) %>%
-  dplyr::mutate(VALUESET_ITEM2=VALUESET_ITEM)
+add_ft<-data.frame(TABLE_NAME="additional",
+                   FIELD_NAME="additional",
+                   key="BUN_SCR",
+                   descriptor="BUN SCr ratio",
+                   stringsAsFactors = F)
+  # add_row(TABLE_NAME="additional",
+  #         FIELD_NAME="additional",
+  #         key="...",
+  #         descriptor="...")
+
 
 ##========== metadata set =============##
-metadata<-i2b2_metadata %>%
-  bind_rows(cdm_metadata) %>%
-  bind_rows(ccs_ref) %>%
-  bind_rows(add_ft) %>%
-  unique
+data_dict<-data.frame(var=varlst,stringsAsFactors = F) %>%
+  mutate(var_orig=case_when(grepl(":((RX)|(ND)|(01)|(02))+",var)&!grepl("^(10|09)+",var) ~ gsub(":.[^:]*$","",var),
+                            grepl("_((min)|(slope)|(change))+",var) ~ gsub("_.[^_]*$","",var),
+                            TRUE~var)) %>%
+  left_join(metadata %>%
+               bind_rows(cdm_metadata) %>%
+               bind_rows(ccs_ref) %>%
+               bind_rows(add_ft) %>%
+               unique,
+             by=c("var_orig"="key")) %>%
+  #manual curation
+  mutate(descriptor=case_when(is.na(descriptor)&grepl("^(day)+",var) ~ var,
+                              grepl("_((min)|(slope)|(change))+",var) ~ paste0(gsub(".*_","",var)," of ",descriptor),
+                              grepl("_(cum)+",var) ~ paste0("cumulative exposure of ",descriptor),
+                              TRUE ~ descriptor
+                              )) %>%
+  filter(!is.na(TABLE_NAME))
 
-saveRDS(metadata,file="./data/meta_data/metadata.rda")
+write.csv(data_dict,file="./data/data_dict.csv",row.names = F)
 
-meta<-readRDS("./data_local/meta_data/metadata.rda")
 
