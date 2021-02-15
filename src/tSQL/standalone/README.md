@@ -78,8 +78,8 @@ Share and Enjoy according to the terms of the MIT Open Source License.
           * stage_uni: if there are multiple occurences of the same AKI stage, we will want to take the initial incidence ("onset" incidence)
              
        
-* #AKI_Onset: the final AKI_Onsets wide table with one patient-encounter per row
-    * five intermediate tables are created:           
+*   #AKI_Onset: the final AKI_Onsets wide table with one patient-encounter per row
+    * five intermediate tables are created: 
           * pat_enc: take out all distinct pair of patient, encounter         
           * onsets: pivot over the date columns in the #AKI_stage_daily, so that we will have separate columns for AKI1_Onset, AKI2_Onset, AKI3_Onset, and NONAKI_ANCHOR            
           * onsets_val: pivot over the SCr value columns in the #AKI_stage_daily, so that we will have separate columns AKI1_SCR, AKI2_SCR, AKI3_SCR, and NON_AKI_SCR         
