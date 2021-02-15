@@ -79,16 +79,16 @@ Share and Enjoy according to the terms of the MIT Open Source License.
              
        
 * #AKI_Onset: the final AKI_Onsets wide table with one patient-encounter per row
-    * five intermediate tables are created:
-          * pat_enc: take out all distinct pair of patient, encounter
-          * onsets: pivot over the date columns in the #AKI_stage_daily, so that we will have separate columns for AKI1_Onset, AKI2_Onset, AKI3_Onset, and NONAKI_ANCHOR
-          * onsets_val: pivot over the SCr value columns in the #AKI_stage_daily, so that we will have separate columns AKI1_SCR, AKI2_SCR, AKI3_SCR, and NON_AKI_SCR
-          * onsets_inc: pivot over the SCr value increase columns in the #AKI_stage_daily, so that we will have separate columns for AKI1_INC, AKI2_INC, AKI3_INC
-          * raw_onset: merge columns from pat_enc, onsets, onsets_val, onsets_inc. However, for someone starting from AKI2 and recover to AKI1, we may still have kept both their AKI2 and AKI1 onset dates. In the final step, we will need to further clean up such cases by ignoring the recovering portion.  
+    * five intermediate tables are created:           
+          * pat_enc: take out all distinct pair of patient, encounter         
+          * onsets: pivot over the date columns in the #AKI_stage_daily, so that we will have separate columns for AKI1_Onset, AKI2_Onset, AKI3_Onset, and NONAKI_ANCHOR            
+          * onsets_val: pivot over the SCr value columns in the #AKI_stage_daily, so that we will have separate columns AKI1_SCR, AKI2_SCR, AKI3_SCR, and NON_AKI_SCR         
+          * onsets_inc: pivot over the SCr value increase columns in the #AKI_stage_daily, so that we will have separate columns for AKI1_INC, AKI2_INC, AKI3_INC       
+          * raw_onset: merge columns from pat_enc, onsets, onsets_val, onsets_inc. However, for someone starting from AKI2 and recover to AKI1, we may still have kept both their AKI2 and AKI1 onset dates. In the final step, we will need to further clean up such cases by ignoring the recovering portion.         
       
 
        
-* #consort_diagram: collect counts from intermediate tables to create the consort diagram, which can help us to understand where does data attrition happen.This summary stats also gives an overall understanding of your local AKI cohort, in terms of cohort size and AKI incidence rates.
+* #consort_diagram: collect counts from intermediate tables to create the consort diagram, which can help us to understand where does data attrition happen.This summary stats also gives an overall understanding of your local AKI cohort, in terms of cohort size and AKI incidence rates.         
 
 
 ****************************************************************************
