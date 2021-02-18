@@ -317,6 +317,41 @@ extract_cohort<-function(conn,
 }
 
 
+chunk_load<-function(conn,dataset="",chunk_size=1000,verb=T){
+  dat<-c()
+  i<-0
+  error<-FALSE
+  row_remain<-Inf
+  while(!error&row_remain>0){
+    #try load
+    dat_add<-try(dbGetQuery(conn,
+                            paste("select * from (",
+                                  "select m.*, rownum r from",dataset," m)",
+                                  "where r >= ",i+1,"and r < ",i+chunk_size)),
+                 silent=T)
+    
+    #check unexpected errors (e.g. connection error)
+    error<-grepl("error",tolower(dat_add))[1]
+    if(error) break
+    
+    #check remaining rows
+    row_remain<-nrow(dat_add)
+    
+    #attach rows
+    dat %<>% bind_rows(dat_add)
+    
+    #report progress
+    if(verb){
+      cat("row",i+1,"to","row",i+chunk_size,"loaded.\n") 
+    }
+    
+    #loop updates
+    i<-i+chunk_size
+  }
+  
+  return(dat)
+}
+
 #----collect facts from i2b2 observation_fact table----
 #note: there should be a reference patient table ("pat_num") on oracle server with the key column "key_col"
 collect_i2b2_obs<-function(conn,
@@ -713,8 +748,163 @@ render_report<-function(which_report="./report/AKI_CDM_EXT_VALID_p1_QA.Rmd",
 }
 
 
+## compress dataframe into a condensed format
+compress_df<-function(dat,tbl=c("demo","vital","lab","dx","px","med","drg"),save=F){
+  if(tbl=="demo"){
+    tbl_zip<-dat %>% 
+      filter(key %in% c("AGE","HISPANIC","RACE","SEX")) 
+    
+    idx_map<-tbl_zip %>% dplyr::select(key) %>%
+      mutate(idx=paste0("demo",dense_rank(key))) %>% 
+      unique %>% arrange(idx)
+    
+    tbl_zip %<>%
+      spread(key,value,fill=0) %>% #impute 0 for alignment
+      unite("fstr",c("AGE","HISPANIC","RACE","SEX"),sep="_")
+  }else if(tbl=="vital"){
+    #required columns maybe missing
+    vital_req<-c("HT","WT","BMI",
+                 "BP_SYSTOLIC","BP_DIASTOLIC",
+                 "SMOKING","TOBACCO","TOBACCO_TYPE")
+    dat %<>%
+      mutate(timestamp=as.POSIXct(timestamp,tz=Sys.timezone())) %>% #timestampe datatype may be altered to "character", which needs to be fixed first
+      bind_rows(data.frame(PATID=rep("-1",length(vital_req)),
+                           ENCOUNTERID=rep("-1",length(vital_req)),
+                           timestamp=rep(Sys.time(),length(vital_req)),
+                           key=vital_req,
+                           value=rep("-1",length(vital_req)),
+                           stringsAsFactors = F))
+    
+    tbl_zip<-dat %>%
+      filter(key %in% vital_req) %>%
+      mutate(key=recode(key,
+                        HT="1HT",
+                        WT="2WT",
+                        BMI="3BMI",
+                        SMOKING="4SMOKING",
+                        TOBACCO="5TOBACCO",
+                        TOBACCO_TYPE="6TOBACCO_TYPE",
+                        BP_SYSTOLIC="7BP_SYSTOLIC",
+                        BP_DIASTOLIC="8BP_DIASTOLIC")) %>%
+      mutate(add_time=difftime(timestamp,format(timestamp,"%Y-%m-%d"),units="mins")) %>%
+      mutate(dsa=dsa+round(as.numeric(add_time)/(24*60),2)) %>%
+      arrange(key,dsa) 
+    
+    idx_map<-tbl_zip %>% dplyr::select(key) %>%
+      mutate(idx=paste0("vital",dense_rank(key))) %>% 
+      unique %>% arrange(idx)
+    
+    tbl_zip %<>% unique %>%
+      unite("val_date",c("value","dsa"),sep=",") %>%
+      group_by(ENCOUNTERID,key) %>%
+      dplyr::summarize(fstr=paste(val_date,collapse=";")) %>%
+      ungroup %>%
+      spread(key,fstr,fill=0) %>% #impute 0 for alignment
+      unite("fstr",c("1HT","2WT","3BMI",
+                     "4SMOKING","5TOBACCO","6TOBACCO_TYPE",
+                     "7BP_SYSTOLIC","8BP_DIASTOLIC"),sep="_") %>%
+      filter(ENCOUNTERID != "-1")
+  }else if(tbl=="lab"){
+    tbl_zip<-dat %>%
+      mutate(idx=paste0("lab",dense_rank(key)))
+    
+    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
+      unique %>% arrange(idx)
+    
+    tbl_zip %<>%
+      arrange(ENCOUNTERID,idx,dsa) %>%
+      unite("val_unit_date",c("value","unit","dsa"),sep=",") %>%
+      group_by(ENCOUNTERID,idx) %>%
+      dplyr::summarize(fstr=paste(val_unit_date,collapse=";")) %>%
+      ungroup %>%
+      unite("fstr2",c("idx","fstr"),sep=":") %>%
+      group_by(ENCOUNTERID) %>%
+      dplyr::summarize(fstr=paste(fstr2,collapse="_")) %>%
+      ungroup
+  }else if(tbl=="drg"){
+    tbl_zip<-dat %>%
+      mutate(idx=paste0("dx",dense_rank(key2))) 
+    
+    idx_map<-tbl_zip %>% dplyr::select(key2,idx) %>%
+      unique %>% arrange(idx) %>% dplyr::rename(key=key2)
+    
+    tbl_zip %<>%
+      group_by(ENCOUNTERID,key1,idx) %>%
+      dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
+      ungroup %>%
+      unite("fstr",c("idx","dsa"),sep=":") %>%
+      group_by(ENCOUNTERID,key1) %>%
+      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
+      ungroup %>%
+      spread(key1,fstr,fill=0) %>%
+      unite("fstr",c("ADMIT_DRG","COMMORB_DRG"),sep="|") %>%
+      unique
+  }else if(tbl=="dx"){
+    tbl_zip<-dat %>%
+      group_by(ENCOUNTERID,key) %>%
+      arrange(dsa) %>%
+      dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
+      ungroup %>%
+      mutate(idx=paste0("ccs",key))
+    
+    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
+      unique %>% arrange(key)
+    
+    tbl_zip %<>%
+      unite("fstr",c("idx","dsa"),sep=":") %>%
+      group_by(ENCOUNTERID) %>%
+      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
+      ungroup %>% unique
+  }else if(tbl=="px"){
+    tbl_zip<-dat %>%
+      mutate(idx=paste0("px",dense_rank(key))) 
+    
+    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
+      unique %>% arrange(idx)
+    
+    tbl_zip %<>%
+      group_by(ENCOUNTERID,idx) %>%
+      arrange(dsa) %>%
+      dplyr::summarize(dsa=paste(dsa,collapse=",")) %>%
+      ungroup %>%
+      unite("fstr",c("idx","dsa"),sep=":") %>%
+      group_by(ENCOUNTERID) %>%
+      dplyr::summarize(fstr=paste(fstr,collapse="_")) %>%
+      ungroup %>% unique
+  }else if(tbl=="med"){
+    tbl_zip<-dat %>%
+      mutate(idx=paste0("med",dense_rank(key))) 
+    
+    idx_map<-tbl_zip %>% dplyr::select(key,idx) %>%
+      unique %>% arrange(idx)
+    
+    tbl_zip %<>%
+      transform(value=strsplit(value,","),
+                dsa=strsplit(dsa,",")) %>%
+      unnest %>%
+      unite("val_date",c("value","dsa"),sep=",") %>%
+      group_by(ENCOUNTERID,idx) %>%
+      dplyr::summarize(fstr=paste(val_date,collapse=";")) %>%
+      ungroup %>%
+      unite("fstr2",c("idx","fstr"),sep=":") %>%
+      group_by(ENCOUNTERID) %>%
+      dplyr::summarize(fstr=paste(fstr2,collapse="_")) %>%
+      ungroup
+  }else{
+    warning("data elements not considered!")
+  }
+  if(save){
+    saveRDS(tbl_zip,file=paste0("./data/",tbl,"_zip.rds"))
+  }
+  
+  zip_out<-list(tbl_zip=tbl_zip,idx_map=idx_map)
+  return(zip_out)
+}
+
+
+
 #### survival-like data format transformation ####
-format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end){
+format_data<-function(dat,type=c("demo","vital","lab","dx","px","med")){
   if(type=="demo"){
     #demo has to be unqiue for each encounter
     dat_out<-dat %>%
@@ -861,7 +1051,7 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
     #engineer new features: change of lab from last collection
     lab_delta_eligb<-dat_out %>%
       group_by(ENCOUNTERID,key) %>%
-      dplyr::mutate(lab_cnt=sum(dsa<=pred_end)) %>%
+      dplyr::mutate(lab_cnt=sum(dsa<=max(dsa))) %>%
       ungroup %>%
       group_by(key) %>%
       dplyr::summarize(p5=quantile(lab_cnt,probs=0.05,na.rm=T),
@@ -871,13 +1061,14 @@ format_data<-function(dat,type=c("demo","vital","lab","dx","px","med"),pred_end)
                        p95=quantile(lab_cnt,probs=0.95,na.rm=T),
                        .groups="drop")
     
-    #--collect changes of lab only for those are regularly repeated (floor(pred_end/2))
-    freq_lab<-lab_delta_eligb %>% filter(med>=(floor(pred_end/2)))
+    #--collect changes of lab only for those are regularly repeated 
+    freq_lab<-lab_delta_eligb %>% 
+      # filter(med>=(floor(max(dsa)/2))) #more than 50% patients repeated the lab at least every other day
+      filter(med>=2) #more than 50% patients repeated the lab at least twice
+    
     if(nrow(freq_lab)>0){
       lab_delta<-dat_out %>%
         semi_join(freq_lab,by="key")
-      
-      dsa_rg<-seq(0,pred_end)
       
       lab_delta %<>%
         group_by(ENCOUNTERID,key) %>%
