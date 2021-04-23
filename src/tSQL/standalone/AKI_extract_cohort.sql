@@ -265,6 +265,7 @@ where exists (select 1 from [&&cdm_db_name].[&&cdm_db_schema].DIAGNOSIS dx
                       ) and
                     dx.ADMIT_DATE < CONVERT(date, aki.ADMIT_DATE_TIME)
                 )
+				)
 union
 select aki.ENCOUNTERID
 from AKI_init aki
@@ -307,6 +308,7 @@ where exists (select 1 from [&&cdm_db_name].[&&cdm_db_schema].PROCEDURES px
                      ) and
                      px.PX_DATE < CONVERT(date, aki.ADMIT_DATE_TIME)
  )
+)
 )
 -- Receive renal transplant withing 48 hr since 1st Scr (PX, DX)
     ,scr48 as (
@@ -456,7 +458,7 @@ order by scr.PATID, scr.ENCOUNTERID, scr.rn
 /******************************************************************************
  AKI Staging
 ******************************************************************************/
-with with aki3_rrt as (
+with aki3_rrt as (
 -- identify 3-stage AKI based on existence of RRT
 select akie.PATID
       ,akie.ENCOUNTERID
@@ -464,7 +466,7 @@ select akie.PATID
       ,akie.SERUM_CREAT_BASE
       ,akie.SPECIMEN_DATE_TIME_BASE
       ,min(px.PX_DATE) SPECIMEN_DATE_TIME
-from AKI_eligible akie
+from #AKI_eligible akie
 join &&cdm_db_schema.PROCEDURES px
 on px.PATID = akie.PATID and
    (
