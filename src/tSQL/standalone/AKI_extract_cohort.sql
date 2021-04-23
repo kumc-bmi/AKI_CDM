@@ -266,6 +266,7 @@ where exists (select 1 from [&&cdm_db_name].[&&cdm_db_schema].DIAGNOSIS dx
                     dx.ADMIT_DATE < CONVERT(date, aki.ADMIT_DATE_TIME)
                 )
 				)
+							      )
 union
 select aki.ENCOUNTERID
 from AKI_init aki
@@ -308,7 +309,6 @@ where exists (select 1 from [&&cdm_db_name].[&&cdm_db_schema].PROCEDURES px
                      ) and
                      px.PX_DATE < CONVERT(date, aki.ADMIT_DATE_TIME)
  )
-)
 )
 -- Receive renal transplant withing 48 hr since 1st Scr (PX, DX)
     ,scr48 as (
