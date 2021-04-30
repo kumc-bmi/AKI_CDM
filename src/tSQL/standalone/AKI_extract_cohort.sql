@@ -241,28 +241,30 @@ from AKI_init aki
 where exists (select 1 from [&&cdm_db_name].[&&cdm_db_schema].DIAGNOSIS dx
               where dx.PATID = aki.PATID and
                     -- ICD9 for ESRD
-                    ((dx.DX_TYPE = '09' and
-                      (   dx.DX like '%585.6%')
+                    ( (dx.DX_TYPE = '09' and
+                        (   dx.DX like '%585.6%')
                       ) or
                     -- ICD10 for ESRD
-                     (dx.DX_TYPE = '10' and
-                      (   dx.DX like '%N18.6%')
-                       ) or
+                      (dx.DX_TYPE = '10' and
+                        (   dx.DX like '%N18.6%')
+                      ) or
                     -- ICD9 for RRT or dialysis
-                     (dx.DX_TYPE = '09' and
-                      (   dx.DX like 'V45.1%'
-                       or dx.DX like 'V56.%'
-                       or dx.DX like 'V42.0%'
-                       or dx.DX like '996.81%'
+                      (dx.DX_TYPE = '09' and
+                        (   dx.DX like 'V45.1%'
+                        or dx.DX like 'V56.%'
+                        or dx.DX like 'V42.0%'
+                        or dx.DX like '996.81%'
+                        )
                       ) or
                     -- ICD10 for RRT or dialysis
-                     (dx.DX_TYPE = '10' and
-                      (   dx.DX like 'Z49.31%'
-                       or dx.DX like 'Z99.2%'
-                       or dx.DX like 'Z94.0%'
-                       or dx.DX in ('T86.10', 'T86.11', 'T86.12')
-                       )
-                      ) and
+                      (dx.DX_TYPE = '10' and
+                        (   dx.DX like 'Z49.31%'
+                        or dx.DX like 'Z99.2%'
+                        or dx.DX like 'Z94.0%'
+                        or dx.DX in ('T86.10', 'T86.11', 'T86.12')
+                        )
+                      )
+                    ) and
                     dx.ADMIT_DATE < CONVERT(date, aki.ADMIT_DATE_TIME)
                 )
 union
@@ -456,7 +458,7 @@ order by scr.PATID, scr.ENCOUNTERID, scr.rn
 /******************************************************************************
  AKI Staging
 ******************************************************************************/
-with with aki3_rrt as (
+with aki3_rrt as (
 -- identify 3-stage AKI based on existence of RRT
 select akie.PATID
       ,akie.ENCOUNTERID
@@ -464,7 +466,7 @@ select akie.PATID
       ,akie.SERUM_CREAT_BASE
       ,akie.SPECIMEN_DATE_TIME_BASE
       ,min(px.PX_DATE) SPECIMEN_DATE_TIME
-from AKI_eligible akie
+from #AKI_eligible akie
 join &&cdm_db_schema.PROCEDURES px
 on px.PATID = akie.PATID and
    (
