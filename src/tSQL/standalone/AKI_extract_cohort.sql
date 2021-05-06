@@ -267,6 +267,8 @@ where exists (select 1 from [&&cdm_db_name].[&&cdm_db_schema].DIAGNOSIS dx
                     ) and
                     dx.ADMIT_DATE < CONVERT(date, aki.ADMIT_DATE_TIME)
                 )
+				)
+							      )
 union
 select aki.ENCOUNTERID
 from AKI_init aki
