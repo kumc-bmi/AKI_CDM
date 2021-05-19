@@ -1,4 +1,4 @@
-Standalone PostgreSQL scripts for local data extraction out of PCORnet CDM
+Standalone Snowflake scripts for local data extraction out of PCORnet CDM
 ====================================================================
 
 by Xing Song, with Mei Liu, Russ Waitman
