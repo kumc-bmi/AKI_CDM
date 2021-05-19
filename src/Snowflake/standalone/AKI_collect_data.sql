@@ -8,23 +8,39 @@
 
 /*Demographic Table*/
 -- calculate age in years: https://stackoverflow.com/questions/17833176/postgresql-days-months-years-between-two-dates
+
+set cdm_db_schema = 'PCORNET_CDM.CDM_C009R020';
+Set ENCOUNTER = CONCAT($cdm_db_schema,'.ENCOUNTER');
+Set DEMOGRAPHIC = CONCAT($cdm_db_schema,'.DEMOGRAPHIC');
+Set LAB_RESULT_CM = CONCAT($cdm_db_schema,'.LAB_RESULT_CM');
+Set DIAGNOSIS = CONCAT($cdm_db_schema,'.DIAGNOSIS');
+Set PROCEDURES = CONCAT($cdm_db_schema,'.PROCEDURES');
+Set DEATH = CONCAT($cdm_db_schema,'.DEATH');
+Set DISPENSING = CONCAT($cdm_db_schema,'.DISPENSING');
+Set MED_ADMIN = CONCAT($cdm_db_schema,'.MED_ADMIN');
+Set PRESCRIBING = CONCAT($cdm_db_schema,'.PRESCRIBING');
+Set VITAL = CONCAT($cdm_db_schema,'.VITAL');
+Set start_date = '2010-01-01';
+Set end_date = '2019-12-31';
+show variables;
+
 create table AKI_DEMO as
 select distinct
        pat.PATID
       ,to_char(pat.ENCOUNTERID) ENCOUNTERID
       ,demo.BIRTH_DATE
-      ,DATE_PART('year', age(pat.ADMIT_DATE::date,demo.BIRTH_DATE::date)) AGE
+      ,YEAR(pat.ADMIT_DATE::date) - YEAR(demo.BIRTH_DATE::date) AGE
       ,demo.SEX
       ,demo.RACE
       ,demo.HISPANIC
       ,dth.DEATH_DATE
-      ,DATE_PART('day',dth.DEATH_DATE::date - pat.DISCHARGE_DATE::date) DDAYS_SINCE_ENC
+      ,DAY(dth.DEATH_DATE::date) - DAY(pat.DISCHARGE_DATE::date) DAYS_SINCE_ENC
       ,dth.DEATH_DATE_IMPUTE
       ,dth.DEATH_SOURCE
 from AKI_onsets pat
-left join &&cdm_db_schema.DEMOGRAPHIC demo
+left join identifier($DEMOGRAPHIC) demo
 on pat.PATID = demo.PATID
-left join &&cdm_db_schema.DEATH dth
+left join identifier($DEATH) dth
 on pat.PATID = dth.PATID
 order by pat.PATID, ENCOUNTERID
 ;
@@ -34,7 +50,7 @@ order by pat.PATID, ENCOUNTERID
 create table AKI_VITAL as
 select pat.PATID
       ,to_char(pat.ENCOUNTERID) ENCOUNTERID
-      ,(v.MEASURE_DATE::date + v.MEASURE_TIME::time) MEASURE_DATE_TIME
+      ,timestamp_ntz_from_parts(v.MEASURE_DATE::date , v.MEASURE_TIME::time) MEASURE_DATE_TIME
       ,v.HT
       ,v.WT
       ,v.SYSTOLIC
@@ -43,9 +59,9 @@ select pat.PATID
       ,v.SMOKING
       ,v.TOBACCO
       ,v.TOBACCO_TYPE
-      ,DATE_PART('day',v.MEASURE_DATE::date - pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
+      ,DAY(v.MEASURE_DATE::date) - DAY(pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-left join &&cdm_db_schema.VITAL v
+left join identifier($VITAL) v
 on pat.PATID = v.PATID
 where v.MEASURE_DATE between (pat.ADMIT_DATE - INTERVAL '7 DAYS') and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE) and
       coalesce(v.HT, v.WT, v.SYSTOLIC, v.DIASTOLIC, v.ORIGINAL_BMI) is not null
@@ -61,9 +77,9 @@ select distinct
       ,px.PX_TYPE
       ,px.PX_SOURCE
       ,px.PX_DATE
-      ,DATE_PART('day',px.PX_DATE::date - pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
+      ,DAY(px.PX_DATE::date) - DAY(pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-left join &&cdm_db_schema.PROCEDURES px
+left join identifier($PROCEDURES) px
 on pat.PATID = px.PATID
 where px.PX_DATE between pat.ADMIT_DATE and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE)
 order by pat.PATID, ENCOUNTERID, px.PX_DATE desc
@@ -78,9 +94,9 @@ select pat.PATID
       ,dx.DX_SOURCE
       ,dx.PDX
       ,dx.ADMIT_DATE DX_DATE
-      ,DATE_PART('day',dx.ADMIT_DATE::date - pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
+      ,DAY(dx.ADMIT_DATE::date) - DAY(pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-join &&cdm_db_schema.DIAGNOSIS dx
+join identifier($DIAGNOSIS)dx
 on pat.PATID = dx.PATID
 where dx.ADMIT_DATE between (pat.ADMIT_DATE - INTERVAL '365 DAYS') and (pat.ADMIT_DATE - INTERVAL '1 DAY')
 order by pat.PATID, ENCOUNTERID, dx.ADMIT_DATE desc
@@ -92,8 +108,8 @@ select distinct
        pat.PATID
       ,to_char(pat.ENCOUNTERID) ENCOUNTERID
       ,l.LAB_ORDER_DATE
-      ,(l.SPECIMEN_DATE::date + l.SPECIMEN_TIME::time) SPECIMEN_DATE_TIME
-      ,(l.RESULT_DATE::date + l.RESULT_TIME::time) RESULT_DATE_TIME
+      ,timestamp_ntz_from_parts(l.SPECIMEN_DATE::date, l.SPECIMEN_TIME::time) SPECIMEN_DATE_TIME
+      ,timestamp_ntz_from_parts(l.RESULT_DATE::date, l.RESULT_TIME::time) RESULT_DATE_TIME
       ,l.SPECIMEN_SOURCE
       ,l.LAB_LOINC
       ,l.LAB_PX
@@ -101,9 +117,9 @@ select distinct
       ,l.RESULT_QUAL
       ,l.RESULT_NUM
       ,l.RESULT_UNIT
-      ,DATE_PART('day',l.SPECIMEN_DATE::date - pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
+      ,DAY(l.SPECIMEN_DATE::date) - DAY(pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-join &&cdm_db_schema.LAB_RESULT_CM l
+join identifier($LAB_RESULT_CM) l
 on pat.PATID = l.PATID and l.LAB_ORDER_DATE between pat.ADMIT_DATE and least(coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE),pat.DISCHARGE_DATE)
 order by pat.PATID, ENCOUNTERID, SPECIMEN_DATE_TIME
 ;
@@ -113,7 +129,7 @@ create table AKI_PMED as
 select distinct
        pat.PATID
       ,to_char(pat.ENCOUNTERID) ENCOUNTERID
-      ,(p.RX_ORDER_DATE::date + p.RX_ORDER_TIME::time) RX_ORDER_DATE_TIME
+      ,timestamp_ntz_from_parts(p.RX_ORDER_DATE::date, p.RX_ORDER_TIME::time) RX_ORDER_DATE_TIME
       ,p.RX_START_DATE
       ,least(pat.DISCHARGE_DATE,p.RX_END_DATE) RX_END_DATE
       ,p.RX_BASIS
@@ -126,9 +142,9 @@ select distinct
       ,p.RX_FREQUENCY
       ,case when p.RX_DAYS_SUPPLY > 0 and p.RX_QUANTITY is not null then round(p.RX_QUANTITY/p.RX_DAYS_SUPPLY) 
             else null end as RX_QUANTITY_DAILY
-      ,DATE_PART('day',p.RX_START_DATE::date - pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
+      ,DAY(p.RX_START_DATE::date) - DAY(pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-join &&cdm_db_schema.PRESCRIBING p
+join identifier($PRESCRIBING) p
 on pat.PATID = p.PATID
 where p.RXNORM_CUI is not null and
       p.RX_START_DATE is not null and
@@ -145,7 +161,7 @@ select distinct
        pat.PATID
       ,pat.ENCOUNTERID
       ,d.PRESCRIBINGID
-      ,d.DISPENSING_DATE
+      ,d.DISPENSE_DATE
       ,d.NDC
       ,d.DISPENSE_SOURCE
       ,d.DISPENSE_SUP
@@ -153,12 +169,12 @@ select distinct
       ,d.DISPENSE_DOSE_DISP
       ,d.DISPENSE_DOSE_DISP_UNIT
       ,d.DISPENSE_ROUTE
-      ,DATE_PART('day',d.DISPENSING_DATE::date - pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
+      ,DAY(d.DISPENSE_DATE::date) - DAY(pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-join &&cdm_db_schema.DISPENSING d
+join identifier($DISPENSING) d
 on pat.PATID = d.PATID
 where d.NDC is not null and
-      d.DISPENSING_DATE between (pat.ADMIT_DATE - INTERVAL '30 DAYS') and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE)
+      d.DISPENSE_DATE between (pat.ADMIT_DATE - INTERVAL '30 DAYS') and coalesce(pat.AKI3_ONSET,pat.AKI2_ONSET,pat.AKI1_ONSET,pat.NONAKI_ANCHOR,pat.DISCHARGE_DATE)
 ;
 
 
@@ -168,8 +184,8 @@ create table AKI_AMED as
 select distinct
        pat.PATID
       ,pat.ENCOUNTERID
-      ,(m.MEDADMIN_START_DATE::date + m.MEDADMIN_START_TIME::time) MEDADMIN_START_DATE_TIME
-      ,(m.MEDADMIN_STOP_DATE::date + m.MEDADMIN_STOP_TIME::time) MEDADMIN_STOP_DATE_TIME
+      ,timestamp_ntz_from_parts(m.MEDADMIN_START_DATE::date, m.MEDADMIN_START_TIME::time) MEDADMIN_START_DATE_TIME
+      ,timestamp_ntz_from_parts(m.MEDADMIN_STOP_DATE::date, m.MEDADMIN_STOP_TIME::time) MEDADMIN_STOP_DATE_TIME
       ,m.MEDADMIN_TYPE
       ,m.MEDADMIN_CODE
       --,m.RAW_MEDADMIN_MED_NAME
@@ -177,9 +193,9 @@ select distinct
       --,m.MEDADMIN_DOSE_ADMIN_UNIT
       ,m.MEDADMIN_ROUTE
       ,m.MEDADMIN_SOURCE
-      ,DATE_PART('day',m.MEDADMIN_START_DATE::date - pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
+      ,DAY(m.MEDADMIN_START_DATE::date) - DAY(pat.ADMIT_DATE::date) DAYS_SINCE_ADMIT
 from AKI_onsets pat
-join &&cdm_db_schema.MED_ADMIN m
+join identifier($MED_ADMIN) m
 on pat.PATID = m.PATID
 where m.MEDADMIN_CODE is not null and
       m.MEDADMIN_START_DATE is not null and
