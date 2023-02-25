@@ -24,7 +24,7 @@ Share and Enjoy according to the terms of the MIT Open Source License.
 ---------------------------------------**Script walkthrough**-----------------------------------------------------------
 
 
-*  #AKI_Initial: include all inpatient visit ('EI','IP','IS') satisfying the following conditions: 
+*  **#AKI_Initial**: include all inpatient visit ('EI','IP','IS') satisfying the following conditions: 
           
       * more than LOS>=2; AND 
       * between &&start_date and &&end_date; AND         
@@ -32,7 +32,7 @@ Share and Enjoy according to the terms of the MIT Open Source License.
           
 
         
-*  #All_Scr_eGFR: collected all serum creatinine records and their timestamps for all patients indentified in #AKI_Initial and calculated eGFR using MDRD formula
+*  **#All_Scr_eGFR**: collected all serum creatinine records and their timestamps for all patients indentified in #AKI_Initial and calculated eGFR using MDRD formula
       
       * serum creatinine (SCr) is identified by LOINC codes: '2160-0','38483-4','14682-9','21232-4','35203-9','44784-7','59826-8'
       * two intermediate tables are created:       
@@ -40,14 +40,14 @@ Share and Enjoy according to the terms of the MIT Open Source License.
               
  
       
-*  #AKI_Scr_eGFR: merge multiple lab encounters in the same associated inpatient visit, and sort the labs within the same inpatient visit by date and time 
+*  **#AKI_Scr_eGFR**: merge multiple lab encounters in the same associated inpatient visit, and sort the labs within the same inpatient visit by date and time 
           
       * one intermediate tables is created: 
       * multi_match: we noticed the issue of multiple encounterid for different lab orders within the same inpatient visit. This table is to merge such lab encounters into the associated inpatient encounter
              
   
               
-*  #AKI_Scr_base: identify baseline SCr value for each patient-encounter which is either a) most recent SCr value 2-days prior to admission; or b) the first SCr value on the day of admission 
+*  **#AKI_Scr_base**: identify baseline SCr value for each patient-encounter which is either a) most recent SCr value 2-days prior to admission; or b) the first SCr value on the day of admission 
       * four intermediate tables are created: 
           * scr_enc1: get the first SCr value during the inpatient visit by taking advantage of the rank column ("rn") from #AKI_Scr_eGFR
           * scr_prior: collect all historical SCr values within 2 days prior to admission, if exists 
@@ -56,21 +56,20 @@ Share and Enjoy according to the terms of the MIT Open Source License.
 
     
 
-*  #exclude_all: identify patient-encounters that satisfy the exclusion criteria.
+*  **#exclude_all**: identify patient-encounters that satisfy the exclusion criteria.
       * seven intermediate tables are created:
           * AKI_EXCLD_1SCR_EN: identify patient-encounters with only 1 SCr record
           * AKI_EXCLD_L1GFR_EN: identify patient-encuonters with initial eGFR < 15
-          * AKI_EXCLD_PRF_EN
           * AKI_EXCLD_PRF_EN: identify patient-encounters with pre-existing ESRD, or renal replacement therapy (RRT), or dialysis
           * scr48: an auxilary table, which calculates a time-window boundary for 48-hours since first SCr record
           * AKI_EXCLD_RT48_EN: identify patient-encounters who recieve RRT witin 48 hours since admission
           * AKI_EXCLD_BURN_EN: identiy patient-encounters who gets admitted due to burn
         
         
-*  #AKI_Eligible: finalize the eligible patient cohort by making all the exclusions and attach baseline SCr values
+*  **#AKI_Eligible**: finalize the eligible patient cohort by making all the exclusions and attach baseline SCr values
       
       
-*  #AKI_stages_daily: identify patients' AKI stages at each day during hospitalization
+*  **#AKI_stages_daily**: identify patients' AKI stages at each day during hospitalization
       * four intermediate tables are created: 
           * aki3_rrt: identify RRT during the stay (should be beyond 48-hr since first SCr record), which will be used to identify AKI stage 3
           * stage_aki: collect all pairwise SCr records (not necessarily adjacent) and identify AKI stage 1, 2 and 3 based on rolling baseline or static baseline
@@ -78,17 +77,17 @@ Share and Enjoy according to the terms of the MIT Open Source License.
           * stage_uni: if there are multiple occurences of the same AKI stage, we will want to take the initial incidence ("onset" incidence)
              
        
-* #AKI_Onset: the final AKI_Onsets wide table with one patient-encounter per row
-    * five intermediate tables are created:
-          * pat_enc: take out all distinct pair of patient, encounter
-          * onsets: pivot over the date columns in the #AKI_stage_daily, so that we will have separate columns for AKI1_Onset, AKI2_Onset, AKI3_Onset, and NONAKI_ANCHOR
-          * onsets_val: pivot over the SCr value columns in the #AKI_stage_daily, so that we will have separate columns AKI1_SCR, AKI2_SCR, AKI3_SCR, and NON_AKI_SCR
-          * onsets_inc: pivot over the SCr value increase columns in the #AKI_stage_daily, so that we will have separate columns for AKI1_INC, AKI2_INC, AKI3_INC
-          * raw_onset: merge columns from pat_enc, onsets, onsets_val, onsets_inc. However, for someone starting from AKI2 and recover to AKI1, we may still have kept both their AKI2 and AKI1 onset dates. In the final step, we will need to further clean up such cases by ignoring the recovering portion.  
+*   **#AKI_Onset**: the final AKI_Onsets wide table with one patient-encounter per row          
+      * five intermediate tables are created:         
+          * pat_enc: take out all distinct pair of patient, encounter  
+          * onsets: pivot over the date columns in the #AKI_stage_daily, so that we will have separate columns for AKI1_Onset, AKI2_Onset, AKI3_Onset, and NONAKI_ANCHOR           
+          * onsets_val: pivot over the SCr value columns in the #AKI_stage_daily, so that we will have separate columns AKI1_SCR, AKI2_SCR, AKI3_SCR, and NON_AKI_SCR         
+          * onsets_inc: pivot over the SCr value increase columns in the #AKI_stage_daily, so that we will have separate columns for AKI1_INC, AKI2_INC, AKI3_INC      
+          * raw_onset: merge columns from pat_enc, onsets, onsets_val, onsets_inc. However, for someone starting from AKI2 and recover to AKI1, we may still have kept both their AKI2 and AKI1 onset dates. In the final step, we will need to further clean up such cases by ignoring the recovering portion.         
       
 
        
-* #consort_diagram: collect counts from intermediate tables to create the consort diagram, which can help us to understand where does data attrition happen.This summary stats also gives an overall understanding of your local AKI cohort, in terms of cohort size and AKI incidence rates.
+* #consort_diagram: collect counts from intermediate tables to create the consort diagram, which can help us to understand where does data attrition happen.This summary stats also gives an overall understanding of your local AKI cohort, in terms of cohort size and AKI incidence rates.         
 
 
 ****************************************************************************
